@@ -1,0 +1,18 @@
+.ai-terminal-agent-prompt {
+  position: absolute;
+  color: var(--ai-terminal-primary);
+  font-size: var(--ai-terminal-agent-prompt-font-size, 14px);
+  line-height: var(--ai-terminal-agent-prompt-line-height, 18px);
+  pointer-events: none;
+  user-select: none;
+  white-space: nowrap;
+  z-index: 2;
+  opacity: 0.3;
+}
+
+.ai-terminal-input-disabled {
+  .xterm-cursor-layer,
+  .xterm-cursor {
+    display: none !important;
+  }
+}

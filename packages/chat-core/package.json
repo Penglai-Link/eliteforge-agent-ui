@@ -1,0 +1,27 @@
+{
+  "name": "@eliteforge/agent-ui-chat-core",
+  "version": "0.1.0",
+  "type": "module",
+  "files": [
+    "dist"
+  ],
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/src/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/src/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "vite build",
+    "test": "vitest run",
+    "prepublishOnly": "npm run build"
+  },
+  "publishConfig": {
+    "registry": "http://nexus.cisdigital.cn/repository/npm-internal/",
+    "access": "restricted"
+  }
+}

@@ -1,0 +1,310 @@
+diff --git a/node_modules/@xterm/xterm/src/browser/Terminal.ts b/node_modules/@xterm/xterm/src/browser/Terminal.ts
+index 0e945aa..d0821bb 100644
+--- a/node_modules/@xterm/xterm/src/browser/Terminal.ts
++++ b/node_modules/@xterm/xterm/src/browser/Terminal.ts
+@@ -380,7 +380,7 @@ export class Terminal extends CoreTerminal implements ITerminal {
+     this.register(addDisposableDomListener(this.textarea!, 'keypress', (ev: KeyboardEvent) => this._keyPress(ev), true));
+     this.register(addDisposableDomListener(this.textarea!, 'compositionstart', () => this._compositionHelper!.compositionstart()));
+     this.register(addDisposableDomListener(this.textarea!, 'compositionupdate', (e: CompositionEvent) => this._compositionHelper!.compositionupdate(e)));
+-    this.register(addDisposableDomListener(this.textarea!, 'compositionend', () => this._compositionHelper!.compositionend()));
++    this.register(addDisposableDomListener(this.textarea!, 'compositionend', (e: CompositionEvent) => this._compositionHelper!.compositionend(e)));
+     this.register(addDisposableDomListener(this.textarea!, 'input', (ev: InputEvent) => this._inputEvent(ev), true));
+     this.register(this.onRender(() => this._compositionHelper!.updateCompositionElements()));
+   }
+@@ -1173,7 +1173,9 @@ export class Terminal extends CoreTerminal implements ITerminal {
+     // Only support emoji IMEs when screen reader mode is disabled as the event must bubble up to
+     // support reading out character input which can doubling up input characters
+     // Based on these event traces: https://github.com/xtermjs/xterm.js/issues/3679
+-    if (ev.data && ev.inputType === 'insertText' && (!ev.composed || !this._keyDownSeen) && !this.optionsService.rawOptions.screenReaderMode) {
++    if (ev.data && ev.inputType === 'insertText' &&
++      !this._compositionHelper?.isComposing &&
++      !this.optionsService.rawOptions.screenReaderMode) {
+       if (this._keyPressHandled) {
+         return false;
+       }
+@@ -1183,6 +1185,7 @@ export class Terminal extends CoreTerminal implements ITerminal {
+       this._unprocessedDeadKey = false;
+
+       const text = ev.data;
++      this._compositionHelper?.inputHandled(text);
+       this.coreService.triggerDataEvent(text, true);
+
+       this.cancel(ev);
+diff --git a/node_modules/@xterm/xterm/src/browser/Types.d.ts b/node_modules/@xterm/xterm/src/browser/Types.d.ts
+index 9ebc55d..c01d7c3 100644
+--- a/node_modules/@xterm/xterm/src/browser/Types.d.ts
++++ b/node_modules/@xterm/xterm/src/browser/Types.d.ts
+@@ -37,9 +37,10 @@ export type LineData = CharData[];
+
+ export interface ICompositionHelper {
+   readonly isComposing: boolean;
++  inputHandled(data: string): void;
+   compositionstart(): void;
+   compositionupdate(ev: CompositionEvent): void;
+-  compositionend(): void;
++  compositionend(ev: CompositionEvent): void;
+   updateCompositionElements(dontRecurse?: boolean): void;
+   keydown(ev: KeyboardEvent): boolean;
+ }
+diff --git a/node_modules/@xterm/xterm/src/browser/input/CompositionHelper.ts b/node_modules/@xterm/xterm/src/browser/input/CompositionHelper.ts
+index 7542969..2eb68e7 100644
+--- a/node_modules/@xterm/xterm/src/browser/input/CompositionHelper.ts
++++ b/node_modules/@xterm/xterm/src/browser/input/CompositionHelper.ts
+@@ -5,7 +5,10 @@
+
+ import { IRenderService } from 'browser/services/Services';
+ import { IBufferService, ICoreService, IOptionsService } from 'common/services/Services';
+-import { C0 } from 'common/data/EscapeSequences';
++
++// Chromium can deliver the final InputEvent after compositionend returns. Keep
++// the fallback short, while allowing that authoritative event to arrive first.
++const COMPOSITION_END_FALLBACK_DELAY = 50;
+
+ interface IPosition {
+   start: number;
+@@ -36,10 +39,14 @@ export class CompositionHelper {
+    */
+   private _isSendingComposition: boolean;
+
+-  /**
+-   * Data already sent due to keydown event.
+-   */
+-  private _dataAlreadySent: string;
++  /** The immutable composition-end value waiting to be emitted. */
++  private _pendingCompositionData: string;
++
++  /** The latest preedit text, used to distinguish it from a committed value. */
++  private _lastCompositionUpdateData: string;
++
++  /** Whether Caps Lock cancelled the active preedit while the source changes. */
++  private _isCompositionCancelled: boolean;
+
+   constructor(
+     private readonly _textarea: HTMLTextAreaElement,
+@@ -51,8 +58,10 @@ export class CompositionHelper {
+   ) {
+     this._isComposing = false;
+     this._isSendingComposition = false;
++    this._pendingCompositionData = '';
++    this._lastCompositionUpdateData = '';
++    this._isCompositionCancelled = false;
+     this._compositionPosition = { start: 0, end: 0 };
+-    this._dataAlreadySent = '';
+   }
+
+   /**
+@@ -60,9 +69,12 @@ export class CompositionHelper {
+    */
+   public compositionstart(): void {
+     this._isComposing = true;
++    this._isSendingComposition = false;
++    this._pendingCompositionData = '';
++    this._lastCompositionUpdateData = '';
++    this._isCompositionCancelled = false;
+     this._compositionPosition.start = this._textarea.value.length;
+     this._compositionView.textContent = '';
+-    this._dataAlreadySent = '';
+     this._compositionView.classList.add('active');
+   }
+
+@@ -71,6 +83,7 @@ export class CompositionHelper {
+    * @param ev The event.
+    */
+   public compositionupdate(ev: Pick<CompositionEvent, 'data'>): void {
++    this._lastCompositionUpdateData = ev.data;
+     this._compositionView.textContent = ev.data;
+     this.updateCompositionElements();
+     setTimeout(() => {
+@@ -82,8 +95,35 @@ export class CompositionHelper {
+    * Handles the compositionend event, hiding the composition view and sending the composition to
+    * the handler.
+    */
+-  public compositionend(): void {
+-    this._finalizeComposition(true);
++  public compositionend(ev: Pick<CompositionEvent, 'data'>): void {
++    if (this._isCompositionCancelled) {
++      this._isCompositionCancelled = false;
++      this._clearComposition();
++      return;
++    }
++    this._finalizeComposition(true, ev.data);
++  }
++
++  /**
++   * Reconciles a browser input event with a frozen composition-end value
++   * before another key can be misattributed to the finished composition.
++   */
++  public inputHandled(data: string): void {
++    if (!this._isSendingComposition) {
++      return;
++    }
++
++    const pending = this._pendingCompositionData;
++    const pendingIsPreedit = pending === this._lastCompositionUpdateData;
++    this._isSendingComposition = false;
++    this._pendingCompositionData = '';
++
++    // A final input event is authoritative only when compositionend captured
++    // the preedit rather than a committed value. If it is the next ASCII key,
++    // forward the pending committed text first.
++    if (pending && pending !== data && !pendingIsPreedit) {
++      this._coreService.triggerDataEvent(pending, true);
++    }
+   }
+
+   /**
+@@ -92,7 +132,14 @@ export class CompositionHelper {
+    * @returns Whether the Terminal should continue processing the keydown event.
+    */
+   public keydown(ev: KeyboardEvent): boolean {
+-    if (this._isComposing || this._isSendingComposition) {
++    if (this._isComposing) {
++      if (ev.keyCode === 20 || ev.key === 'CapsLock' || ev.code === 'CapsLock') {
++        // macOS can use Caps Lock to change input sources. That cancels the
++        // preedit; it must never be sent as a shell command fragment.
++        this._isCompositionCancelled = true;
++        this._clearComposition();
++        return false;
++      }
+       if (ev.keyCode === 229) {
+         // Continue composing if the keyCode is the "composition character"
+         return false;
+@@ -104,18 +151,34 @@ export class CompositionHelper {
+       // Finish composition immediately. This is mainly here for the case where enter is
+       // pressed and the handler needs to be triggered before the command is executed.
+       this._finalizeComposition(false);
++    } else if (this._isSendingComposition) {
++      if (ev.keyCode === 229 || ev.keyCode === 16 || ev.keyCode === 17 || ev.keyCode === 18) {
++        return false;
++      }
++      this._finalizeComposition(false);
+     }
+
+     if (ev.keyCode === 229) {
+-      // If the "composition character" is used but gets to this point it means a non-composition
+-      // character (eg. numbers and punctuation) was pressed when the IME was active.
+-      this._handleAnyTextareaChanges();
++      // A keyCode=229 key outside a composition may arrive before or after its
++      // InputEvent. Never defer a textarea diff here: it races the next ASCII
++      // key and can replay or swallow it. Terminal._inputEvent forwards the
++      // corresponding insertText exactly once.
+       return false;
+     }
+
+     return true;
+   }
+
++  private _clearComposition(): void {
++    this._compositionView.classList.remove('active');
++    this._isComposing = false;
++    this._isSendingComposition = false;
++    this._pendingCompositionData = '';
++    this._lastCompositionUpdateData = '';
++    this._compositionPosition.end = this._compositionPosition.start;
++    this._textarea.value = this._textarea.value.substring(0, this._compositionPosition.start);
++  }
++
+   /**
+    * Finalizes the composition, resuming regular input actions. This is called when a composition
+    * is ending.
+@@ -124,84 +187,34 @@ export class CompositionHelper {
+    *   compositionend event is triggered, such as enter, so that the composition is sent before
+    *   the command is executed.
+    */
+-  private _finalizeComposition(waitForPropagation: boolean): void {
++  private _finalizeComposition(waitForPropagation: boolean, compositionEndData = ''): void {
+     this._compositionView.classList.remove('active');
+     this._isComposing = false;
+
+     if (!waitForPropagation) {
+       // Cancel any delayed composition send requests and send the input immediately.
+       this._isSendingComposition = false;
+-      const input = this._textarea.value.substring(this._compositionPosition.start, this._compositionPosition.end);
++      const input = this._pendingCompositionData || this._textarea.value.substring(this._compositionPosition.start, this._compositionPosition.end);
++      this._pendingCompositionData = '';
+       this._coreService.triggerDataEvent(input, true);
+     } else {
+-      // Make a deep copy of the composition position here as a new compositionstart event may
+-      // fire before the setTimeout executes.
+-      const currentCompositionPosition = {
+-        start: this._compositionPosition.start,
+-        end: this._compositionPosition.end
+-      };
+-
+-      // Since composition* events happen before the changes take place in the textarea on most
+-      // browsers, use a setTimeout with 0ms time to allow the native compositionend event to
+-      // complete. This ensures the correct character is retrieved.
+-      // This solution was used because:
+-      // - The compositionend event's data property is unreliable, at least on Chromium
+-      // - The last compositionupdate event's data property does not always accurately describe
+-      //   the character, a counter example being Korean where an ending consonsant can move to
+-      //   the following character if the following input is a vowel.
++      // Freeze the final value while the composition event is still current.
++      // We only defer its dispatch to allow a following InputEvent to take
++      // ownership; never read textarea.value in the deferred callback.
++      this._pendingCompositionData = compositionEndData || this._textarea.value.substring(this._compositionPosition.start);
+       this._isSendingComposition = true;
+       setTimeout(() => {
+-        // Ensure that the input has not already been sent
+-        if (this._isSendingComposition) {
+-          this._isSendingComposition = false;
+-          let input;
+-          // Add length of data already sent due to keydown event,
+-          // otherwise input characters can be duplicated. (Issue #3191)
+-          currentCompositionPosition.start += this._dataAlreadySent.length;
+-          if (this._isComposing) {
+-            // Use the end position to get the string if a new composition has started.
+-            input = this._textarea.value.substring(currentCompositionPosition.start, currentCompositionPosition.end);
+-          } else {
+-            // Don't use the end position here in order to pick up any characters after the
+-            // composition has finished, for example when typing a non-composition character
+-            // (eg. 2) after a composition character.
+-            input = this._textarea.value.substring(currentCompositionPosition.start);
+-          }
+-          if (input.length > 0) {
+-            this._coreService.triggerDataEvent(input, true);
+-          }
++        if (!this._isSendingComposition) {
++          return;
+         }
+-      }, 0);
+-    }
+-  }
+-
+-  /**
+-   * Apply any changes made to the textarea after the current event chain is allowed to complete.
+-   * This should be called when not currently composing but a keydown event with the "composition
+-   * character" (229) is triggered, in order to allow non-composition text to be entered when an
+-   * IME is active.
+-   */
+-  private _handleAnyTextareaChanges(): void {
+-    const oldValue = this._textarea.value;
+-    setTimeout(() => {
+-      // Ignore if a composition has started since the timeout
+-      if (!this._isComposing) {
+-        const newValue = this._textarea.value;
+-
+-        const diff = newValue.replace(oldValue, '');
+-
+-        this._dataAlreadySent = diff;
+-
+-        if (newValue.length > oldValue.length) {
+-          this._coreService.triggerDataEvent(diff, true);
+-        } else if (newValue.length < oldValue.length) {
+-          this._coreService.triggerDataEvent(`${C0.DEL}`, true);
+-        } else if ((newValue.length === oldValue.length) && (newValue !== oldValue)) {
+-          this._coreService.triggerDataEvent(newValue, true);
++        const input = this._pendingCompositionData;
++        this._isSendingComposition = false;
++        this._pendingCompositionData = '';
++        if (input) {
++          this._coreService.triggerDataEvent(input, true);
+         }
+-
+-      }
+-    }, 0);
++      }, COMPOSITION_END_FALLBACK_DELAY);
++    }
+   }
+
+   /**

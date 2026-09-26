@@ -1,0 +1,31 @@
+{
+  "name": "@eliteforge/agent-ui-chat-theme",
+  "version": "0.1.0",
+  "type": "module",
+  "files": [
+    "dist"
+  ],
+  "main": "./dist/theme.css",
+  "style": "./dist/theme.css",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/theme.css"
+    },
+    "./styles.css": "./dist/theme.css",
+    "./theme.scss": "./dist/theme.scss"
+  },
+  "sideEffects": [
+    "**/*.css",
+    "**/*.scss"
+  ],
+  "scripts": {
+    "build": "node -e \"const fs=require('node:fs');fs.rmSync('dist',{force:true,recursive:true});fs.mkdirSync('dist',{recursive:true});fs.copyFileSync('src/theme.scss','dist/theme.scss');fs.copyFileSync('index.d.ts','dist/index.d.ts')\" && sass src/theme.scss dist/theme.css --no-source-map",
+    "prepublishOnly": "npm run build"
+  },
+  "publishConfig": {
+    "registry": "http://nexus.cisdigital.cn/repository/npm-internal/",
+    "access": "restricted"
+  }
+}

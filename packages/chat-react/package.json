@@ -1,0 +1,48 @@
+{
+  "name": "@eliteforge/agent-ui-chat-react",
+  "version": "0.1.0",
+  "type": "module",
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/src/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/src/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    },
+    "./styles.css": "./dist/styles.css"
+  },
+  "sideEffects": [
+    "**/*.css"
+  ],
+  "scripts": {
+    "build": "vite build",
+    "test": "vitest run",
+    "dev": "vite",
+    "prepublishOnly": "npm run build"
+  },
+  "dependencies": {
+    "@eliteforge/agent-ui-chat-core": "0.1.0",
+    "github-markdown-css": "^5.9.0",
+    "lucide-react": "^0.553.0",
+    "react-markdown": "^10.1.0",
+    "remark-gfm": "^4.0.1"
+  },
+  "peerDependencies": {
+    "react": "^19.2.5",
+    "react-dom": "^19.2.5",
+    "@eliteforge/agent-ui-chat-core": "0.1.0",
+    "lucide-react": "^0.553.0",
+    "react-markdown": "^10.1.0",
+    "remark-gfm": "^4.0.1"
+  },
+  "publishConfig": {
+    "registry": "http://nexus.cisdigital.cn/repository/npm-internal/",
+    "access": "restricted"
+  }
+}

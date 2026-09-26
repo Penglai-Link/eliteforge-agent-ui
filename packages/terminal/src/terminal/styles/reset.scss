@@ -1,0 +1,23 @@
+.ai-terminal-container,
+.ai-terminal-viewport {
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.ai-terminal-viewport {
+  .xterm {
+    box-sizing: border-box;
+    padding: 10px;
+  }
+}
+
+.ai-terminal-container {
+  --ai-terminal-primary: var(--color-on-background, #ededed);
+  --ai-terminal-secondary: var(--color-background, #1f1f1f);
+  --ai-terminal-card-background: var(
+    --color-elevated-surface,
+    rgba(31, 31, 31, 0.96)
+  );
+  --ai-terminal-border: rgba(255, 255, 255, 0.14);
+}

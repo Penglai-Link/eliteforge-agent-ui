@@ -1,0 +1,7 @@
+interface:
+  display_name: "EliteForge Agent UI 主题"
+  short_description: "维护 React/Vue 聊天主题令牌、挂点与样式一致性"
+  default_prompt: "使用 $eliteforge-agent-ui-theme 检查或扩展公共聊天组件的主题能力。"
+
+policy:
+  allow_implicit_invocation: true

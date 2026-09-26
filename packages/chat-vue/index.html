@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <title>Chat Vue Demo</title>
+  </head>
+  <body>
+    <div id="app"></div>
+    <button style="position: absolute">切换主题</button>
+    <script src="./test/index.ts" type="module"></script>
+    <script>
+      document.documentElement.dataset.theme = "light";
+      document.documentElement.style.colorScheme = "light";
+
+      document.querySelector("button").addEventListener("click", () => {
+        const currentTheme = document.documentElement.dataset.theme;
+        const newTheme =
+          currentTheme === "matrix-dark" ? "light" : "matrix-dark";
+        document.documentElement.dataset.theme = newTheme;
+        document.documentElement.style.colorScheme =
+          newTheme === "light" ? "light" : "dark";
+      });
+    </script>
+  </body>
+</html>

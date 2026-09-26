@@ -1,0 +1,295 @@
+:root,
+:root[data-theme="light"] {
+  font-family: var(--agent-ui-skin-font, var(--font-sans, Inter, sans-serif));
+  color-scheme: light;
+  --auth-page-glow: rgba(188, 220, 255, 0.28);
+  --auth-page-start: #f7fafc;
+  --auth-page-end: #eef3f8;
+  --auth-card-shadow: 0 28px 80px rgba(42, 71, 110, 0.14);
+  --color-surface: #fdf8f8;
+  --color-surface-dim: #ddd9d8;
+  --color-surface-bright: #fdf8f8;
+  --color-surface-container-lowest: #ffffff;
+  --color-surface-container-low: #f7f3f2;
+  --color-surface-container: #f1edec;
+  --color-surface-container-high: #ebe7e6;
+  --color-surface-container-highest: #e5e2e1;
+  --color-on-surface: #1c1b1b;
+  --color-on-surface-variant: #444748;
+  --color-inverse-surface: #313030;
+  --color-inverse-on-surface: #f4f0ef;
+  --color-outline: #747878;
+  --color-outline-variant: #c4c7c7;
+  --color-surface-tint: #5f5e5e;
+  --color-primary: #000000;
+  --color-on-primary: #ffffff;
+  --color-primary-container: #1c1b1b;
+  --color-on-primary-container: #858383;
+  --color-accent: #2f5f9f;
+  --color-on-accent: #ffffff;
+  --color-accent-container: #dbe7f7;
+  --color-on-accent-container: #133761;
+  --color-focus-ring: #2f5f9f;
+  --color-secondary: #5e5e63;
+  --color-on-secondary: #ffffff;
+  --color-secondary-container: #e0dfe4;
+  --color-on-secondary-container: #626267;
+  --color-error: #ba1a1a;
+  --color-on-error: #ffffff;
+  --color-error-container: #ffdad6;
+  --color-on-error-container: #93000a;
+  --color-success: #4f6f52;
+  --color-on-success: #ffffff;
+  --color-success-container: #e4efe5;
+  --color-on-success-container: #253927;
+  --color-warning: #8a6a1f;
+  --color-on-warning: #ffffff;
+  --color-warning-container: #f4e8c8;
+  --color-on-warning-container: #3f2f0b;
+  --color-row-stripe: #f9f9fb;
+  --color-hover-surface: #f2f2f7;
+  --color-menu-hover-surface: #f2f2f7;
+  --color-menu-selected-surface: #f1edec;
+  --color-card-border: #e5e5e5;
+  --color-background: #fdf8f8;
+  --color-on-background: #1c1b1b;
+  --color-header-backdrop: rgba(253, 248, 248, 0.92);
+  --color-backdrop-scrim: rgba(15, 23, 42, 0.24);
+  --color-elevated-surface: #ffffff;
+  --color-elevated-surface-strong: #ffffff;
+  --color-hover-overlay: rgba(0, 0, 0, 0.05);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+:root[data-theme="matrix-dark"] {
+  color-scheme: dark;
+  --auth-page-glow: rgba(92, 255, 133, 0.16);
+  --auth-page-start: #020a05;
+  --auth-page-end: #06110a;
+  --auth-card-shadow: 0 32px 90px rgba(1, 6, 3, 0.56);
+  --color-surface: #030a06;
+  --color-surface-dim: #08150d;
+  --color-surface-bright: #0b1a11;
+  --color-surface-container-lowest: #07120b;
+  --color-surface-container-low: #0b1810;
+  --color-surface-container: #102017;
+  --color-surface-container-high: #14271d;
+  --color-surface-container-highest: #1b3125;
+  --color-on-surface: #83e8a0;
+  --color-on-surface-variant: #65ad7b;
+  --color-inverse-surface: #83e8a0;
+  --color-inverse-on-surface: #06110a;
+  --color-outline: #4e755a;
+  --color-outline-variant: #213b2b;
+  --color-surface-tint: #5cff85;
+  --color-primary: #5cff85;
+  --color-on-primary: #041108;
+  --color-primary-container: #0f311a;
+  --color-on-primary-container: #6fffa0;
+  --color-accent: #3ef4c4;
+  --color-on-accent: #00150e;
+  --color-accent-container: #10342a;
+  --color-on-accent-container: #67edba;
+  --color-focus-ring: #5cff85;
+  --color-secondary: #78b48f;
+  --color-on-secondary: #041008;
+  --color-secondary-container: #183324;
+  --color-on-secondary-container: #83dda0;
+  --color-error: #ff7a7a;
+  --color-on-error: #220407;
+  --color-error-container: #441218;
+  --color-on-error-container: #ffd8d8;
+  --color-success: #5cff85;
+  --color-on-success: #041108;
+  --color-success-container: #0f311a;
+  --color-on-success-container: #6fffa0;
+  --color-warning: #f7d96f;
+  --color-on-warning: #171004;
+  --color-warning-container: #3d3010;
+  --color-on-warning-container: #fff0bc;
+  --color-row-stripe: #09150d;
+  --color-hover-surface: #153020;
+  --color-menu-hover-surface: #1b3125;
+  --color-menu-selected-surface: #213b2b;
+  --color-card-border: #21422f;
+  --color-background: #010603;
+  --color-on-background: #83e8a0;
+  --color-header-backdrop: rgba(3, 12, 8, 0.92);
+  --color-backdrop-scrim: rgba(1, 6, 3, 0.72);
+  --color-elevated-surface: #09150d;
+  --color-elevated-surface-strong: #0d1d13;
+  --color-hover-overlay: rgba(92, 255, 133, 0.14);
+}
+
+html {
+  background: var(--color-background);
+}
+
+body {
+  min-width: 320px;
+  margin: 0;
+  background: var(--color-background);
+  background-image: radial-gradient(circle at top,
+      var(--auth-page-glow),
+      transparent 32%);
+  background-attachment: fixed;
+  color: var(--color-on-surface);
+}
+
+html.agent-ui-chat-scroll-lock,
+body.agent-ui-chat-scroll-lock {
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
+.auth-page-shell {
+  background-color: var(--color-background);
+  background-image:
+    radial-gradient(circle at top, var(--auth-page-glow), transparent 42%),
+    linear-gradient(180deg,
+      var(--auth-page-start) 0%,
+      var(--auth-page-end) 100%);
+}
+
+.auth-elevated-card {
+  border: 1px solid var(--color-card-border);
+  background-color: var(--color-elevated-surface);
+  box-shadow: var(--auth-card-shadow);
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+::selection {
+  background: var(--color-accent-container);
+  color: var(--color-on-accent-container);
+}
+
+.markdown-body {
+  background-color: transparent !important;
+}
+
+// mackdown暗黑主题
+:root[data-theme="matrix-dark"] .markdown-body,
+:root[data-theme="dark"] .markdown-body {
+  /*dark */
+  color-scheme: dark;
+  --fgColor-accent: var(--agent-ui-markdown-fg-color-accent, var(--color-accent));
+  --bgColor-attention-muted: var(--agent-ui-markdown-bg-color-attention-muted, var(--color-warning-container));
+  --bgColor-default: var(--agent-ui-markdown-bg-color-default, var(--color-elevated-surface));
+  --bgColor-muted: var(--agent-ui-markdown-bg-color-muted, var(--color-surface-container));
+  --bgColor-neutral-muted: var(--agent-ui-markdown-bg-color-neutral-muted, #656c7633);
+  --borderColor-accent-emphasis: var(--agent-ui-markdown-border-color-accent-emphasis, var(--color-accent));
+  --borderColor-attention-emphasis: var(--agent-ui-markdown-border-color-attention-emphasis, var(--color-warning));
+  --borderColor-danger-emphasis: var(--agent-ui-markdown-border-color-danger-emphasis, var(--color-error));
+  --borderColor-default: var(--agent-ui-markdown-border-color-default, var(--color-outline-variant));
+  --borderColor-done-emphasis: var(--agent-ui-markdown-border-color-done-emphasis, #8957e5);
+  --borderColor-success-emphasis: var(--agent-ui-markdown-border-color-success-emphasis, var(--color-success));
+  --color-prettylights-syntax-brackethighlighter-angle: var(--agent-ui-syntax-brackethighlighter-angle, #9198a1);
+  --color-prettylights-syntax-brackethighlighter-unmatched: var(--agent-ui-syntax-brackethighlighter-unmatched, #f85149);
+  --color-prettylights-syntax-carriage-return-bg: var(--agent-ui-syntax-carriage-return-bg, #b62324);
+  --color-prettylights-syntax-carriage-return-text: var(--agent-ui-syntax-carriage-return-text, #f0f6fc);
+  --color-prettylights-syntax-comment: var(--agent-ui-syntax-comment, #9198a1);
+  --color-prettylights-syntax-constant: var(--agent-ui-syntax-constant, #79c0ff);
+  --color-prettylights-syntax-constant-other-reference-link: var(--agent-ui-syntax-constant-other-reference-link, #a5d6ff);
+  --color-prettylights-syntax-entity: var(--agent-ui-syntax-entity, #d2a8ff);
+  --color-prettylights-syntax-entity-tag: var(--agent-ui-syntax-entity-tag, #7ee787);
+  --color-prettylights-syntax-keyword: var(--agent-ui-syntax-keyword, #ff7b72);
+  --color-prettylights-syntax-markup-bold: var(--agent-ui-syntax-markup-bold, #f0f6fc);
+  --color-prettylights-syntax-markup-changed-bg: var(--agent-ui-syntax-markup-changed-bg, #5a1e02);
+  --color-prettylights-syntax-markup-changed-text: var(--agent-ui-syntax-markup-changed-text, #ffdfb6);
+  --color-prettylights-syntax-markup-deleted-bg: var(--agent-ui-syntax-markup-deleted-bg, #67060c);
+  --color-prettylights-syntax-markup-deleted-text: var(--agent-ui-syntax-markup-deleted-text, #ffdcd7);
+  --color-prettylights-syntax-markup-heading: var(--agent-ui-syntax-markup-heading, #1f6feb);
+  --color-prettylights-syntax-markup-ignored-bg: var(--agent-ui-syntax-markup-ignored-bg, #1158c7);
+  --color-prettylights-syntax-markup-ignored-text: var(--agent-ui-syntax-markup-ignored-text, #f0f6fc);
+  --color-prettylights-syntax-markup-inserted-bg: var(--agent-ui-syntax-markup-inserted-bg, #033a16);
+  --color-prettylights-syntax-markup-inserted-text: var(--agent-ui-syntax-markup-inserted-text, #aff5b4);
+  --color-prettylights-syntax-markup-italic: var(--agent-ui-syntax-markup-italic, #f0f6fc);
+  --color-prettylights-syntax-markup-list: var(--agent-ui-syntax-markup-list, #f2cc60);
+  --color-prettylights-syntax-meta-diff-range: var(--agent-ui-syntax-meta-diff-range, #d2a8ff);
+  --color-prettylights-syntax-storage-modifier-import: var(--agent-ui-syntax-storage-modifier-import, #f0f6fc);
+  --color-prettylights-syntax-string: var(--agent-ui-syntax-string, #a5d6ff);
+  --color-prettylights-syntax-string-regexp: var(--agent-ui-syntax-string-regexp, #7ee787);
+  --color-prettylights-syntax-sublimelinter-gutter-mark: var(--agent-ui-syntax-sublimelinter-gutter-mark, #3d444d);
+  --color-prettylights-syntax-variable: var(--agent-ui-syntax-variable, #ffa657);
+  --fgColor-attention: var(--agent-ui-markdown-fg-color-attention, var(--color-warning));
+  --fgColor-danger: var(--agent-ui-markdown-fg-color-danger, var(--color-error));
+  --fgColor-default: var(--agent-ui-markdown-fg-color-default, var(--color-on-surface));
+  --fgColor-done: var(--agent-ui-markdown-fg-color-done, #ab7df8);
+  --fgColor-muted: var(--agent-ui-markdown-fg-color-muted, var(--color-on-surface-variant));
+  --fgColor-success: var(--agent-ui-markdown-fg-color-success, var(--color-success));
+  --borderColor-muted: var(--agent-ui-markdown-border-color-muted, var(--color-outline-variant));
+  --color-prettylights-syntax-invalid-illegal-bg: var(--agent-ui-syntax-invalid-illegal-bg, var(--bgColor-danger-muted));
+  --color-prettylights-syntax-invalid-illegal-text: var(--agent-ui-syntax-invalid-illegal-text, var(--fgColor-danger));
+  --focus-outlineColor: var(--agent-ui-markdown-focus-outline-color, var(--borderColor-accent-emphasis));
+  --borderColor-neutral-muted: var(--agent-ui-markdown-border-color-neutral-muted, var(--borderColor-muted));
+}
+
+
+:root[data-theme="light"] .markdown-body {
+  /*light */
+  color-scheme: light;
+  --fgColor-danger: var(--agent-ui-markdown-fg-color-danger, var(--color-error));
+  --bgColor-attention-muted: var(--agent-ui-markdown-bg-color-attention-muted, var(--color-warning-container));
+  --bgColor-muted: var(--agent-ui-markdown-bg-color-muted, var(--color-surface-container));
+  --bgColor-neutral-muted: var(--agent-ui-markdown-bg-color-neutral-muted, #818b981f);
+  --borderColor-accent-emphasis: var(--agent-ui-markdown-border-color-accent-emphasis, var(--color-accent));
+  --borderColor-attention-emphasis: var(--agent-ui-markdown-border-color-attention-emphasis, var(--color-warning));
+  --borderColor-danger-emphasis: var(--agent-ui-markdown-border-color-danger-emphasis, var(--color-error));
+  --borderColor-default: var(--agent-ui-markdown-border-color-default, var(--color-outline-variant));
+  --borderColor-done-emphasis: var(--agent-ui-markdown-border-color-done-emphasis, #8250df);
+  --borderColor-success-emphasis: var(--agent-ui-markdown-border-color-success-emphasis, var(--color-success));
+  --color-prettylights-syntax-brackethighlighter-angle: var(--agent-ui-syntax-brackethighlighter-angle, #59636e);
+  --color-prettylights-syntax-brackethighlighter-unmatched: var(--agent-ui-syntax-brackethighlighter-unmatched, #82071e);
+  --color-prettylights-syntax-carriage-return-bg: var(--agent-ui-syntax-carriage-return-bg, #cf222e);
+  --color-prettylights-syntax-carriage-return-text: var(--agent-ui-syntax-carriage-return-text, #f6f8fa);
+  --color-prettylights-syntax-comment: var(--agent-ui-syntax-comment, #59636e);
+  --color-prettylights-syntax-constant: var(--agent-ui-syntax-constant, #0550ae);
+  --color-prettylights-syntax-constant-other-reference-link: var(--agent-ui-syntax-constant-other-reference-link, #0a3069);
+  --color-prettylights-syntax-entity: var(--agent-ui-syntax-entity, #6639ba);
+  --color-prettylights-syntax-entity-tag: var(--agent-ui-syntax-entity-tag, #0550ae);
+  --color-prettylights-syntax-invalid-illegal-text: var(--agent-ui-syntax-invalid-illegal-text, var(--fgColor-danger));
+  --color-prettylights-syntax-keyword: var(--agent-ui-syntax-keyword, #cf222e);
+  --color-prettylights-syntax-markup-changed-bg: var(--agent-ui-syntax-markup-changed-bg, #ffd8b5);
+  --color-prettylights-syntax-markup-changed-text: var(--agent-ui-syntax-markup-changed-text, #953800);
+  --color-prettylights-syntax-markup-deleted-bg: var(--agent-ui-syntax-markup-deleted-bg, #ffebe9);
+  --color-prettylights-syntax-markup-deleted-text: var(--agent-ui-syntax-markup-deleted-text, #82071e);
+  --color-prettylights-syntax-markup-heading: var(--agent-ui-syntax-markup-heading, #0550ae);
+  --color-prettylights-syntax-markup-ignored-bg: var(--agent-ui-syntax-markup-ignored-bg, #0550ae);
+  --color-prettylights-syntax-markup-ignored-text: var(--agent-ui-syntax-markup-ignored-text, #d1d9e0);
+  --color-prettylights-syntax-markup-inserted-bg: var(--agent-ui-syntax-markup-inserted-bg, #dafbe1);
+  --color-prettylights-syntax-markup-inserted-text: var(--agent-ui-syntax-markup-inserted-text, #116329);
+  --color-prettylights-syntax-markup-list: var(--agent-ui-syntax-markup-list, #3b2300);
+  --color-prettylights-syntax-meta-diff-range: var(--agent-ui-syntax-meta-diff-range, #8250df);
+  --color-prettylights-syntax-string: var(--agent-ui-syntax-string, #0a3069);
+  --color-prettylights-syntax-string-regexp: var(--agent-ui-syntax-string-regexp, #116329);
+  --color-prettylights-syntax-sublimelinter-gutter-mark: var(--agent-ui-syntax-sublimelinter-gutter-mark, #818b98);
+  --color-prettylights-syntax-variable: var(--agent-ui-syntax-variable, #953800);
+  --fgColor-accent: var(--agent-ui-markdown-fg-color-accent, var(--color-accent));
+  --fgColor-attention: var(--agent-ui-markdown-fg-color-attention, var(--color-warning));
+  --fgColor-done: var(--agent-ui-markdown-fg-color-done, #8250df);
+  --fgColor-muted: var(--agent-ui-markdown-fg-color-muted, var(--color-on-surface-variant));
+  --fgColor-success: var(--agent-ui-markdown-fg-color-success, var(--color-success));
+  --bgColor-default: var(--agent-ui-markdown-bg-color-default, var(--color-elevated-surface));
+  --borderColor-muted: var(--agent-ui-markdown-border-color-muted, var(--color-outline-variant));
+  --color-prettylights-syntax-invalid-illegal-bg: var(--agent-ui-syntax-invalid-illegal-bg, var(--bgColor-danger-muted));
+  --color-prettylights-syntax-markup-bold: var(--agent-ui-syntax-markup-bold, #1f2328);
+  --color-prettylights-syntax-markup-italic: var(--agent-ui-syntax-markup-italic, #1f2328);
+  --color-prettylights-syntax-storage-modifier-import: var(--agent-ui-syntax-storage-modifier-import, #1f2328);
+  --fgColor-default: var(--agent-ui-markdown-fg-color-default, var(--color-on-surface));
+  --focus-outlineColor: var(--agent-ui-markdown-focus-outline-color, var(--borderColor-accent-emphasis));
+  --borderColor-neutral-muted: var(--agent-ui-markdown-border-color-neutral-muted, var(--borderColor-muted));
+}

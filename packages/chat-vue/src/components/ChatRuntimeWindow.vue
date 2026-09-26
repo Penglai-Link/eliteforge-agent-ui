@@ -1,0 +1,1661 @@
+<script setup lang="ts">
+import {
+  AssistantReplyQueue,
+  defaultAssistantReplySpeed,
+  buildTranscriptPresentation,
+  createMockChatAdapter,
+  enqueueChatSubmission,
+  ChatAdapterError,
+  mergeChatMessagesChronologically,
+  mergeTranscriptAguiEvents,
+  normalizeChatSession,
+  removeQueuedChatSubmission,
+  takeNextQueuedChatSubmission,
+  type ChatActiveRun,
+  type ChatAguiEvent,
+  type ChatAguiStreamEvent,
+  type ChatFloatingState,
+  type ChatMessage,
+  type ChatMessageAttachment,
+  type ChatQueuedSubmission,
+  type ChatRunningSubmitMode,
+  type ChatSession,
+  type ChatSubmitMode,
+  type ChatUserInputAnswer,
+  type ChatUserInputRequest,
+  type SendChatMessageInput,
+  isRecentPendingUserTurn,
+  isSteerQueueFallbackCode,
+  openAguiProtocolRunCodes,
+} from "@eliteforge/agent-ui-chat-core";
+import { FileText, Paperclip, X } from "lucide-vue-next";
+import {
+  computed,
+  onBeforeUnmount,
+  ref,
+  shallowRef,
+  useSlots,
+  watch,
+} from "vue";
+import { defaultErrorReporter, normalizeOptionalValue } from "../utils";
+import {
+  resolveSuccessfulActiveRunSnapshot,
+  retainActiveRunOnStatusFailure,
+  type RuntimeActiveRunTrackingState,
+} from "../runtimeActiveRun";
+import {
+  ownsRuntimeStreamObserver,
+  resolveRuntimeStreamSettlement,
+  type RuntimeStreamAbortReason,
+} from "../runtimeStreamObserver";
+import ChatPanel from "./ChatPanel.vue";
+import ChatWindow from "./ChatWindow.vue";
+import { ChatRuntimeWindowProps } from "../types";
+
+const props = withDefaults(defineProps<ChatRuntimeWindowProps>(), {
+  adapter: undefined,
+  attachmentLabels: undefined,
+  autoFocusComposer: false,
+  composerHeader: undefined,
+  currentUserDisplayName: "",
+  draft: undefined,
+  debugOptions: undefined,
+  emptyDescription: undefined,
+  emptyTitle: undefined,
+  floatingSubtitle: "AI assistant",
+  floatingTitle: "Assistant",
+  formatAnnotationCount: undefined,
+  footerAddon: undefined,
+  initialSession: null,
+  onCreateSession: undefined,
+  onDraftChange: undefined,
+  onError: defaultErrorReporter,
+  onInfo: undefined,
+  onPendingAttachmentsChange: undefined,
+  onRunStateChange: undefined,
+  onSessionChange: undefined,
+  pendingAttachments: undefined,
+  createSendInput: undefined,
+  showAttachmentControl: true,
+  showHeader: undefined,
+  onWindowStateChange: undefined,
+  windowState: undefined,
+});
+
+const emit = defineEmits<{
+  error: [message: string, title?: string];
+  info: [message: string, title?: string];
+  "session-change": [session: ChatSession | null];
+  "window-state-change": [state: ChatFloatingState];
+}>();
+
+const forwardedSlotNames: string[] = Object.keys(useSlots()).filter(
+  (name) => name !== "footerAddon",
+);
+
+const activeAdapter = computed(() => props.adapter ?? createMockChatAdapter());
+const normalizedInitialSession = computed(() =>
+  props.initialSession ? normalizeChatSession(props.initialSession) : null,
+);
+const session = ref<ChatSession | null>(normalizedInitialSession.value);
+const messages = ref<ChatMessage[]>([]);
+const streamingAssistantMessageCode = ref<string | null>(null);
+const agentReplySpeed = computed(
+  () => props.agentReplySpeed ?? defaultAssistantReplySpeed,
+);
+const assistantReplyQueue = new AssistantReplyQueue(
+  (messageCode, text) => {
+    messages.value = messages.value.map((message) =>
+      message.messageId === messageCode
+        ? { ...message, content: `${message.content}${text}` }
+        : message,
+    );
+  },
+  () => agentReplySpeed.value,
+);
+watch(
+  () => props.agentReplyEffect,
+  (effect) => {
+    if (effect === "off" || effect === undefined) assistantReplyQueue.flush();
+  },
+);
+onBeforeUnmount(() => assistantReplyQueue.dispose());
+const userInputRequest = ref<ChatUserInputRequest | null>(null);
+const userInputRequests = ref<ChatUserInputRequest[]>([]);
+const userInputAnswerPending = ref(false);
+const aguiEvents = ref<ChatAguiEvent[]>([]);
+const protocolEvents = ref<ChatAguiStreamEvent[]>([]);
+const liveAguiEvents = ref<ChatAguiStreamEvent[]>([]);
+const liveAguiAnchorMessageCodes = ref<Record<string, string>>({});
+const internalDraft = ref("");
+const internalPendingAttachments = ref<ChatMessageAttachment[]>([]);
+const draft = computed({
+  get: () => props.draft ?? internalDraft.value,
+  set: (value: string) => {
+    if (props.draft === undefined) internalDraft.value = value;
+    props.onDraftChange?.(value);
+  },
+});
+const pendingAttachments = computed({
+  get: () => props.pendingAttachments ?? internalPendingAttachments.value,
+  set: (value: ChatMessageAttachment[]) => {
+    if (props.pendingAttachments === undefined) internalPendingAttachments.value = value;
+    props.onPendingAttachmentsChange?.(value);
+  },
+});
+const attachmentUploadPending = ref(false);
+const attachmentFileInput = ref<HTMLInputElement | null>(null);
+const sending = ref(false);
+const steering = ref(false);
+const loading = ref(false);
+const liveAguiPending = ref(false);
+const liveAguiPendingAnchorMessageCode = ref("");
+const activeRunCode = ref("");
+const activeRunSupportsSteer = ref<boolean | null>(null);
+const remoteActiveRun = ref<ChatActiveRun | null>(null);
+const pendingProtocolTerminalRun = ref<ChatActiveRun | null>(null);
+const activeRunStatusPending = ref(false);
+const stopping = ref(false);
+const queuedSubmissions = ref<ChatQueuedSubmission[]>([]);
+const activeSessionCodeRef = ref("");
+const activeObserverRef = shallowRef<{
+  abortReason: RuntimeStreamAbortReason;
+  controller: AbortController;
+  sessionId: string;
+} | null>(null);
+const steerAbortRef = ref<AbortController | null>(null);
+const stopAbortRef = ref<AbortController | null>(null);
+const autoDrainEpochRef = ref(0);
+const queuedSubmissionSequenceRef = ref(0);
+const optimisticMessageSequenceRef = ref(0);
+const queueGenerationRef = ref(0);
+const terminalHandledRunCodesRef = new Set<string>();
+
+const aguiEnabled = computed(
+  () =>
+    props.config.showAgui !== false &&
+    activeAdapter.value.capabilities.supportsAgui,
+);
+const protocolReplayEnabled = computed(
+  () =>
+    aguiEnabled.value &&
+    activeAdapter.value.capabilities.supportsProtocolReplay &&
+    Boolean(activeAdapter.value.loadProtocolEvents),
+);
+const effectiveActiveRunCode = computed(
+  () =>
+    activeRunCode.value ||
+    remoteActiveRun.value?.runId ||
+    pendingProtocolTerminalRun.value?.runId ||
+    "",
+);
+const runActive = computed(
+  () =>
+    sending.value ||
+    Boolean(remoteActiveRun.value) ||
+    Boolean(pendingProtocolTerminalRun.value) ||
+    activeRunStatusPending.value,
+);
+const effectiveRunState = computed(() => {
+  if (
+    pendingProtocolTerminalRun.value?.runId === effectiveActiveRunCode.value
+  ) {
+    return "FINISHING";
+  }
+  return remoteActiveRun.value?.runId === effectiveActiveRunCode.value
+    ? remoteActiveRun.value.state
+    : "RUNNING";
+});
+const effectiveSupportsSteer = computed(() => {
+  if (
+    pendingProtocolTerminalRun.value?.runId === effectiveActiveRunCode.value
+  ) {
+    return false;
+  }
+  return remoteActiveRun.value?.runId === effectiveActiveRunCode.value
+    ? remoteActiveRun.value.supportsSteer
+    : activeRunSupportsSteer.value;
+});
+const canSteer = computed(() =>
+  Boolean(
+    activeAdapter.value.capabilities.supportsSteer &&
+      activeAdapter.value.steerMessage &&
+      effectiveActiveRunCode.value &&
+      effectiveRunState.value === "RUNNING" &&
+      effectiveSupportsSteer.value !== false,
+  ),
+);
+const runningSubmitModes = computed<ChatRunningSubmitMode[]>(() =>
+  canSteer.value ? ["steer", "queue"] : ["queue"],
+);
+const visibleQueuedSubmissions = computed(() =>
+  queuedSubmissions.value.filter(
+    (submission) => submission.sessionId === session.value?.sessionId,
+  ),
+);
+const canStop = computed(() =>
+  Boolean(
+    session.value &&
+      !stopping.value &&
+      ((effectiveActiveRunCode.value &&
+        effectiveRunState.value === "RUNNING" &&
+        activeAdapter.value.capabilities.supportsStop &&
+        activeAdapter.value.stopRun) ||
+        (sending.value &&
+          activeAdapter.value.capabilities.supportsAbort &&
+          !(
+            activeAdapter.value.capabilities.supportsStop &&
+            activeAdapter.value.stopRun
+          ))),
+  ),
+);
+
+watch(
+  [runActive, effectiveActiveRunCode, canSteer, () => session.value?.sessionId ?? ""],
+  ([active, runId, supportsSteer, sessionId]) => {
+    props.onRunStateChange?.({
+      active,
+      runId,
+      sessionId,
+      supportsSteer,
+    });
+  },
+  { immediate: true },
+);
+
+function isRunAlreadyActiveError(error: unknown) {
+  return (
+    (error instanceof ChatAdapterError &&
+      error.code === "RUN_ALREADY_ACTIVE") ||
+    (typeof error === "object" &&
+      error !== null &&
+      "code" in error &&
+      error.code === "RUN_ALREADY_ACTIVE")
+  );
+}
+
+function detachRunObserver(reason: "detach" | "stop") {
+  const observer = activeObserverRef.value;
+  if (observer) {
+    observer.abortReason = reason;
+    observer.controller.abort();
+    if (activeObserverRef.value === observer) {
+      activeObserverRef.value = null;
+      sending.value = false;
+      liveAguiPending.value = false;
+      activeRunCode.value = "";
+      activeRunSupportsSteer.value = null;
+    }
+  }
+  detachSteerObserver();
+}
+
+function detachSteerObserver() {
+  const controller = steerAbortRef.value;
+  if (controller) {
+    steerAbortRef.value = null;
+    controller.abort();
+  }
+  steering.value = false;
+}
+
+async function loadActiveRunSnapshot(
+  sessionId: string,
+  signal?: AbortSignal,
+) {
+  const adapter = activeAdapter.value;
+  if (!adapter.capabilities.supportsActiveRun || !adapter.getActiveRun) {
+    throw new Error("Active-run status is not supported by this adapter");
+  }
+  const result = await adapter.getActiveRun(sessionId, signal);
+  return result.activeRun;
+}
+
+type ActiveRunQueryResult =
+  | { activeRun: ChatActiveRun | null; kind: "success" }
+  | { kind: "failure" }
+  | { kind: "unsupported" };
+
+async function queryActiveRunSnapshot(
+  sessionId: string,
+  signal?: AbortSignal,
+): Promise<ActiveRunQueryResult> {
+  const adapter = activeAdapter.value;
+  if (!adapter.capabilities.supportsActiveRun || !adapter.getActiveRun) {
+    return { kind: "unsupported" };
+  }
+  try {
+    return {
+      activeRun: await loadActiveRunSnapshot(sessionId, signal),
+      kind: "success",
+    };
+  } catch {
+    return { kind: "failure" };
+  }
+}
+
+function replaceQueuedSubmissions(next: ChatQueuedSubmission[]) {
+  queuedSubmissions.value = next;
+}
+
+function createSendInput(
+  activeSession: ChatSession,
+  content: string,
+  attachments: ChatMessageAttachment[] = [],
+): SendChatMessageInput | null {
+  if (props.createSendInput) {
+    return props.createSendInput(activeSession, content, attachments);
+  }
+  const input: SendChatMessageInput = {
+    clientCapabilities: { userInputRequests: true },
+    content,
+  };
+  if (attachments.length) input.attachments = attachments;
+  return input;
+}
+
+function enqueueSubmission(
+  activeSession: ChatSession,
+  input: SendChatMessageInput,
+  position: "front" | "back" = "back",
+) {
+  queuedSubmissionSequenceRef.value += 1;
+  const submission: ChatQueuedSubmission = {
+    id: `QUEUED-${Date.now()}-${queuedSubmissionSequenceRef.value}`,
+    input,
+    sessionId: activeSession.sessionId,
+  };
+  replaceQueuedSubmissions(
+    position === "front"
+      ? [submission, ...queuedSubmissions.value]
+      : enqueueChatSubmission(queuedSubmissions.value, submission),
+  );
+  return submission;
+}
+
+function takeNextQueuedSubmission(sessionId: string) {
+  const result = takeNextQueuedChatSubmission(
+    queuedSubmissions.value,
+    sessionId,
+  );
+  replaceQueuedSubmissions(result.remaining);
+  return result.submission;
+}
+
+function drainNextQueuedSubmission(sessionId: string) {
+  const currentSession = session.value;
+  if (
+    !currentSession ||
+    currentSession.sessionId !== sessionId ||
+    sending.value ||
+    remoteActiveRun.value ||
+    pendingProtocolTerminalRun.value ||
+    activeRunStatusPending.value
+  ) {
+    return;
+  }
+  const nextSubmission = takeNextQueuedSubmission(sessionId);
+  if (nextSubmission) {
+    void runMessage(currentSession, nextSubmission.input, nextSubmission);
+  }
+}
+
+function currentActiveRunTrackingState(): RuntimeActiveRunTrackingState {
+  return {
+    activeRun: remoteActiveRun.value,
+    pendingProtocolTerminalRun: pendingProtocolTerminalRun.value,
+    statusPending: activeRunStatusPending.value,
+  };
+}
+
+function applyActiveRunTrackingState(state: RuntimeActiveRunTrackingState) {
+  remoteActiveRun.value = state.activeRun;
+  pendingProtocolTerminalRun.value = state.pendingProtocolTerminalRun;
+  activeRunStatusPending.value = state.statusPending;
+}
+
+function markActiveRunStatusPending(sessionId: string) {
+  if (activeSessionCodeRef.value !== sessionId) return;
+  applyActiveRunTrackingState(
+    retainActiveRunOnStatusFailure(currentActiveRunTrackingState()),
+  );
+}
+
+function acceptActiveRunSnapshot(
+  nextActiveRun: ChatActiveRun | null,
+  sessionId: string,
+  protocolSnapshot: ChatAguiStreamEvent[] = protocolEvents.value,
+  drainNow = true,
+) {
+  if (activeSessionCodeRef.value !== sessionId) return false;
+  const resolution = resolveSuccessfulActiveRunSnapshot({
+    nextActiveRun,
+    protocolEvents: protocolSnapshot,
+    protocolReplayEnabled: protocolReplayEnabled.value,
+    sessionId,
+    state: currentActiveRunTrackingState(),
+    suppressedRunCodes: terminalHandledRunCodesRef,
+  });
+  applyActiveRunTrackingState(resolution.state);
+  if (resolution.consumedSuppressedRunCode) {
+    terminalHandledRunCodesRef.delete(resolution.consumedSuppressedRunCode);
+  }
+  if (resolution.shouldDrainQueue && drainNow && !sending.value) {
+    drainNextQueuedSubmission(sessionId);
+  }
+  return resolution.shouldDrainQueue;
+}
+
+function releasePendingProtocolTerminal(
+  sessionId: string,
+  protocolSnapshot: ChatAguiStreamEvent[],
+) {
+  if (!pendingProtocolTerminalRun.value) return false;
+  return acceptActiveRunSnapshot(null, sessionId, protocolSnapshot, true);
+}
+
+async function refreshActiveRun(
+  sessionId: string,
+  signal?: AbortSignal,
+  drainNow = true,
+) {
+  const next = await loadActiveRunSnapshot(sessionId, signal);
+  acceptActiveRunSnapshot(next, sessionId, protocolEvents.value, drainNow);
+  return next;
+}
+
+function prependQueuedSubmission(submission: ChatQueuedSubmission) {
+  replaceQueuedSubmissions([
+    submission,
+    ...removeQueuedChatSubmission(queuedSubmissions.value, submission.id),
+  ]);
+}
+
+function restoreSourceSubmission(
+  sourceSubmission: ChatQueuedSubmission | undefined,
+  queueGeneration: number,
+) {
+  if (!sourceSubmission || queueGeneration !== queueGenerationRef.value) {
+    return;
+  }
+  prependQueuedSubmission(sourceSubmission);
+}
+
+watch(
+  normalizedInitialSession,
+  (nextSession) => {
+    activeSessionCodeRef.value = nextSession?.sessionId ?? "";
+    session.value = nextSession;
+  },
+  { immediate: true },
+);
+
+watch(
+  session,
+  (nextSession, previousSession) => {
+    if (
+      previousSession?.sessionId &&
+      previousSession.sessionId !== nextSession?.sessionId
+    ) {
+      queueGenerationRef.value += 1;
+      detachRunObserver("detach");
+      stopAbortRef.value?.abort();
+      stopping.value = false;
+      terminalHandledRunCodesRef.clear();
+      remoteActiveRun.value = null;
+      pendingProtocolTerminalRun.value = null;
+      activeRunStatusPending.value = false;
+      activeRunCode.value = "";
+      activeRunSupportsSteer.value = null;
+      pendingAttachments.value = [];
+    }
+    activeSessionCodeRef.value = nextSession?.sessionId ?? "";
+    props.onSessionChange?.(nextSession);
+    emit("session-change", nextSession);
+  },
+  { immediate: true },
+);
+
+watch(
+  () => session.value?.sessionId,
+  async (nextSessionCode, _, onCleanup) => {
+    let active = true;
+    const abortController = new AbortController();
+    onCleanup(() => {
+      active = false;
+      abortController.abort();
+    });
+
+    if (!nextSessionCode) {
+      messages.value = [];
+      aguiEvents.value = [];
+      protocolEvents.value = [];
+      userInputRequest.value = null;
+      userInputRequests.value = [];
+      remoteActiveRun.value = null;
+      pendingProtocolTerminalRun.value = null;
+      activeRunStatusPending.value = false;
+      return;
+    }
+
+    loading.value = true;
+    const [dataResult, activeRunResult] = await Promise.all([
+      Promise.all([
+        activeAdapter.value.loadMessages(nextSessionCode),
+        aguiEnabled.value
+          ? activeAdapter.value.loadAguiEvents(nextSessionCode)
+          : Promise.resolve([]),
+        protocolReplayEnabled.value && activeAdapter.value.loadProtocolEvents
+          ? activeAdapter.value.loadProtocolEvents(nextSessionCode)
+          : Promise.resolve([]),
+        activeAdapter.value.capabilities.supportsUserInputRequests && activeAdapter.value.loadUserInputRequests
+          ? activeAdapter.value.loadUserInputRequests(nextSessionCode, abortController.signal)
+          : Promise.resolve([]),
+      ]).then(
+        ([nextMessages, nextAguiEvents, nextProtocolEvents, nextUserInputRequests]) => ({
+          kind: "success" as const,
+          nextAguiEvents,
+          nextMessages,
+          nextProtocolEvents,
+          nextUserInputRequests,
+        }),
+        (error: unknown) => ({ error, kind: "failure" as const }),
+      ),
+      queryActiveRunSnapshot(nextSessionCode, abortController.signal),
+    ]);
+    if (!active || abortController.signal.aborted) return;
+    if (dataResult.kind === "success") {
+      if (!sending.value) messages.value = dataResult.nextMessages;
+      aguiEvents.value = dataResult.nextAguiEvents;
+      protocolEvents.value = dataResult.nextProtocolEvents;
+      userInputRequests.value = dataResult.nextUserInputRequests;
+      userInputRequest.value = dataResult.nextUserInputRequests.find(
+        (request) => request.status === "Pending",
+      ) ?? null;
+    } else {
+      const message =
+        dataResult.error instanceof Error
+          ? dataResult.error.message
+          : "Chat data could not be loaded";
+      props.onError?.(message, "Chat load failed");
+      emit("error", message, "Chat load failed");
+    }
+    if (activeRunResult.kind === "success") {
+      acceptActiveRunSnapshot(
+        activeRunResult.activeRun,
+        nextSessionCode,
+        dataResult.kind === "success"
+          ? dataResult.nextProtocolEvents
+          : protocolEvents.value,
+        false,
+      );
+    } else if (activeRunResult.kind === "failure") {
+      markActiveRunStatusPending(nextSessionCode);
+    }
+    loading.value = false;
+  },
+  { immediate: true },
+);
+
+const shouldPollData = computed(() =>
+  Boolean(
+    session.value?.sessionId &&
+      (isRecentPendingUserTurn(messages.value) ||
+        Boolean(userInputRequest.value) ||
+        (protocolReplayEnabled.value &&
+          openAguiProtocolRunCodes(
+            protocolEvents.value,
+            session.value.sessionId,
+          ).size > 0)),
+  ),
+);
+const shouldPollRuntime = computed(() =>
+  Boolean(
+    session.value?.sessionId &&
+      (runActive.value ||
+        shouldPollData.value ||
+        activeRunStatusPending.value ||
+        pendingProtocolTerminalRun.value),
+  ),
+);
+
+watch(
+  [() => session.value?.sessionId, shouldPollRuntime],
+  (_, __, onCleanup) => {
+    const sessionId = session.value?.sessionId;
+    if (!sessionId || !shouldPollRuntime.value) return;
+    let refreshing = false;
+    const intervalId = window.setInterval(async () => {
+      if (refreshing || activeSessionCodeRef.value !== sessionId) return;
+      refreshing = true;
+      const [dataResult, activeRunResult] = await Promise.all([
+        Promise.all([
+          activeAdapter.value.loadMessages(sessionId),
+          aguiEnabled.value
+            ? activeAdapter.value.loadAguiEvents(sessionId)
+            : Promise.resolve([]),
+          protocolReplayEnabled.value && activeAdapter.value.loadProtocolEvents
+            ? activeAdapter.value.loadProtocolEvents(sessionId)
+            : Promise.resolve([]),
+          activeAdapter.value.capabilities.supportsUserInputRequests && activeAdapter.value.loadUserInputRequests
+            ? activeAdapter.value.loadUserInputRequests(sessionId)
+            : Promise.resolve([]),
+        ]).then(
+          ([nextMessages, nextAguiEvents, nextProtocolEvents, nextUserInputRequests]) => ({
+            kind: "success" as const,
+            nextAguiEvents,
+            nextMessages,
+            nextProtocolEvents,
+            nextUserInputRequests,
+          }),
+          () => ({ kind: "failure" as const }),
+        ),
+        queryActiveRunSnapshot(sessionId),
+      ]);
+      if (activeSessionCodeRef.value === sessionId) {
+        let protocolSnapshot = protocolEvents.value;
+        if (dataResult.kind === "success") {
+          if (!sending.value) messages.value = dataResult.nextMessages;
+          aguiEvents.value = dataResult.nextAguiEvents;
+          protocolEvents.value = dataResult.nextProtocolEvents;
+          userInputRequests.value = dataResult.nextUserInputRequests;
+          userInputRequest.value = dataResult.nextUserInputRequests.find(
+            (request) => request.status === "Pending",
+          ) ?? null;
+          protocolSnapshot = dataResult.nextProtocolEvents;
+        }
+        if (activeRunResult.kind === "success") {
+          acceptActiveRunSnapshot(
+            activeRunResult.activeRun,
+            sessionId,
+            protocolSnapshot,
+          );
+        } else if (activeRunResult.kind === "failure") {
+          markActiveRunStatusPending(sessionId);
+          releasePendingProtocolTerminal(sessionId, protocolSnapshot);
+        } else {
+          releasePendingProtocolTerminal(sessionId, protocolSnapshot);
+        }
+      }
+      refreshing = false;
+    }, 1000);
+
+    onCleanup(() => {
+      window.clearInterval(intervalId);
+    });
+  },
+  { immediate: true },
+);
+
+const sendDisabled = computed(() => {
+  if (loading.value || props.config.disabledInput || userInputRequest.value) return true;
+  if (!draft.value.trim() && !pendingAttachments.value.length) return true;
+  return false;
+});
+const queueDisabled = computed(
+  () =>
+    loading.value ||
+    Boolean(props.config.disabledInput) ||
+    Boolean(userInputRequest.value) ||
+    (!draft.value.trim() && !pendingAttachments.value.length) ||
+    !session.value,
+);
+const steerDisabled = computed(
+  () => queueDisabled.value || steering.value || !canSteer.value,
+);
+
+function reportError(message: string, title?: string) {
+  props.onError?.(message, title);
+  emit("error", message, title);
+}
+
+function reportInfo(message: string, title?: string) {
+  props.onInfo?.(message, title);
+  emit("info", message, title);
+}
+
+async function ensureSession() {
+  if (session.value) return session.value;
+  const created = await activeAdapter.value.createSession({
+    title: normalizeOptionalValue(props.config.title) ?? props.floatingTitle,
+  });
+  activeSessionCodeRef.value = created.sessionId;
+  session.value = created;
+  messages.value = [];
+  aguiEvents.value = [];
+  protocolEvents.value = [];
+  return created;
+}
+
+async function handleAttachmentUpload(file: File) {
+  const adapter = activeAdapter.value;
+  if (attachmentUploadPending.value || !adapter.uploadAttachment) return;
+  const activeSession = await ensureSession();
+  if (!activeSession) return;
+  attachmentUploadPending.value = true;
+  try {
+    const attachment = await adapter.uploadAttachment(activeSession, {
+      file,
+      kind: file.type.startsWith("image/") ? "image" : "file",
+      summary: file.name,
+    });
+    if (activeSessionCodeRef.value === activeSession.sessionId) {
+      pendingAttachments.value = [...pendingAttachments.value, attachment];
+    }
+  } catch (error) {
+    reportError(
+      error instanceof Error ? error.message : "Chat attachment upload failed",
+      "Attachment upload failed",
+    );
+  } finally {
+    attachmentUploadPending.value = false;
+  }
+}
+
+function handleAttachmentFileInputChange(event: Event) {
+  const input = event.currentTarget as HTMLInputElement;
+  const file = input.files?.item(0);
+  input.value = "";
+  if (file) void handleAttachmentUpload(file);
+}
+
+async function runMessage(
+  activeSession: ChatSession,
+  sendInput: SendChatMessageInput,
+  sourceSubmission?: ChatQueuedSubmission,
+) {
+  const queueGeneration = queueGenerationRef.value;
+  const autoDrainEpoch = autoDrainEpochRef.value;
+  if (
+    sending.value ||
+    remoteActiveRun.value ||
+    pendingProtocolTerminalRun.value ||
+    activeRunStatusPending.value
+  ) {
+    restoreSourceSubmission(sourceSubmission, queueGeneration);
+    return false;
+  }
+  const content = sendInput.content.trim();
+  if (!content) {
+    restoreSourceSubmission(sourceSubmission, queueGeneration);
+    return false;
+  }
+  const adapter = activeAdapter.value;
+  const isAguiEnabled = aguiEnabled.value;
+  const abortController = new AbortController();
+  const observer = {
+    abortReason: "none" as RuntimeStreamAbortReason,
+    controller: abortController,
+    sessionId: activeSession.sessionId,
+  };
+  activeObserverRef.value = observer;
+  activeRunCode.value = "";
+  activeRunSupportsSteer.value = null;
+  optimisticMessageSequenceRef.value += 1;
+  const optimisticKey = `${Date.now()}-${optimisticMessageSequenceRef.value}`;
+  const optimisticCreatedAt = new Date().toISOString();
+  const optimisticUserCode = `LOCAL-${optimisticKey}-USER`;
+  const optimisticAssistantCode = `LOCAL-${optimisticKey}-ASSISTANT`;
+  streamingAssistantMessageCode.value = optimisticAssistantCode;
+  sending.value = true;
+  liveAguiPending.value = isAguiEnabled;
+  messages.value = [
+    ...messages.value,
+    {
+      actor: props.currentUserDisplayName || "User",
+      channel: "conversation",
+      content,
+      createdAt: optimisticCreatedAt,
+      id: -Date.now() - optimisticMessageSequenceRef.value,
+      messageId: optimisticUserCode,
+      role: "USER",
+      runId: null,
+      sessionId: activeSession.sessionId,
+    },
+    {
+      actor: activeSession.displayName ?? "Assistant",
+      channel: "conversation",
+      content: "",
+      createdAt: optimisticCreatedAt,
+      id: -Date.now() - optimisticMessageSequenceRef.value - 1,
+      messageId: optimisticAssistantCode,
+      role: "ASSISTANT",
+      runId: null,
+      sessionId: activeSession.sessionId,
+    },
+  ];
+
+  let completed = false;
+  let completedRunCode = "";
+  let completedSession: ChatSession | null = null;
+  let streamSucceeded = false;
+  // Once a request crosses the transport boundary, automatic retry is unsafe:
+  // the backend may already have persisted its USER message. The sole safe
+  // restore path is RUN_ALREADY_ACTIVE, which rejects before admission.
+  let shouldRestoreSourceSubmission = false;
+  let drainConflictQueue = false;
+  try {
+    const result = await adapter.streamMessage(
+      activeSession,
+      sendInput,
+      {
+        onAguiEvent: (event) => {
+          if (
+            !ownsRuntimeStreamObserver(
+              activeObserverRef.value,
+              observer,
+              activeSessionCodeRef.value,
+            )
+          ) {
+            return;
+          }
+          const runId = String(event.runId ?? event.runId ?? "");
+          if (typeof event.supportsSteer === "boolean") {
+            activeRunSupportsSteer.value = event.supportsSteer;
+          }
+          if (runId && !activeRunCode.value) activeRunCode.value = runId;
+          if (!isAguiEnabled) return;
+          liveAguiEvents.value = [...liveAguiEvents.value, event];
+          if (!runId) return;
+          liveAguiAnchorMessageCodes.value = liveAguiAnchorMessageCodes.value[
+            runId
+          ]
+            ? liveAguiAnchorMessageCodes.value
+            : {
+                ...liveAguiAnchorMessageCodes.value,
+                [runId]: optimisticUserCode,
+              };
+        },
+        onDelta: (delta) => {
+          if (
+            !ownsRuntimeStreamObserver(
+              activeObserverRef.value,
+              observer,
+              activeSessionCodeRef.value,
+            )
+          ) {
+            return;
+          }
+          liveAguiPending.value = false;
+          assistantReplyQueue.enqueue(
+            optimisticAssistantCode,
+            delta,
+            props.agentReplyEffect ?? "off",
+          );
+        },
+      },
+      abortController.signal,
+    );
+    const settlement = resolveRuntimeStreamSettlement({
+      activeObserver: activeObserverRef.value,
+      activeSessionCode: activeSessionCodeRef.value,
+      observer,
+    });
+    userInputRequest.value =
+      result.userInputRequest?.status === "Pending"
+        ? result.userInputRequest
+        : null;
+    if (result.userInputRequest) {
+      userInputRequests.value = [
+        ...userInputRequests.value.filter(
+          (request) => request.requestId !== result.userInputRequest?.requestId,
+        ),
+        result.userInputRequest,
+      ];
+    }
+    streamSucceeded = settlement.streamSucceeded;
+    shouldRestoreSourceSubmission = settlement.restoreSourceSubmission;
+
+    if (
+      settlement.canCommit &&
+      result.session.sessionId === activeSession.sessionId
+    ) {
+      await assistantReplyQueue.waitForDrain(optimisticAssistantCode);
+      const [nextMessages, nextAguiEvents, nextProtocolEvents] =
+        await Promise.all([
+          adapter.loadMessages(result.session.sessionId).catch(() => null),
+          isAguiEnabled
+            ? adapter
+                .loadAguiEvents(result.session.sessionId)
+                .catch(() => null)
+            : Promise.resolve(null),
+          isAguiEnabled &&
+          protocolReplayEnabled.value &&
+          adapter.loadProtocolEvents
+            ? adapter
+                .loadProtocolEvents(result.session.sessionId)
+                .catch(() => null)
+            : Promise.resolve(isAguiEnabled ? [] : null),
+        ]);
+
+      if (
+        ownsRuntimeStreamObserver(
+          activeObserverRef.value,
+          observer,
+          activeSessionCodeRef.value,
+        )
+      ) {
+        completedRunCode = result.run.runId;
+        terminalHandledRunCodesRef.add(result.run.runId);
+        if (
+          (remoteActiveRun.value as unknown as ChatActiveRun)?.runId ===
+          result.run.runId
+        ) {
+          remoteActiveRun.value = null;
+        }
+        pendingProtocolTerminalRun.value = null;
+        activeRunStatusPending.value = false;
+        session.value = result.session;
+        if (nextMessages) {
+          messages.value = nextMessages;
+        } else {
+          messages.value = mergeChatMessagesChronologically(
+            messages.value,
+            result.messages,
+            [optimisticUserCode, optimisticAssistantCode],
+          );
+        }
+        if (isAguiEnabled) {
+          if (nextAguiEvents) aguiEvents.value = nextAguiEvents;
+          if (nextProtocolEvents) protocolEvents.value = nextProtocolEvents;
+        }
+        liveAguiEvents.value = [];
+        liveAguiAnchorMessageCodes.value = {};
+        completedSession = result.session;
+        completed = autoDrainEpochRef.value === autoDrainEpoch;
+      }
+    }
+  } catch (error) {
+    assistantReplyQueue.flush(optimisticAssistantCode);
+    const settlement = resolveRuntimeStreamSettlement({
+      activeObserver: activeObserverRef.value,
+      activeSessionCode: activeSessionCodeRef.value,
+      observer,
+    });
+    const stillViewingSession =
+      activeSessionCodeRef.value === activeSession.sessionId;
+    if (!settlement.canCommit) {
+      streamSucceeded = settlement.streamSucceeded;
+      shouldRestoreSourceSubmission = settlement.restoreSourceSubmission;
+      if (observer.abortReason === "stop" && stillViewingSession) {
+        messages.value = messages.value.filter(
+          (message) =>
+            message.messageId !== optimisticAssistantCode ||
+            Boolean(message.content.trim()),
+        );
+      }
+    } else if (isRunAlreadyActiveError(error)) {
+      messages.value = messages.value.filter(
+        (message) =>
+          message.messageId !== optimisticUserCode &&
+          message.messageId !== optimisticAssistantCode,
+      );
+      if (sourceSubmission) {
+        restoreSourceSubmission(sourceSubmission, queueGeneration);
+      } else if (queueGeneration === queueGenerationRef.value) {
+        enqueueSubmission(activeSession, sendInput, "front");
+      }
+      shouldRestoreSourceSubmission = false;
+      markActiveRunStatusPending(activeSession.sessionId);
+      try {
+        const nextActiveRun = await loadActiveRunSnapshot(
+          activeSession.sessionId,
+        );
+        drainConflictQueue = acceptActiveRunSnapshot(
+          nextActiveRun,
+          activeSession.sessionId,
+          protocolEvents.value,
+          false,
+        );
+      } catch {
+        // Keep the queued message until authoritative status can be refreshed.
+      }
+      if (activeSessionCodeRef.value === activeSession.sessionId) {
+        reportInfo(
+          "The active run changed before send; the message was kept in the queue",
+          "Message queued",
+        );
+      }
+    } else {
+      messages.value = messages.value.filter(
+        (message) =>
+          message.messageId !== optimisticAssistantCode ||
+          Boolean(message.content.trim()),
+      );
+    }
+    if (settlement.canCommit && !isRunAlreadyActiveError(error)) {
+      const message =
+        error instanceof Error ? error.message : "Chat send failed";
+      reportError(message, "Chat send failed");
+    }
+  } finally {
+    assistantReplyQueue.flush(optimisticAssistantCode);
+    if (streamingAssistantMessageCode.value === optimisticAssistantCode) {
+      streamingAssistantMessageCode.value = null;
+    }
+    if (activeObserverRef.value === observer) {
+      sending.value = false;
+      liveAguiPending.value = false;
+      activeObserverRef.value = null;
+      activeRunCode.value = "";
+      activeRunSupportsSteer.value = null;
+    }
+  }
+
+  if (!streamSucceeded && shouldRestoreSourceSubmission) {
+    restoreSourceSubmission(sourceSubmission, queueGeneration);
+  }
+
+  if (
+    drainConflictQueue &&
+    activeSessionCodeRef.value === activeSession.sessionId
+  ) {
+    drainNextQueuedSubmission(activeSession.sessionId);
+  }
+
+  if (
+    completed &&
+    completedSession &&
+    activeSessionCodeRef.value === activeSession.sessionId
+  ) {
+    if (
+      (remoteActiveRun.value as unknown as ChatActiveRun)?.runId ===
+      completedRunCode
+    ) {
+      remoteActiveRun.value = null;
+    }
+    const nextSubmission = takeNextQueuedSubmission(activeSession.sessionId);
+    if (nextSubmission) {
+      void runMessage(completedSession, nextSubmission.input, nextSubmission);
+    }
+  }
+  return completed;
+}
+
+async function handleSend() {
+  if (sendDisabled.value || userInputRequest.value || userInputAnswerPending.value) return;
+  const activeSession = await ensureSession();
+  if (!activeSession) return;
+  const content = draft.value.trim();
+  const attachments = pendingAttachments.value;
+  if (!content && !attachments.length) return;
+  const sendInput = createSendInput(activeSession, content, attachments);
+  if (!sendInput) return;
+  draft.value = "";
+  pendingAttachments.value = [];
+  if (runActive.value) {
+    enqueueSubmission(activeSession, sendInput);
+    return;
+  }
+  await runMessage(activeSession, sendInput);
+}
+
+async function handleQueue() {
+  if (queueDisabled.value || userInputRequest.value || userInputAnswerPending.value) return;
+  const activeSession = await ensureSession();
+  if (!activeSession) return;
+  const content = draft.value.trim();
+  const attachments = pendingAttachments.value;
+  if (!content && !attachments.length) return;
+  const sendInput = createSendInput(activeSession, content, attachments);
+  if (!sendInput) return;
+  draft.value = "";
+  pendingAttachments.value = [];
+  if (runActive.value) {
+    enqueueSubmission(activeSession, sendInput);
+    return;
+  }
+  await runMessage(activeSession, sendInput);
+}
+
+async function handleSteer() {
+  if (steerDisabled.value || userInputRequest.value || userInputAnswerPending.value) return;
+  const activeSession = session.value;
+  if (!activeSession) return;
+  const content = draft.value.trim();
+  const attachments = pendingAttachments.value;
+  if (!content && !attachments.length) return;
+  const sendInput = createSendInput(activeSession, content, attachments);
+  if (!sendInput) return;
+  const expectedRunId = effectiveActiveRunCode.value;
+  const adapter = activeAdapter.value;
+  const queueGeneration = queueGenerationRef.value;
+  draft.value = "";
+  pendingAttachments.value = [];
+  if (
+    !runActive.value ||
+    !expectedRunId ||
+    !adapter.capabilities.supportsSteer ||
+    !adapter.steerMessage
+  ) {
+    enqueueSubmission(activeSession, sendInput);
+    return;
+  }
+
+  const abortController = new AbortController();
+  steerAbortRef.value = abortController;
+  steering.value = true;
+  try {
+    const result = await adapter.steerMessage(
+      activeSession,
+      sendInput,
+      { expectedRunId: expectedRunId },
+      abortController.signal,
+    );
+    if (steerAbortRef.value !== abortController) {
+      // A resolved ACK means the backend accepted and persisted the steer.
+      // Ignore a stale observer result without sending the same input again.
+      return;
+    }
+    if (activeSessionCodeRef.value === result.sessionId) {
+      messages.value = mergeChatMessagesChronologically(messages.value, [
+        result.message,
+      ]);
+    }
+  } catch (error) {
+    const observerDetached = steerAbortRef.value !== abortController;
+    const queueIsCurrent = queueGeneration === queueGenerationRef.value;
+    const safeQueueFallback =
+      error instanceof ChatAdapterError &&
+      isSteerQueueFallbackCode(error.code);
+    if (safeQueueFallback && queueIsCurrent) {
+      enqueueSubmission(activeSession, sendInput, "front");
+      try {
+        await refreshActiveRun(activeSession.sessionId, undefined, true);
+      } catch {
+        markActiveRunStatusPending(activeSession.sessionId);
+        // Keep the queued fallback until the next authoritative refresh.
+      }
+    }
+    const stopped = error instanceof Error && error.name === "AbortError";
+    if (safeQueueFallback) {
+      if (queueIsCurrent) {
+        reportInfo(
+          "The active run rejected steer; the message was queued",
+          "Message queued",
+        );
+      }
+    } else if (observerDetached || stopped) {
+      if (queueIsCurrent) {
+        reportInfo(
+          "Steer delivery was not confirmed and was not retried",
+          "Steer not retried",
+        );
+      }
+    } else {
+      const message =
+        error instanceof Error ? error.message : "Chat steer failed";
+      reportError(message, "Chat steer failed");
+    }
+  } finally {
+    if (steerAbortRef.value === abortController) {
+      steerAbortRef.value = null;
+      steering.value = false;
+    }
+  }
+}
+
+async function handleSubmit(mode: ChatSubmitMode = "send") {
+  if (mode === "queue") {
+    await handleQueue();
+    return;
+  }
+  if (mode === "steer") {
+    await handleSteer();
+    return;
+  }
+  await handleSend();
+}
+
+async function handleAnswerUserInput(answers: ChatUserInputAnswer[]) {
+  const activeSession = session.value;
+  const request = userInputRequest.value;
+  const adapter = activeAdapter.value;
+  if (
+    !activeSession ||
+    !request ||
+    userInputAnswerPending.value ||
+    !adapter.answerUserInputRequestStream
+  ) {
+    return;
+  }
+  const continuationAnchorMessageCode = [...messages.value]
+    .reverse()
+    .find((message) => message.role === "ASSISTANT")?.messageId ?? "";
+  userInputAnswerPending.value = true;
+  sending.value = true;
+  liveAguiPending.value = aguiEnabled.value;
+  liveAguiPendingAnchorMessageCode.value = continuationAnchorMessageCode;
+  liveAguiEvents.value = [];
+  liveAguiAnchorMessageCodes.value = {};
+  try {
+    const result = await adapter.answerUserInputRequestStream(
+      activeSession,
+      request.requestId,
+      { answers },
+      {
+        onAguiEvent: (event) => {
+          if (!aguiEnabled.value) return;
+          liveAguiEvents.value = [...liveAguiEvents.value, event];
+          const runId = String(event.runId ?? event.runId ?? "");
+          if (runId && continuationAnchorMessageCode && !liveAguiAnchorMessageCodes.value[runId]) {
+            liveAguiAnchorMessageCodes.value = {
+              ...liveAguiAnchorMessageCodes.value,
+              [runId]: continuationAnchorMessageCode,
+            };
+          }
+        },
+      },
+    );
+    if (activeSessionCodeRef.value !== activeSession.sessionId) return;
+    const nextMessages = await adapter.loadMessages(activeSession.sessionId).catch(() => null);
+    messages.value = nextMessages
+      ? nextMessages
+      : mergeChatMessagesChronologically(messages.value, result.messages);
+    const nextUserInputRequests = adapter.loadUserInputRequests
+      ? await adapter.loadUserInputRequests(activeSession.sessionId).catch(() => null)
+      : null;
+    if (nextUserInputRequests) {
+      userInputRequests.value = nextUserInputRequests;
+      userInputRequest.value = nextUserInputRequests.find(
+        (item) => item.status === "Pending",
+      ) ?? null;
+    } else {
+      userInputRequest.value =
+        result.userInputRequest?.status === "Pending"
+          ? result.userInputRequest
+          : null;
+      userInputRequests.value = userInputRequests.value.map((item) => (
+        item.requestId === request.requestId
+          ? { ...item, answers, status: "Answered" as const }
+          : item
+      ));
+    }
+    session.value = result.session;
+    if (aguiEnabled.value) {
+      const [nextAguiEvents, nextProtocolEvents] = await Promise.all([
+        adapter.loadAguiEvents(result.session.sessionId).catch(() => aguiEvents.value),
+        protocolReplayEnabled.value && adapter.loadProtocolEvents
+          ? adapter.loadProtocolEvents(result.session.sessionId).catch(() => protocolEvents.value)
+          : Promise.resolve([]),
+      ]);
+      aguiEvents.value = nextAguiEvents;
+      protocolEvents.value = nextProtocolEvents;
+    }
+    liveAguiEvents.value = [];
+    liveAguiPending.value = false;
+    liveAguiPendingAnchorMessageCode.value = "";
+    liveAguiAnchorMessageCodes.value = {};
+    await refreshActiveRun(activeSession.sessionId, undefined, false).catch(() => undefined);
+  } catch (error) {
+    reportError(
+      error instanceof Error ? error.message : "Answer submission failed",
+      "Answer submission failed",
+    );
+  } finally {
+    userInputAnswerPending.value = false;
+    sending.value = false;
+    liveAguiPending.value = false;
+    liveAguiPendingAnchorMessageCode.value = "";
+  }
+}
+
+function handleEditQueuedMessage(id: string, content: string) {
+  replaceQueuedSubmissions(
+    removeQueuedChatSubmission(queuedSubmissions.value, id),
+  );
+  draft.value = content;
+}
+
+function handleRemoveQueuedMessage(id: string) {
+  replaceQueuedSubmissions(
+    removeQueuedChatSubmission(queuedSubmissions.value, id),
+  );
+}
+
+async function handleStop() {
+  if (stopping.value) return;
+  const activeSession = session.value;
+  if (!activeSession) return;
+
+  const adapter = activeAdapter.value;
+  let expectedRunId = effectiveActiveRunCode.value;
+  if (
+    !expectedRunId &&
+    adapter.capabilities.supportsStop &&
+    adapter.stopRun
+  ) {
+    try {
+      expectedRunId =
+        (await refreshActiveRun(activeSession.sessionId, undefined, false))
+          ?.runId ?? "";
+    } catch {
+      markActiveRunStatusPending(activeSession.sessionId);
+      // Fall back only when this adapter explicitly supports local abort.
+    }
+  }
+  if (expectedRunId && adapter.capabilities.supportsStop && adapter.stopRun) {
+    const abortController = new AbortController();
+    stopAbortRef.value = abortController;
+    stopping.value = true;
+    autoDrainEpochRef.value += 1;
+    terminalHandledRunCodesRef.add(expectedRunId);
+    try {
+      await adapter.stopRun(
+        activeSession,
+        { expectedRunId: expectedRunId },
+        abortController.signal,
+      );
+      if (activeSessionCodeRef.value !== activeSession.sessionId) return;
+      remoteActiveRun.value = {
+        runId: expectedRunId,
+        runtimeAdapterKey: remoteActiveRun.value?.runtimeAdapterKey ?? "",
+        state: "FINISHING",
+        supportsSteer: false,
+      };
+      pendingProtocolTerminalRun.value = null;
+      activeRunStatusPending.value = false;
+      detachRunObserver("stop");
+      reportInfo("Current response has been stopped", "Chat stopped");
+    } catch (error) {
+      terminalHandledRunCodesRef.delete(expectedRunId);
+      if (abortController.signal.aborted) return;
+      const message =
+        error instanceof Error ? error.message : "Chat stop failed";
+      reportError(message, "Chat stop failed");
+      try {
+        await refreshActiveRun(activeSession.sessionId, undefined, true);
+      } catch {
+        markActiveRunStatusPending(activeSession.sessionId);
+        // Keep the queue paused until the next successful status refresh.
+      }
+    } finally {
+      if (stopAbortRef.value === abortController) {
+        stopAbortRef.value = null;
+        stopping.value = false;
+      }
+    }
+    return;
+  }
+
+  if (
+    sending.value &&
+    adapter.capabilities.supportsAbort &&
+    !(adapter.capabilities.supportsStop && adapter.stopRun)
+  ) {
+    autoDrainEpochRef.value += 1;
+    if (expectedRunId) terminalHandledRunCodesRef.add(expectedRunId);
+    detachRunObserver("stop");
+    reportInfo("Current response has been stopped", "Chat stopped");
+  }
+}
+
+function handleNewSession() {
+  queueGenerationRef.value += 1;
+  detachRunObserver("detach");
+  stopAbortRef.value?.abort();
+  session.value = null;
+  messages.value = [];
+    userInputRequest.value = null;
+    userInputRequests.value = [];
+  aguiEvents.value = [];
+  protocolEvents.value = [];
+  liveAguiEvents.value = [];
+  liveAguiAnchorMessageCodes.value = {};
+  liveAguiPendingAnchorMessageCode.value = "";
+  pendingAttachments.value = [];
+  activeSessionCodeRef.value = "";
+  activeRunCode.value = "";
+  activeRunSupportsSteer.value = null;
+  remoteActiveRun.value = null;
+  pendingProtocolTerminalRun.value = null;
+  activeRunStatusPending.value = false;
+  stopping.value = false;
+  replaceQueuedSubmissions([]);
+}
+
+onBeforeUnmount(() => {
+  queueGenerationRef.value += 1;
+  detachRunObserver("detach");
+  stopAbortRef.value?.abort();
+});
+
+const presentationDebugEvents = computed(
+  () =>
+    buildTranscriptPresentation({
+      debugOptions: props.debugOptions,
+      liveAguiAnchorMessageCodes: liveAguiAnchorMessageCodes.value,
+      liveAguiEvents: liveAguiEvents.value,
+      liveAguiPendingAnchorMessageCode: liveAguiPendingAnchorMessageCode.value,
+      liveAguiPending: liveAguiPending.value,
+      messages: messages.value,
+      protocolEvents: protocolEvents.value,
+      sessionId: session.value?.sessionId ?? "",
+    }).debugEventsByRunCode,
+);
+
+const resolvedDebugOptions = computed(() => ({
+  ...props.debugOptions,
+  debugEventTypes: props.debugOptions?.debugEventTypes?.length
+    ? Array.from(
+        new Set([
+          ...props.debugOptions.debugEventTypes,
+          ...Array.from(presentationDebugEvents.value.keys()).flatMap(
+            (runId) =>
+              mergeTranscriptAguiEvents(
+                protocolEvents.value,
+                liveAguiEvents.value,
+              )
+                .filter(
+                  (event) => (event.runId ?? event.runId ?? "") === runId,
+                )
+                .map((event) => String(event.type).toUpperCase()),
+          ),
+        ]),
+      )
+    : props.debugOptions?.debugEventTypes,
+}));
+
+const attachmentDownloader = computed<
+  ((attachment: ChatMessageAttachment) => Promise<Blob>) | undefined
+>(() => {
+  const activeSession = session.value;
+  const downloadAttachment = activeAdapter.value.downloadAttachment;
+  if (!activeSession || !downloadAttachment) return undefined;
+  return (attachment) => downloadAttachment(activeSession, attachment);
+});
+
+function handleDraftChange(value: string) {
+  draft.value = value;
+}
+
+function handleEditMessage(content: string) {
+  draft.value = content;
+}
+
+function handleCreateSession() {
+  if (props.onCreateSession) {
+    props.onCreateSession();
+    return;
+  }
+  void ensureSession();
+}
+
+function handleRuntimeSend(mode?: ChatSubmitMode) {
+  void handleSubmit(mode);
+}
+
+const panelCommonProps = computed(() => ({
+  attachmentDownloader: attachmentDownloader.value,
+  attachmentLabels: props.attachmentLabels,
+  autoFocusComposer: props.autoFocusComposer,
+  composerHeader: props.composerHeader,
+  createSessionLabel: "Start chat",
+  currentUserDisplayName: props.currentUserDisplayName,
+  debugOptions: resolvedDebugOptions.value,
+  disabledInput: Boolean(props.config.disabledInput) || Boolean(userInputRequest.value),
+  draft: draft.value,
+  emptyDescription: props.emptyDescription ?? "Create a session to start chatting.",
+  emptyTitle: props.emptyTitle,
+  formatAnnotationCount: props.formatAnnotationCount,
+  inputPlaceholder: props.config.inputPlaceholder,
+  liveAguiAnchorMessageCodes: liveAguiAnchorMessageCodes.value,
+  liveAguiEvents: liveAguiEvents.value,
+  liveAguiPendingAnchorMessageCode: liveAguiPendingAnchorMessageCode.value,
+  liveAguiPending: liveAguiPending.value,
+  messages: messages.value,
+  streamingAssistantMessageCode: streamingAssistantMessageCode.value,
+  onCreateSession: props.onCreateSession ?? (() => {
+    void ensureSession();
+  }),
+  onNewSession: handleNewSession,
+  onDraftChange: handleDraftChange,
+  onPasteAttachment: handleAttachmentUpload,
+  onEditMessage: handleEditMessage,
+  onEditQueuedMessage: handleEditQueuedMessage,
+  onRemoveQueuedMessage: handleRemoveQueuedMessage,
+  onAnswerUserInput: (answers: ChatUserInputAnswer[]) => {
+    void handleAnswerUserInput(answers);
+  },
+  onSend: (mode?: ChatSubmitMode) => {
+    void handleSubmit(mode);
+  },
+  onStop: () => {
+    void handleStop();
+  },
+  protocolEvents: protocolEvents.value,
+  queueDisabled: queueDisabled.value,
+  queuedMessages: visibleQueuedSubmissions.value,
+  runningSubmitModes: runningSubmitModes.value,
+  sendDisabled: sendDisabled.value || Boolean(userInputRequest.value),
+      sending: runActive.value,
+      session: session.value,
+  showAgui: aguiEnabled.value,
+  showHeader: props.showHeader ?? props.config.floating !== false,
+  showStop: canStop.value,
+  steerDisabled: steerDisabled.value || Boolean(userInputRequest.value),
+  stopLabel: "Stop",
+  title: props.config.title || props.floatingTitle,
+  userInputLabels: props.config.userInputLabels,
+  userInputRequests: userInputRequests.value,
+  workRailLabels: props.config.workRailLabels,
+  userInputAnswerPending: userInputAnswerPending.value,
+  userInputRequest: userInputRequest.value,
+}));
+
+function handleWindowStateChange(state: ChatFloatingState) {
+  props.onWindowStateChange?.(state);
+  emit("window-state-change", state);
+}
+</script>
+
+<template>
+  <ChatWindow
+    v-if="config.floating !== false"
+    v-bind="panelCommonProps"
+    :state="windowState"
+    :storage-key="config.storageKey || 'agent-ui.chat.runtime.window'"
+    :title="floatingTitle"
+    :title-subtitle="floatingSubtitle"
+    @state-change="handleWindowStateChange"
+  >
+    <template #footerAddon>
+      <div class="ef-chat__runtime-footer-addon">
+        <div v-if="pendingAttachments.length" class="ef-chat__runtime-attachments ef-chat__runtime-attachments--pending">
+          <div
+            v-for="attachment in pendingAttachments"
+            :key="attachment.id"
+            class="ef-chat__runtime-attachment-chip"
+            :title="attachment.fileName || attachment.title || attachment.summary"
+          >
+            <img v-if="attachment.imageUrl" :alt="attachment.fileName || attachment.summary" :src="attachment.imageUrl" />
+            <FileText v-else :size="16" />
+            <span>{{ attachment.fileName || attachment.title || attachment.summary }}</span>
+            <button
+              :aria-label="`Remove ${attachment.fileName || attachment.title || attachment.summary}`"
+              class="ef-chat__runtime-attachment-remove"
+              type="button"
+              @click="pendingAttachments = pendingAttachments.filter((item) => item.id !== attachment.id)"
+            >
+              <X :size="14" />
+            </button>
+          </div>
+        </div>
+        <div v-if="props.showAttachmentControl && activeAdapter.uploadAttachment" class="ef-chat__runtime-attachments">
+          <input
+            ref="attachmentFileInput"
+            class="ef-chat__runtime-attachment-input"
+            type="file"
+            @change="handleAttachmentFileInputChange"
+          />
+          <button
+            aria-label="Attach file"
+            class="ef-chat__icon-button"
+            :disabled="attachmentUploadPending"
+            :title="attachmentUploadPending ? 'Uploading attachment' : 'Attach file'"
+            type="button"
+            @click="attachmentFileInput?.click()"
+          >
+            <Paperclip :size="16" />
+          </button>
+        </div>
+        <slot name="footerAddon" />
+      </div>
+    </template>
+    <template v-for="name in forwardedSlotNames" #[name]="slotProps">
+      <slot :name="name" v-bind="slotProps || {}" />
+    </template>
+  </ChatWindow>
+  <ChatPanel
+    v-else
+    v-bind="panelCommonProps"
+    :show-header="props.showHeader ?? true"
+  >
+    <template #footerAddon>
+      <div class="ef-chat__runtime-footer-addon">
+        <div v-if="pendingAttachments.length" class="ef-chat__runtime-attachments ef-chat__runtime-attachments--pending">
+          <div
+            v-for="attachment in pendingAttachments"
+            :key="attachment.id"
+            class="ef-chat__runtime-attachment-chip"
+            :title="attachment.fileName || attachment.title || attachment.summary"
+          >
+            <img v-if="attachment.imageUrl" :alt="attachment.fileName || attachment.summary" :src="attachment.imageUrl" />
+            <FileText v-else :size="16" />
+            <span>{{ attachment.fileName || attachment.title || attachment.summary }}</span>
+            <button
+              :aria-label="`Remove ${attachment.fileName || attachment.title || attachment.summary}`"
+              class="ef-chat__runtime-attachment-remove"
+              type="button"
+              @click="pendingAttachments = pendingAttachments.filter((item) => item.id !== attachment.id)"
+            >
+              <X :size="14" />
+            </button>
+          </div>
+        </div>
+        <div v-if="props.showAttachmentControl && activeAdapter.uploadAttachment" class="ef-chat__runtime-attachments">
+          <input
+            ref="attachmentFileInput"
+            class="ef-chat__runtime-attachment-input"
+            type="file"
+            @change="handleAttachmentFileInputChange"
+          />
+          <button
+            aria-label="Attach file"
+            class="ef-chat__icon-button"
+            :disabled="attachmentUploadPending"
+            :title="attachmentUploadPending ? 'Uploading attachment' : 'Attach file'"
+            type="button"
+            @click="attachmentFileInput?.click()"
+          >
+            <Paperclip :size="16" />
+          </button>
+        </div>
+        <slot name="footerAddon" />
+      </div>
+    </template>
+    <template v-for="name in forwardedSlotNames" #[name]="slotProps">
+      <slot :name="name" v-bind="slotProps || {}" />
+    </template>
+  </ChatPanel>
+</template>
