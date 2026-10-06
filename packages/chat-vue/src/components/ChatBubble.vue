@@ -27,7 +27,7 @@ const actorName = computed(() =>
 <template>
   <article
     :class="cx('ef-chat__message', isUser && 'ef-chat__message--user')"
-    :data-theme-part="isUser ? 'chat-message-user' : 'chat-message-assistant'"
+    data-theme-anchor="chat-message" :data-theme-part="isUser ? 'chat-message-user' : 'chat-message-assistant'"
     :data-streaming="isStreaming ? 'true' : undefined"
   >
     <div class="ef-chat__message-header">

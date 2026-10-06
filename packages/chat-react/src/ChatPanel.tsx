@@ -19,6 +19,9 @@ import {
 } from "lucide-react";
 import {
   aguiEventRunId,
+  isAguiCancellationEvent,
+  isAguiExecutionTerminalEvent,
+  isAguiPresentationFailureEvent,
   aguiWorkElapsedMilliseconds,
   aguiReasoningEffort,
   buildAguiUserWorkCards,
@@ -369,7 +372,7 @@ function ImagePreviewDialog({
       aria-label="Image preview"
       aria-modal="true"
       className="ef-chat__image-preview-dialog"
-      role="dialog"
+      role="dialog" data-theme-anchor="dialog"
       onMouseDown={(event) => {
         if (event.target === event.currentTarget) onClose();
       }}
@@ -457,6 +460,7 @@ function ChatBubble({
     >
       <article
         className={cx("ef-chat__message", isUser && "ef-chat__message--user")}
+        data-theme-anchor="chat-message"
         data-theme-part={isUser ? "chat-message-user" : "chat-message-assistant"}
         data-streaming={isStreaming ? "true" : undefined}
       >
@@ -529,6 +533,9 @@ const defaultWorkRailLabels = {
   workingFor: (duration) => `Working for ${duration}`,
   failed: "Run failed",
   notices: {
+    mcpUnavailable: "MCP integration unavailable",
+    presentationIncomplete: "Presentation replay is incomplete",
+    presentationIncompleteDetail: "Some output could not be displayed or saved. The execution result is reported separately.",
     compactionRequested: "Preparing to compact context…",
     compactionStarted: "Compacting context…",
     compactionCompleted: "Context compacted",
@@ -566,6 +573,7 @@ const defaultToolWorkLabels = {
 interface TerminalWorkSummary {
   duration: string;
   failed: boolean;
+  stopped: boolean;
   runId: string;
 }
 
@@ -852,7 +860,7 @@ function ReasoningCard({
   const summary =
     summarizeReasoning(card) ||
     (card.ended ? toolCopy.reasoningCaptured : toolCopy.reasoningThinking);
-  const detail = card.content || card.summary;
+  const detail = card.summary;
   const [expanded, setExpanded] = useState(false);
 
   return (
@@ -978,11 +986,21 @@ function AguiRunStatus({ notices, labels }: { notices: AguiRunNotice[]; labels: 
       detail = notice.code;
       if (pending) Icon = LoaderCircle;
       if (notice.status === "completed") Icon = CheckCircle2;
+    } else if (notice.kind === "integrationWarning") {
+      title = copy.mcpUnavailable;
+      detail = notice.message || notice.code;
+    } else if (notice.kind === "runStopped") {
+      title = labels.stopped ?? "Run stopped";
+      detail = notice.message;
+      Icon = Square;
     } else {
       failed = true;
       title = labels.failed ?? defaultWorkRailLabels.failed;
       detail = notice.message || notice.code;
-      if (notice.code.toLowerCase() === "tool_schema_over_budget") {
+      if (notice.code === "AGENT_AGUI_REPLAY_INCOMPLETE") {
+        title = copy.presentationIncomplete;
+        detail = copy.presentationIncompleteDetail;
+      } else if (notice.code.toLowerCase() === "tool_schema_over_budget") {
         title = copy.toolSchemaOverBudget;
         const budget = notice.toolSchemaBudget;
         detail = budget ? copy.toolSchemaBudget(budget.estimatedTokens, budget.limitTokens, budget.toolCount) : "";
@@ -994,7 +1012,7 @@ function AguiRunStatus({ notices, labels }: { notices: AguiRunNotice[]; labels: 
         className={cx("ef-chat__run-notice", failed && "ef-chat__run-notice--error")}
         role={failed ? "alert" : "status"}
         aria-atomic="true"
-        key={notice.kind}
+        key={notice.kind === "integrationWarning" ? notice.id : notice.kind === "runError" || notice.kind === "runStopped" ? notice.kind + ":" + notice.code : notice.kind}
       >
         <Icon size={16} aria-hidden="true" className={pending ? "animate-spin" : undefined} />
         <div className="ef-chat__run-notice-content">
@@ -1061,17 +1079,20 @@ function AguiRunWorkRail({
   );
   const reasoningEffort = useMemo(() => aguiReasoningEffort(events), [events]);
   const terminalEvent = useMemo(() => [...events].reverse().find((event) => {
-    const type = String(event.type ?? "").toUpperCase();
-    return type.includes("RUN_FINISHED") || type.includes("RUN_ERROR");
+    return isAguiExecutionTerminalEvent(event);
   }) ?? null, [events]);
   const terminalSummary = useMemo<TerminalWorkSummary | null>(() => {
     if (!terminalEvent) return null;
+    // A cancellation must not mask another run's execution failure in this rail.
+    const stopped = isAguiCancellationEvent(terminalEvent)
+      && !notices.some((notice) => notice.kind === "runError" && notice.code !== "AGENT_AGUI_REPLAY_INCOMPLETE");
     return {
       duration: formatAguiDuration(aguiWorkElapsedMilliseconds(events)),
-      failed: String(terminalEvent.type).toUpperCase() === "RUN_ERROR",
+      failed: String(terminalEvent.type).toUpperCase() === "RUN_ERROR" && !stopped,
+      stopped,
       runId: aguiEventRunId(terminalEvent),
     };
-  }, [events, terminalEvent]);
+  }, [events, notices, terminalEvent]);
   const currentRunCode = useMemo(() => latestAguiRunCode(events), [events]);
   const latestTerminalSummaryRef = useRef<TerminalWorkSummary | null>(terminalSummary);
   if (terminalSummary?.runId) latestTerminalSummaryRef.current = terminalSummary;
@@ -1107,12 +1128,22 @@ function AguiRunWorkRail({
 
   if (!displayedTerminalSummary && !events.length && !orderedWorkItems.length && !debugEvents.length)
     return null;
+  const onlyPresentationHealth = notices.length > 0 && !displayedTerminalSummary
+    && events.every((event) => event.type === "CUSTOM" && event.name === "agent.presentation.incomplete");
+  if (onlyPresentationHealth) {
+    return <section className="ef-chat__rail" aria-label={labels.ariaLabel}><AguiRunStatus notices={notices} labels={labels} /></section>;
+  }
   const hasDetails = orderedWorkItems.length > 0 || debugEvents.length > 0;
-  let summary = labels.workingFor(duration);
+  const presentationClosedWithoutOutcome = !displayedTerminalSummary && events.some(isAguiPresentationFailureEvent);
+  let summary = presentationClosedWithoutOutcome
+    ? labels.notices?.presentationIncomplete ?? defaultWorkRailLabels.notices.presentationIncomplete
+    : labels.workingFor(duration);
   if (completed) {
     summary = displayedTerminalSummary?.failed
       ? `${labels.failed ?? defaultWorkRailLabels.failed} · ${duration}`
-      : labels.workedFor(duration);
+      : displayedTerminalSummary?.stopped
+        ? `${labels.stopped ?? "Run stopped"} · ${duration}`
+        : labels.workedFor(duration);
   }
   const summaryContent = (
     <span className="ef-chat__rail-summary-label">
@@ -1134,7 +1165,7 @@ function AguiRunWorkRail({
         </button>
       ) : <div className="ef-chat__rail-summary ef-chat__rail-summary--static">{summaryContent}</div>}
       <AguiRunStatus notices={notices} labels={labels} />
-      {!completed && !compacting ? (
+      {!completed && !compacting && !presentationClosedWithoutOutcome ? (
         <div className="ef-chat__rail-current" aria-live="polite">
           {pendingUserInputRequest ? (
             <>
@@ -1487,7 +1518,7 @@ export function ChatPanel({
 
   return (
     <MarkdownLinkRendererContext.Provider value={renderMarkdownLink}>
-    <div className="ef-chat" data-theme-part="chat">
+    <div className="ef-chat" data-theme-part="chat" data-theme-anchor="chat">
       <span
         aria-hidden="true"
         className="ef-chat__theme-effect-layer"
@@ -1696,7 +1727,7 @@ export function ChatPanel({
                 key={session?.sessionId ?? "composer"}
                 ref={setComposerNode}
                 className="ef-chat__textarea"
-                data-theme-part="chat-input"
+                data-theme-part="chat-input" data-theme-anchor="chat-input"
                 disabled={disabledInput}
                 placeholder={composerPlaceholder}
                 value={draft}

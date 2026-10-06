@@ -243,3 +243,19 @@ npm run dev --workspace @eliteforge/agent-ui-terminal
 - [Vue 聊天包说明](../packages/chat-vue/README.md)
 - [终端包说明](../packages/terminal/README.md)
 - [仓库包结构与开发命令](../README.md)
+
+## 宿主迁移时保留的契约
+
+宿主将自己的 Code 字段映射为 UI 的 Id 字段时，须同步处理历史消息、实时事件、主动运行状态、用户问题、附件和恢复回答。
+尤其是 `resume[].payload.answers` 中的 question/option 标识，不能只转换外层 `answers`。
+宿主扩展字段可放在 `metadata` 中；转换后的 metadata 不代替后端权限检查。
+
+运行中的发送策略依赖结构化错误码。宿主应将其“运行已存在/steer 不可用”等错误映射为公共 `ChatAdapterError` 的相应代码，
+并保留 HTTP 状态、错误详情、AbortSignal 与预期 run 标识。不能仅抛普通 Error 导致队列误判。
+
+React/Vue 聊天组件提供 `data-theme-anchor="chat"`、`chat-input`、`chat-message` 和 `dialog` 的宿主主题锚点，
+同时保留 `data-theme-part`。摘要栏只使用公开 reasoning summary；已结束的空 reasoning 若拥有工具卡片仍保留，
+避免终端过滤 reasoning 时一并丢掉工具执行结果。
+
+Tron 的初始接入使用公共 chat 与 terminal 渲染器，Tron 自己维护 `@tron/chat-agent-ui-adapter`、认证、业务 API 和服务端 PTY。
+公共项目修复需要在这里验证后由宿主更新依赖；不能让宿主复制渲染器。当前联合开发使用显式本地路径，发布依赖需另行固定版本。

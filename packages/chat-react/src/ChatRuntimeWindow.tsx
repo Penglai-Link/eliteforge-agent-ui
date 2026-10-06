@@ -1,6 +1,7 @@
 import {
   AssistantReplyQueue,
   buildTranscriptPresentation,
+  belongsToNewChatTurn,
   createMockChatAdapter,
   enqueueChatSubmission,
   ChatAdapterError,
@@ -8,6 +9,10 @@ import {
   mergeChatMessagesChronologically,
   mergeTranscriptAguiEvents,
   normalizeChatSession,
+  isAguiPresentationFailureEvent,
+  isAguiExecutionTerminalEvent,
+  nativeUserInputRequests,
+  nativeUserInputAnswer,
   removeQueuedChatSubmission,
   takeNextQueuedChatSubmission,
   type ChatFloatingState,
@@ -91,6 +96,27 @@ export interface ChatRuntimeWindowProps {
   windowState?: ChatFloatingState;
   onWindowStateChange?: (state: ChatFloatingState) => void;
   renderMarkdownLink?: ChatMarkdownLinkRenderer;
+}
+
+function presentationReadHealthId(sessionId: string, runId: string) {
+  return `presentation-read-health:${sessionId}:${runId}`;
+}
+
+function removeRecoveredReadHealth(
+  current: ChatAguiStreamEvent[],
+  sessionId: string,
+  protocol: ChatAguiStreamEvent[],
+) {
+  const terminalRuns = new Set(protocol
+    .filter((event) => event.threadId === sessionId && isAguiExecutionTerminalEvent(event))
+    .map((event) => event.runId));
+  // Only retire our temporary read notice. Native failures and live frames stay intact.
+  return current.filter((event) => !(
+    event.type === "CUSTOM" && event.name === "agent.presentation.incomplete"
+    && event.threadId === sessionId && typeof event.runId === "string"
+    && terminalRuns.has(event.runId)
+    && event.id === presentationReadHealthId(sessionId, event.runId)
+  ));
 }
 
 function defaultErrorReporter(message: string) {
@@ -210,7 +236,9 @@ export function ChatRuntimeWindow({
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [userInputRequest, setUserInputRequest] = useState<ChatUserInputRequest | null>(null);
   const [userInputRequests, setUserInputRequests] = useState<ChatUserInputRequest[]>([]);
+  const answeredNativeInteractionsRef = useRef(new Set<string>());
   const [userInputAnswerPending, setUserInputAnswerPending] = useState(false);
+  const [submissionError, setSubmissionError] = useState<string | null>(null);
   const [aguiEvents, setAguiEvents] = useState<ChatAguiEvent[]>([]);
   const [protocolEvents, setProtocolEvents] = useState<ChatAguiStreamEvent[]>([]);
   const [liveAguiEvents, setLiveAguiEvents] = useState<ChatAguiStreamEvent[]>([]);
@@ -231,6 +259,7 @@ export function ChatRuntimeWindow({
   const [stopping, setStopping] = useState(false);
   const [queuedSubmissions, setQueuedSubmissions] = useState<ChatQueuedSubmission[]>([]);
   const activeSessionCodeRef = useRef("");
+  const lastReadErrorRef = useRef("");
   const activeRunCodeRef = useRef("");
   const remoteActiveRunRef = useRef<ChatActiveRun | null>(null);
   const activeRunStatusPendingRef = useRef(false);
@@ -247,7 +276,6 @@ export function ChatRuntimeWindow({
   const queuedSubmissionSequenceRef = useRef(0);
   const attachmentFileInputRef = useRef<HTMLInputElement | null>(null);
   const optimisticMessageSequenceRef = useRef(0);
-  const currentLiveAguiRunCodesRef = useRef<Set<string>>(new Set());
   const currentLiveAguiFailedRunCodesRef = useRef<Set<string>>(new Set());
   const observedRemoteRunRef = useRef<{ runId: string; sessionId: string } | null>(null);
   const drainedRemoteRunKeysRef = useRef<Set<string>>(new Set());
@@ -428,10 +456,10 @@ export function ChatRuntimeWindow({
     setRemoteActiveRun(next);
   }
 
-  async function loadActiveRunSnapshot(
+  const loadActiveRunSnapshot = useCallback(async (
     sessionId: string,
     signal?: AbortSignal,
-  ) {
+  ) => {
     if (
       !activeAdapter.capabilities.supportsActiveRun
       || !activeAdapter.getActiveRun
@@ -440,6 +468,30 @@ export function ChatRuntimeWindow({
     }
     const result = await activeAdapter.getActiveRun(sessionId, signal);
     return result.activeRun;
+  }, [activeAdapter]);
+
+  async function refreshPresentationAfterTurn(sessionId: string, runId: string): Promise<boolean> {
+    if (!aguiEnabled) return true;
+    const [audits, protocol] = await Promise.allSettled([
+      activeAdapter.loadAguiEvents(sessionId),
+      protocolReplayEnabled && activeAdapter.loadProtocolEvents ? activeAdapter.loadProtocolEvents(sessionId) : Promise.resolve([]),
+    ]);
+    if (activeSessionCodeRef.current !== sessionId) return false;
+    const errors = [audits, protocol].flatMap((part) => part.status === "rejected" ? [part.reason] : []);
+    reportReadErrors(sessionId, errors);
+    const incomplete = errors.length > 0 || (audits.status === "fulfilled" && audits.value.some((event) => event.metadata?.replayIncomplete === "true"));
+    const health: ChatAguiStreamEvent = { type: "CUSTOM", name: "agent.presentation.incomplete", id: presentationReadHealthId(sessionId, runId), runId, threadId: sessionId, timestamp: Date.now(), value: { code: "AGENT_AGUI_REPLAY_INCOMPLETE" } };
+    if (audits.status === "fulfilled") setAguiEvents(audits.value);
+    if (protocol.status === "fulfilled" && protocolReplayEnabled) {
+      setProtocolEvents(incomplete ? [...protocol.value, health] : protocol.value);
+      if (!incomplete) {
+        setLiveAguiEvents((current) => removeRecoveredReadHealth(current, sessionId, protocol.value));
+      }
+      // Release the live source only after a durable terminal is actually replayed.
+      return protocol.value.some((event) => event.runId === runId && ["RUN_FINISHED", "RUN_ERROR"].includes(event.type));
+    }
+    if (incomplete) setLiveAguiEvents((current) => [...current, health]);
+    return false;
   }
 
   async function refreshActiveRun(sessionId: string) {
@@ -561,6 +613,7 @@ export function ChatRuntimeWindow({
       setProtocolEvents([]);
       setUserInputRequests([]);
       setUserInputRequest(null);
+      setSubmissionError(null);
       setLiveAguiEvents([]);
       setLiveAguiPending(false);
       setLiveAguiAnchorMessageCodes({});
@@ -576,6 +629,69 @@ export function ChatRuntimeWindow({
     detachSteerObserver(false);
   }, []);
 
+  const nativePendingRequests = useMemo(() => nativeUserInputRequests(
+    mergeTranscriptAguiEvents(protocolEvents, liveAguiEvents) as ChatAguiStreamEvent[],
+    session?.sessionId ?? "", config.userInputLabels,
+  ), [protocolEvents, liveAguiEvents, session?.sessionId, config.userInputLabels]);
+  useEffect(() => { answeredNativeInteractionsRef.current.clear(); }, [session?.sessionId]);
+  useEffect(() => {
+    const pending = nativePendingRequests.filter((request) => !answeredNativeInteractionsRef.current.has(request.requestId));
+    setUserInputRequests((current) => {
+      const legacy = current.filter((request) => !request.nativeInteraction);
+      const legacyPendingIds = new Set(legacy.filter((request) => request.status === "Pending").map((request) => request.requestId));
+      return [...legacy, ...pending.filter((request) => !legacyPendingIds.has(request.requestId))];
+    });
+    setUserInputRequest((current) => current && !current.nativeInteraction ? current : pending[0] ?? null);
+  }, [nativePendingRequests]);
+
+  const readSessionStateParts = useCallback(async (sessionId: string, signal?: AbortSignal) => {
+    const parts = await Promise.allSettled([
+      activeAdapter.loadMessages(sessionId),
+      aguiEnabled ? activeAdapter.loadAguiEvents(sessionId) : Promise.resolve([]),
+      protocolReplayEnabled && activeAdapter.loadProtocolEvents
+        ? activeAdapter.loadProtocolEvents(sessionId) : Promise.resolve([]),
+      loadActiveRunSnapshot(sessionId, signal).catch(() => undefined),
+      activeAdapter.capabilities.supportsUserInputRequests && activeAdapter.loadUserInputRequests
+        ? activeAdapter.loadUserInputRequests(sessionId, signal) : Promise.resolve([]),
+    ] as const);
+    const value = <T,>(part: PromiseSettledResult<T>): T | undefined =>
+      part.status === "fulfilled" ? part.value : undefined;
+    const audits = value(parts[1]);
+    const presentationIncomplete = parts[1].status === "rejected" || parts[2].status === "rejected"
+      || Boolean(audits?.some((event) => event.metadata?.replayIncomplete === "true"));
+    const knownAudit = audits?.slice().reverse().find((event) => Boolean(event.runId));
+    const knownMessage = value(parts[0])?.slice().reverse().find((message) => Boolean(message.runId));
+    const healthRunId = knownAudit?.runId || knownMessage?.runId || value(parts[3])?.runId;
+    const healthNotice: ChatAguiStreamEvent | undefined = presentationIncomplete && healthRunId ? {
+      type: "CUSTOM", name: "agent.presentation.incomplete", runId: healthRunId, threadId: sessionId,
+      id: presentationReadHealthId(sessionId, healthRunId),
+      timestamp: Date.parse(knownAudit?.occurredAt || knownMessage?.createdAt || "") || Date.now(),
+      value: { code: "AGENT_AGUI_REPLAY_INCOMPLETE" },
+    } : undefined;
+    const protocol = value(parts[2]);
+    return {
+      nextMessages: value(parts[0]),
+      nextAguiEvents: parts[2].status === "rejected"
+        ? audits?.map((event) => ({ ...event, metadata: { ...event.metadata, replayIncomplete: "true" } }))
+        : audits,
+      nextProtocolEvents: protocol && healthNotice ? [...protocol, healthNotice] : protocol,
+      healthyProtocolEvents: !presentationIncomplete ? protocol : undefined,
+      healthNotice,
+      nextActiveRun: value(parts[3]),
+      nextUserInputRequests: value(parts[4]),
+      errors: parts.flatMap((part) => part.status === "rejected" ? [part.reason] : []),
+    };
+  }, [activeAdapter, aguiEnabled, protocolReplayEnabled, loadActiveRunSnapshot]);
+
+  const reportReadErrors = useCallback((sessionId: string, errors: unknown[]) => {
+    if (!errors.length) { lastReadErrorRef.current = ""; return; }
+    const messages = errors.map((error) => error instanceof Error ? error.message : "Chat data could not be loaded");
+    const signature = JSON.stringify([sessionId, messages]);
+    if (lastReadErrorRef.current === signature) return;
+    lastReadErrorRef.current = signature;
+    onError(messages.join("; "), "Chat load failed");
+  }, [onError]);
+
   useEffect(() => {
     let active = true;
     const abortController = new AbortController();
@@ -590,24 +706,24 @@ export function ChatRuntimeWindow({
       }
       setLoading(true);
       try {
-        const [nextMessages, nextAguiEvents, nextProtocolEvents, nextActiveRun, nextUserInputRequests] = await Promise.all([
-          activeAdapter.loadMessages(session.sessionId),
-          aguiEnabled ? activeAdapter.loadAguiEvents(session.sessionId) : Promise.resolve([]),
-          protocolReplayEnabled && activeAdapter.loadProtocolEvents
-            ? activeAdapter.loadProtocolEvents(session.sessionId)
-            : Promise.resolve([]),
-          loadActiveRunSnapshot(session.sessionId, abortController.signal)
-            .catch(() => undefined),
-          activeAdapter.capabilities.supportsUserInputRequests && activeAdapter.loadUserInputRequests
-            ? activeAdapter.loadUserInputRequests(session.sessionId, abortController.signal)
-            : Promise.resolve([]),
-        ]);
+        const { nextMessages, nextAguiEvents, nextProtocolEvents, nextActiveRun, nextUserInputRequests, errors, healthNotice, healthyProtocolEvents } =
+          await readSessionStateParts(session.sessionId, abortController.signal);
         if (!active) return;
-        if (!sendingRef.current) setMessages(nextMessages);
-        setAguiEvents(nextAguiEvents);
-        setProtocolEvents(nextProtocolEvents);
-        setUserInputRequests(nextUserInputRequests);
-        setUserInputRequest(nextUserInputRequests.find((request) => request.status === "Pending") ?? null);
+        reportReadErrors(session.sessionId, errors);
+        if (!sendingRef.current && nextMessages !== undefined) setMessages(nextMessages);
+        if (healthyProtocolEvents !== undefined) {
+          setLiveAguiEvents((current) => removeRecoveredReadHealth(current, session.sessionId, healthyProtocolEvents));
+        }
+        if (nextAguiEvents !== undefined) setAguiEvents(nextAguiEvents);
+        if (nextProtocolEvents !== undefined) setProtocolEvents(nextProtocolEvents);
+        else if (healthNotice) setProtocolEvents((current) => [
+          ...current.filter((event) => !(event.type === "CUSTOM" && event.name === "agent.presentation.incomplete")),
+          healthNotice,
+        ]);
+        if (nextUserInputRequests !== undefined) {
+          setUserInputRequests(nextUserInputRequests);
+          setUserInputRequest(nextUserInputRequests.find((request) => request.status === "Pending") ?? null);
+        }
         if (nextActiveRun !== undefined) {
           replaceRemoteActiveRun(nextActiveRun);
           if (nextActiveRun) {
@@ -641,7 +757,7 @@ export function ChatRuntimeWindow({
       active = false;
       abortController.abort();
     };
-  }, [activeAdapter, aguiEnabled, onError, protocolReplayEnabled, session?.sessionId]);
+  }, [activeAdapter, aguiEnabled, onError, protocolReplayEnabled, readSessionStateParts, reportReadErrors, session?.sessionId]);
 
   const shouldPollData = Boolean(
     session?.sessionId
@@ -658,23 +774,24 @@ export function ChatRuntimeWindow({
     const intervalId = window.setInterval(async () => {
       if (!session?.sessionId) return;
       try {
-        const [nextMessages, nextAguiEvents, nextProtocolEvents, nextActiveRun, nextUserInputRequests] = await Promise.all([
-          activeAdapter.loadMessages(session.sessionId),
-          aguiEnabled ? activeAdapter.loadAguiEvents(session.sessionId) : Promise.resolve([]),
-          protocolReplayEnabled && activeAdapter.loadProtocolEvents
-            ? activeAdapter.loadProtocolEvents(session.sessionId)
-            : Promise.resolve([]),
-          loadActiveRunSnapshot(session.sessionId).catch(() => undefined),
-          activeAdapter.capabilities.supportsUserInputRequests && activeAdapter.loadUserInputRequests
-            ? activeAdapter.loadUserInputRequests(session.sessionId)
-            : Promise.resolve([]),
-        ]);
+        const { nextMessages, nextAguiEvents, nextProtocolEvents, nextActiveRun, nextUserInputRequests, errors, healthNotice, healthyProtocolEvents } =
+          await readSessionStateParts(session.sessionId);
         if (activeSessionCodeRef.current !== session.sessionId) return;
-        if (!sendingRef.current) setMessages(nextMessages);
-        setAguiEvents(nextAguiEvents);
-        setProtocolEvents(nextProtocolEvents);
-        setUserInputRequests(nextUserInputRequests);
-        setUserInputRequest(nextUserInputRequests.find((request) => request.status === "Pending") ?? null);
+        reportReadErrors(session.sessionId, errors);
+        if (!sendingRef.current && nextMessages !== undefined) setMessages(nextMessages);
+        if (healthyProtocolEvents !== undefined) {
+          setLiveAguiEvents((current) => removeRecoveredReadHealth(current, session.sessionId, healthyProtocolEvents));
+        }
+        if (nextAguiEvents !== undefined) setAguiEvents(nextAguiEvents);
+        if (nextProtocolEvents !== undefined) setProtocolEvents(nextProtocolEvents);
+        else if (healthNotice) setProtocolEvents((current) => [
+          ...current.filter((event) => !(event.type === "CUSTOM" && event.name === "agent.presentation.incomplete")),
+          healthNotice,
+        ]);
+        if (nextUserInputRequests !== undefined) {
+          setUserInputRequests(nextUserInputRequests);
+          setUserInputRequest(nextUserInputRequests.find((request) => request.status === "Pending") ?? null);
+        }
         if (nextActiveRun !== undefined) {
           replaceRemoteActiveRun(nextActiveRun);
           if (nextActiveRun) {
@@ -701,7 +818,7 @@ export function ChatRuntimeWindow({
       }
     }, 1000);
     return () => window.clearInterval(intervalId);
-  }, [activeAdapter, aguiEnabled, protocolReplayEnabled, session?.sessionId, shouldPollData, userInputRequest]);
+  }, [activeAdapter, aguiEnabled, protocolReplayEnabled, readSessionStateParts, reportReadErrors, session?.sessionId, shouldPollData, userInputRequest]);
 
   useEffect(() => {
     const sessionId = session?.sessionId;
@@ -831,8 +948,8 @@ export function ChatRuntimeWindow({
     const abortController = new AbortController();
     abortRef.current = abortController;
     streamAbortReasonsRef.current.set(abortController, "none");
-    currentLiveAguiRunCodesRef.current.clear();
     currentLiveAguiFailedRunCodesRef.current.clear();
+    setSubmissionError(null);
     activeRunCodeRef.current = "";
     setActiveRunCode("");
     setActiveRunSupportsSteer(null);
@@ -885,6 +1002,7 @@ export function ChatRuntimeWindow({
         sendInput,
         {
           onAguiEvent: (event) => {
+            if (!belongsToNewChatTurn(event, activeSession.sessionId, optimisticCreatedAt)) return;
             if (abortRef.current !== abortController) return;
             const runId = String(event.runId ?? event.runId ?? "");
             if (typeof event.supportsSteer === "boolean") {
@@ -897,9 +1015,8 @@ export function ChatRuntimeWindow({
             if (!aguiEnabled) return;
             setLiveAguiEvents((current) => [...current, event]);
             if (runId) {
-              currentLiveAguiRunCodesRef.current.add(runId);
               const eventType = String(event.type ?? "").toUpperCase();
-              if (eventType === "RUN_ERROR" || eventType === "AGENT.RUN.FAILED") {
+              if ((eventType === "RUN_ERROR" || eventType === "AGENT.RUN.FAILED") && !isAguiPresentationFailureEvent(event)) {
                 currentLiveAguiFailedRunCodesRef.current.add(runId);
               }
               setLiveAguiAnchorMessageCodes((current) => (
@@ -959,22 +1076,11 @@ export function ChatRuntimeWindow({
           [optimisticUserCode, optimisticAssistantCode],
         ));
       }
-      if (aguiEnabled) {
-        const [nextAguiEvents, nextProtocolEvents] = await Promise.all([
-          activeAdapter
-            .loadAguiEvents(result.session.sessionId)
-            .catch(() => aguiEvents),
-          protocolReplayEnabled && activeAdapter.loadProtocolEvents
-            ? activeAdapter
-                .loadProtocolEvents(result.session.sessionId)
-                .catch(() => protocolEvents)
-            : Promise.resolve([]),
-        ]);
-        setAguiEvents(nextAguiEvents);
-        setProtocolEvents(nextProtocolEvents);
+      const durablePresentation = await refreshPresentationAfterTurn(result.session.sessionId, result.run.runId);
+      if (durablePresentation) {
+        setLiveAguiEvents([]);
+        setLiveAguiAnchorMessageCodes({});
       }
-      setLiveAguiEvents([]);
-      setLiveAguiAnchorMessageCodes({});
       completedSession = result.session;
       completed = currentStreamAbortReason(abortController) === "none"
         && autoDrainEpochRef.current === autoDrainEpoch;
@@ -1015,40 +1121,18 @@ export function ChatRuntimeWindow({
           setPendingAttachments((current) => [...submittedAttachments, ...current]);
         }
         const errorMessage = error instanceof Error ? error.message : "Chat send failed";
-        if (aguiEnabled) {
-          const existingRunCode = activeRunCodeRef.current;
-          const runId = existingRunCode || `LOCAL-${optimisticKey}-FAILED`;
-          if (!currentLiveAguiFailedRunCodesRef.current.has(runId)) {
-            const finishedAt = Date.now();
-            const failureEvents: ChatAguiStreamEvent[] = [
-              ...(!existingRunCode
-                ? [{
-                    runId: runId,
-                    threadId: activeSession.sessionId,
-                    timestamp: finishedAt - 1,
-                    type: "RUN_STARTED",
-                  }]
-                : []),
-              {
-                runId: runId,
-                threadId: activeSession.sessionId,
-                timestamp: finishedAt,
-                type: "RUN_ERROR",
-                code: error instanceof ChatAdapterError
-                  ? error.code || "CHAT_SEND_FAILED"
-                  : "CHAT_SEND_FAILED",
-                message: errorMessage,
-              },
-            ];
-            setLiveAguiEvents((current) => [...current, ...failureEvents]);
-            setLiveAguiAnchorMessageCodes((current) => ({
-              ...current,
-              [runId]: optimisticUserCode,
-            }));
-            currentLiveAguiRunCodesRef.current.add(runId);
-            currentLiveAguiFailedRunCodesRef.current.add(runId);
-          }
-        } else {
+        const runId = activeRunCodeRef.current;
+        const knownNativeFailure = Boolean(runId && currentLiveAguiFailedRunCodesRef.current.has(runId));
+        if (aguiEnabled && runId && !knownNativeFailure) {
+          setLiveAguiEvents((current) => [...current, {
+            type: "CUSTOM", name: "agent.presentation.incomplete", runId,
+            threadId: activeSession.sessionId, timestamp: Date.now(),
+            value: { code: "AGENT_AGUI_REPLAY_INCOMPLETE" },
+          }]);
+          setLiveAguiAnchorMessageCodes((current) => ({ ...current, [runId]: optimisticUserCode }));
+        }
+        if (!aguiEnabled || !knownNativeFailure) {
+          setSubmissionError(errorMessage);
           onError(errorMessage, "Chat send failed");
         }
       }
@@ -1107,7 +1191,7 @@ export function ChatRuntimeWindow({
       const result = await activeAdapter.answerUserInputRequestStream(
         session,
         userInputRequest.requestId,
-        { answers },
+        nativeUserInputAnswer(userInputRequest, answers),
         {
           onAguiEvent: (event) => {
             if (!aguiEnabled) return;
@@ -1121,6 +1205,7 @@ export function ChatRuntimeWindow({
           },
         },
       );
+      if (userInputRequest.nativeInteraction) answeredNativeInteractionsRef.current.add(userInputRequest.requestId);
       setMessages(await activeAdapter.loadMessages(session.sessionId).catch(() => result.messages));
       setSession(result.session);
       const nextUserInputRequests = activeAdapter.loadUserInputRequests
@@ -1137,17 +1222,8 @@ export function ChatRuntimeWindow({
             : request
         )));
       }
-      if (aguiEnabled) {
-        const [nextAguiEvents, nextProtocolEvents] = await Promise.all([
-          activeAdapter.loadAguiEvents(session.sessionId).catch(() => aguiEvents),
-          protocolReplayEnabled && activeAdapter.loadProtocolEvents
-            ? activeAdapter.loadProtocolEvents(session.sessionId).catch(() => protocolEvents)
-            : Promise.resolve([]),
-        ]);
-        setAguiEvents(nextAguiEvents);
-        setProtocolEvents(nextProtocolEvents);
-      }
-      setLiveAguiEvents([]);
+      const durablePresentation = await refreshPresentationAfterTurn(session.sessionId, result.run.runId);
+      if (durablePresentation) setLiveAguiEvents([]);
       setLiveAguiPending(false);
       setLiveAguiPendingAnchorMessageCode("");
       setLiveAguiAnchorMessageCodes({});
@@ -1459,13 +1535,20 @@ export function ChatRuntimeWindow({
     </div>
   );
 
+  const composerFeedback = <>
+    {composerHeader ?? pendingAttachmentHeader}
+    {submissionError ? <div className="ef-chat__run-notice ef-chat__run-notice--error" role="alert">
+      <div className="ef-chat__run-notice-content"><div className="ef-chat__run-notice-detail">{submissionError}</div></div>
+    </div> : null}
+  </>;
+
   const panel = (
     <ChatPanel
       attachmentLabels={attachmentLabels}
       attachmentDownloader={attachmentDownloader}
       autoFocusComposer={autoFocusComposer}
       composerRef={composerRef}
-      composerHeader={composerHeader ?? pendingAttachmentHeader}
+      composerHeader={composerFeedback}
       createSessionLabel={createSessionLabel}
       currentUserDisplayName={currentUserDisplayName}
       debugOptions={resolvedDebugOptions}
@@ -1522,7 +1605,7 @@ export function ChatRuntimeWindow({
         attachmentDownloader={attachmentDownloader}
         autoFocusComposer={autoFocusComposer}
         composerRef={composerRef}
-        composerHeader={composerHeader ?? pendingAttachmentHeader}
+        composerHeader={composerFeedback}
         currentUserDisplayName={currentUserDisplayName}
         debugOptions={resolvedDebugOptions}
         disabledInput={Boolean(config.disabledInput) || userInputRequest?.status === "Pending"}

@@ -22,6 +22,8 @@ export interface ToolSchemaBudgetNotice {
 
 export type AguiRunNotice =
   | { kind: "compaction"; status: ChatCompactionStatus; code: string }
+  | { kind: "integrationWarning"; id: string; code: string; message: string }
+  | { kind: "runStopped"; code: string; message: string }
   | { kind: "runError"; code: string; message: string; toolSchemaBudget?: ToolSchemaBudgetNotice };
 
 const compactionEventStatuses = new Map<string, ChatCompactionStatus>([
@@ -39,14 +41,44 @@ function toolSchemaBudget(message: string): ToolSchemaBudgetNotice | undefined {
   return { estimatedTokens, limitTokens, toolCount };
 }
 
-// One compact lifecycle notice per run; detailed events remain available in replay.
+export function isAguiPresentationFailureEvent(event: TranscriptAguiEvent): boolean {
+  if (!aguiEventType(event).toUpperCase().includes("RUN_ERROR")) return false;
+  return ("code" in event && typeof event.code === "string" && event.code.startsWith("AGUI_"))
+    || ("code" in event && event.code === "CHAT_STREAM_COMPLETION_UNAVAILABLE" && "productCompletionError" in event && event.productCompletionError !== null && typeof event.productCompletionError === "object");
+}
+export function isAguiCancellationEvent(event: TranscriptAguiEvent): boolean {
+  return aguiEventType(event).toUpperCase() === "RUN_ERROR"
+    && "code" in event && event.code === "AGENT_CANCELLED";
+}
+export function isAguiExecutionTerminalEvent(event: TranscriptAguiEvent): boolean {
+  const type=aguiEventType(event).toUpperCase();
+  return type.includes("RUN_FINISHED") || (type.includes("RUN_ERROR") && !isAguiPresentationFailureEvent(event));
+}
+
+// Lifecycle notices and presentation health are independent; replay retains their details.
 export function buildAguiRunNotices(events: TranscriptAguiEvent[]): AguiRunNotice[] {
   let compaction: Extract<AguiRunNotice, { kind: "compaction" }> | undefined;
   let error: Extract<AguiRunNotice, { kind: "runError" }> | undefined;
+  let stopped: Extract<AguiRunNotice, { kind: "runStopped" }> | undefined;
   let terminal = false;
+  let presentationIncomplete = false;
+  const warnings = new Map<string, Extract<AguiRunNotice, {kind: "integrationWarning"}>>();
   for (const event of events) {
     const type = aguiEventType(event).toUpperCase();
+    const metadata = "metadata" in event && event.metadata && typeof event.metadata === "object"
+      ? event.metadata as Record<string, unknown> : {};
+    presentationIncomplete ||= (metadata.replayIncomplete === true || metadata.replayIncomplete === "true")
+      || ("presentationIncomplete" in event && event.presentationIncomplete === true)
+      || (type === "CUSTOM" && "name" in event && (event.name === "tron.presentation.incomplete" || event.name === "agent.presentation.incomplete"));
+
     if (type === "CUSTOM" && "name" in event && typeof event.name === "string") {
+      if (event.name === "tron.mcp.runtime.warning") {
+        const value = "value" in event && event.value && typeof event.value === "object" ? event.value as Record<string, unknown> : {};
+        const tron = metadata.tron && typeof metadata.tron === "object" ? metadata.tron as Record<string, unknown> : {};
+        const id = typeof tron.eventId === "string" ? tron.eventId : `${"runId" in event ? event.runId : ""}:mcp:${value.serverCode ?? ""}`;
+        const message = [value.serverName, value.message].filter((part): part is string => typeof part === "string" && part.length > 0).join(": ");
+        warnings.set(id,{kind:"integrationWarning",id,code:"MCP_RUNTIME_UNAVAILABLE",message});
+      }
       const status = compactionEventStatuses.get(event.name);
       if (status) {
         const value = "value" in event && event.value && typeof event.value === "object"
@@ -55,22 +87,29 @@ export function buildAguiRunNotices(events: TranscriptAguiEvent[]): AguiRunNotic
         compaction = { kind: "compaction", status, code: typeof value.errorCode === "string" ? value.errorCode : "" };
       }
     }
-    if (type === "RUN_FINISHED" || type === "RUN_ERROR") terminal = true;
-    if (type === "RUN_ERROR") {
+    const presentationFailure = isAguiPresentationFailureEvent(event);
+    presentationIncomplete ||= presentationFailure;
+    if (isAguiExecutionTerminalEvent(event)) terminal = true;
+    if (type === "RUN_ERROR" && !presentationFailure) {
       const code = "code" in event && typeof event.code === "string" ? event.code : "";
       const message = "message" in event && typeof event.message === "string" ? event.message : "";
-      error = {
-        kind: "runError",
-        code,
-        message,
-        ...(code.toLowerCase() === "tool_schema_over_budget" ? { toolSchemaBudget: toolSchemaBudget(message) } : {}),
-      };
+      if (isAguiCancellationEvent(event)) {
+        stopped = { kind: "runStopped", code, message };
+      } else {
+        error = {
+          kind: "runError",
+          code,
+          message,
+          ...(code.toLowerCase() === "tool_schema_over_budget" ? { toolSchemaBudget: toolSchemaBudget(message) } : {}),
+        };
+      }
     }
   }
   if (terminal && compaction && (compaction.status === "requested" || compaction.status === "started")) {
     compaction = { ...compaction, status: "interrupted" };
   }
-  return [...(compaction ? [compaction] : []), ...(error ? [error] : [])];
+  const presentationNotice: AguiRunNotice = { kind: "runError", code: "AGENT_AGUI_REPLAY_INCOMPLETE", message: "" };
+  return [...(compaction ? [compaction] : []), ...warnings.values(), ...(error ? [error] : stopped ? [stopped] : []), ...(presentationIncomplete ? [presentationNotice] : [])];
 }
 
 export interface ReasoningWorkCard {
@@ -125,6 +164,18 @@ export interface TranscriptPresentation {
 export const chatScrollBottomThreshold = 96;
 export const chatScrollJumpButtonThreshold = 160;
 export const liveAguiStartToleranceMs = 5_000;
+
+/** A new submission can receive replay noise before its own run starts. Use the
+ * same timestamp tolerance as pending-turn replay, and never claim another
+ * session's events as the current run. Answer continuations use their own anchor. */
+export function belongsToNewChatTurn(event: ChatAguiStreamEvent, sessionId: string, createdAt: string) {
+  const thread = aguiEventThreadId(event);
+  if (thread && thread !== sessionId) return false;
+  const timestamp = aguiEventMillis(event);
+  const submitted = Date.parse(createdAt);
+  return timestamp === null || !Number.isFinite(submitted) || timestamp >= submitted - liveAguiStartToleranceMs;
+}
+
 export const activeChatReplayPendingTurnMaxAgeMs = 30 * 60_000;
 
 export function aguiEventType(event: TranscriptAguiEvent) {
@@ -218,29 +269,35 @@ export function aguiEventToolArgs(event: TranscriptAguiEvent) {
   return "toolCallArgs" in event ? event.toolCallArgs : undefined;
 }
 
-function aguiEventStableKey(event: TranscriptAguiEvent) {
-  const messageId = "messageId" in event && typeof event.messageId === "string" ? event.messageId : "";
-  const toolCallId = "toolCallId" in event && typeof event.toolCallId === "string" ? event.toolCallId : "";
-  return [
-    aguiEventThreadId(event),
-    aguiEventRunId(event),
-    aguiEventType(event),
-    aguiEventTime(event),
-    messageId,
-    toolCallId,
-    aguiEventSummary(event),
-    "name" in event ? event.name : "",
-    aguiEventType(event).toUpperCase() === "CUSTOM" && "value" in event ? JSON.stringify(event.value) : "",
-  ].join("\u0000");
+function aguiEventStableKey(event: TranscriptAguiEvent): string | null {
+  const metadata = "metadata" in event && event.metadata && typeof event.metadata === "object"
+    ? event.metadata as Record<string, unknown> : {};
+  const tron = metadata.tron && typeof metadata.tron === "object"
+    ? metadata.tron as Record<string, unknown> : {};
+  if (typeof tron.eventId === "string" && tron.eventId) {
+    return JSON.stringify(["protocol", aguiEventThreadId(event), tron.eventId]);
+  }
+  if ("id" in event && typeof event.id === "string" && event.id) {
+    return JSON.stringify(["canonical", aguiEventThreadId(event), event.id]);
+  }
+  // Identical content can be two valid frames. Legacy frames without transport
+  // identity are retained; only the very same in-memory object may be reused.
+  return null;
 }
 
 export function mergeTranscriptAguiEvents<T extends TranscriptAguiEvent>(...sources: T[][]) {
   const seen = new Set<string>();
+  const unkeyed = new WeakSet<object>();
   const merged: T[] = [];
   sources.flat().forEach((event) => {
     const key = aguiEventStableKey(event);
-    if (seen.has(key)) return;
-    seen.add(key);
+    if (key !== null) {
+      if (seen.has(key)) return;
+      seen.add(key);
+    } else {
+      if (unkeyed.has(event)) return;
+      unkeyed.add(event);
+    }
     merged.push(event);
   });
   return merged.sort((left, right) => (aguiEventMillis(left) ?? 0) - (aguiEventMillis(right) ?? 0));
@@ -303,8 +360,9 @@ export function openAguiProtocolRunCodes(events: TranscriptAguiEvent[], sessionI
     const runId = aguiEventRunId(event);
     if (!runId || runId === "stream") return;
     const type = aguiEventType(event).toUpperCase();
+    if (type === "CUSTOM" && "name" in event && (event.name === "agent.presentation.incomplete" || event.name === "tron.presentation.incomplete")) return;
     if (!terminalByRun.has(runId)) terminalByRun.set(runId, false);
-    if (type.includes("RUN_FINISHED") || type.includes("RUN_ERROR")) {
+    if (isAguiExecutionTerminalEvent(event)) {
       terminalByRun.set(runId, true);
     }
   });
@@ -656,6 +714,22 @@ export function buildAguiUserWorkCards(events: TranscriptAguiEvent[]): AguiUserW
       return;
     }
 
+    if (["SUBAGENT_STARTED", "SUBAGENT_FINISHED", "SUBAGENT_ERROR"].includes(type)
+      && "subagentRunId" in event && typeof event.subagentRunId === "string") {
+      // Presentation only: preserve the native source event and reuse existing
+      // delegated-work cards without emitting a second tool protocol lifecycle.
+      const card = ensureToolCard(toolCards, reasoningCards, latestReasoningCardIdsByRun, {
+        ...event, toolCallId: "subagent:" + event.subagentRunId,
+        toolCallName: "toolName" in event && typeof event.toolName === "string" ? event.toolName : "Agent",
+      });
+      if (!card) return;
+      card.started ||= type === "SUBAGENT_STARTED";
+      card.ended ||= type !== "SUBAGENT_STARTED";
+      if ("description" in event && typeof event.description === "string") card.result = event.description;
+      if ("message" in event && typeof event.message === "string") card.result = event.message;
+      return;
+    }
+
     if (type === "TOOL_CALL_START" || type === "TOOL_CALL_ARGS") {
       const card = ensureToolCard(toolCards, reasoningCards, latestReasoningCardIdsByRun, event);
       if (!card) return;
@@ -681,6 +755,16 @@ export function buildAguiUserWorkCards(events: TranscriptAguiEvent[]): AguiUserW
       }
       return;
     }
+    if (type === "ACTIVITY_SNAPSHOT" && "activityType" in event && event.activityType === "tron.tool.progress") {
+      const content = "content" in event && event.content && typeof event.content === "object" ? event.content as Record<string, unknown> : {};
+      if (typeof content.toolCallId !== "string" || typeof content.line !== "string") return;
+      const card = ensureToolCard(toolCards, reasoningCards, latestReasoningCardIdsByRun, {
+        ...event, toolCallId: content.toolCallId,
+        toolCallName: typeof content.toolName === "string" ? content.toolName : "tool",
+      });
+      if (card) card.logs.push(content.line);
+      return;
+    }
     if (type === "ACTIVITY_DELTA") {
       const card = ensureToolCard(toolCards, reasoningCards, latestReasoningCardIdsByRun, event);
       if (!card) return;
@@ -693,11 +777,16 @@ export function buildAguiUserWorkCards(events: TranscriptAguiEvent[]): AguiUserW
       updateToolCardName(card, event);
       const result = "content" in event && typeof event.content === "string" ? event.content : "";
       card.result = result || aguiEventSummary(event);
+      card.ended = true;
       return;
     }
     if (type === "TOOL_CALL_END") {
       const card = ensureToolCard(toolCards, reasoningCards, latestReasoningCardIdsByRun, event);
-      if (card) card.ended = true;
+      // Framework's END closes the argument stream before execution. Legacy
+      // host frames used END as their final execution marker and remain readable.
+      const native = "metadata" in event && event.metadata && typeof event.metadata === "object"
+        && "framework" in event.metadata;
+      if (card && !native) card.ended = true;
     }
   });
 
@@ -722,7 +811,7 @@ export function buildAguiUserWorkCards(events: TranscriptAguiEvent[]): AguiUserW
 
   return [
     ...Array.from(reasoningCards.values())
-      .filter((value) => value.content.trim() || value.summary.trim() || !value.ended)
+      .filter((value) => value.content.trim() || value.summary.trim() || value.toolCards.length > 0 || !value.ended)
       .map((value) => ({ kind: "reasoning" as const, value })),
     ...Array.from(toolGroupCards.values())
       .map((value) => ({
@@ -760,8 +849,7 @@ function aguiRunsWithWorkDetails(events: TranscriptAguiEvent[], limit: number) {
       buildAguiUserWorkCards(run.events).length > 0
       || buildAguiRunNotices(run.events).length > 0
       || !run.events.some((event) => {
-        const type = aguiEventType(event).toUpperCase();
-        return type.includes("RUN_FINISHED") || type.includes("RUN_ERROR");
+        return isAguiExecutionTerminalEvent(event);
       })
     ))
     .sort((left, right) => left.firstMillis - right.firstMillis)
@@ -948,7 +1036,7 @@ export function buildMockStreamingEvents(
 }
 
 export function summarizeReasoning(card: ReasoningWorkCard) {
-  return deriveReasoningPreview(card.summary || reasoningLastSentence(card.content));
+  return deriveReasoningPreview(card.summary);
 }
 
 export function describeDebugEvent(event: TranscriptAguiEvent) {

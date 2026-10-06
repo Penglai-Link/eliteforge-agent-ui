@@ -2,12 +2,15 @@ import { describe, expect, it } from "vitest";
 
 import {
   aguiReasoningEffort,
+  belongsToNewChatTurn,
   buildAguiRunNotices,
   mergeTranscriptAguiEvents,
   aguiWorkRailsByMessageCode,
   buildAguiUserWorkCards,
   buildTranscriptPresentation,
   isRecentPendingUserTurn,
+  isAguiCancellationEvent,
+  isAguiExecutionTerminalEvent,
   openAguiProtocolRunCodes,
 } from "./transcript";
 import {
@@ -98,6 +101,49 @@ describe("AG-UI run notices", () => {
     }])[0]).toMatchObject({ kind: "runError", toolSchemaBudget: { estimatedTokens: 27294, limitTokens: 21597, toolCount: 89 } });
     expect(buildAguiRunNotices([{ type: "RUN_ERROR", code: "model_unavailable", message: "Model is unavailable" }]))
       .toEqual([{ kind: "runError", code: "model_unavailable", message: "Model is unavailable" }]);
+  });
+
+  it("classifies exact cancellation as stopped while retaining an execution terminal", () => {
+    const cancelled = event({ type: "RUN_ERROR", code: "AGENT_CANCELLED", message: "Agent run cancelled" });
+    expect(isAguiCancellationEvent(cancelled)).toBe(true);
+    expect(isAguiExecutionTerminalEvent(cancelled)).toBe(true);
+    expect(buildAguiRunNotices([cancelled])).toEqual([
+      { kind: "runStopped", code: "AGENT_CANCELLED", message: "Agent run cancelled" },
+    ]);
+    expect(buildAguiRunNotices(mergeTranscriptAguiEvents([cancelled], [cancelled])))
+      .toEqual(buildAguiRunNotices([cancelled]));
+    expect(isAguiCancellationEvent(event({ type: "CUSTOM", code: "AGENT_CANCELLED" }))).toBe(false);
+  });
+
+  it.each(["AGENT_RUN_FAILED", "AGENT_MODEL_FAILED", "AGENT_RUN_STOPPED", "agent_cancelled", ""])(
+    "keeps the cancellation wording as an error for code %s",
+    (code) => {
+      const failure = event({ type: "RUN_ERROR", code, message: "Agent run cancelled" });
+      expect(isAguiCancellationEvent(failure)).toBe(false);
+      expect(buildAguiRunNotices([failure])).toEqual([
+        { kind: "runError", code, message: "Agent run cancelled" },
+      ]);
+    },
+  );
+
+  it("does not let a later cancellation hide another run's real error", () => {
+    const failure = event({ type: "RUN_ERROR", runId: "CHILD-1", code: "AGENT_RUN_FAILED", message: "Model stream failed" });
+    const cancelled = event({ type: "RUN_ERROR", code: "AGENT_CANCELLED", message: "Agent run cancelled" });
+    for (const events of [[failure, cancelled], [cancelled, failure]]) {
+      expect(buildAguiRunNotices(events)).toEqual([
+        { kind: "runError", code: "AGENT_RUN_FAILED", message: "Model stream failed" },
+      ]);
+    }
+  });
+
+  it("keeps presentation loss visible alongside a stopped run", () => {
+    expect(buildAguiRunNotices([
+      event({ type: "RUN_ERROR", code: "AGUI_OUTPUT_OVERFLOW", message: "Output lost" }),
+      event({ type: "RUN_ERROR", code: "AGENT_CANCELLED", message: "Agent run cancelled" }),
+    ])).toEqual([
+      { kind: "runStopped", code: "AGENT_CANCELLED", message: "Agent run cancelled" },
+      { kind: "runError", code: "AGENT_AGUI_REPLAY_INCOMPLETE", message: "" },
+    ]);
   });
 
   it("handles missing or malformed budget details without making up numbers", () => {
@@ -191,9 +237,9 @@ describe("buildAguiUserWorkCards", () => {
       event({ type: "TOOL_CALL_END", timestamp: 3_003, toolCallId: "tool-bash" }),
     ]);
 
-    const toolGroup = cards.find((card) => card.kind === "toolGroup");
-    if (!toolGroup || toolGroup.kind !== "toolGroup") throw new Error("expected tool group card");
-    expect(toolGroup.value.toolCards[0]?.toolName).toBe("bash_exec");
+    const tool = cards.find((card) => card.kind === "tool");
+    if (!tool || tool.kind !== "tool") throw new Error("expected standalone tool card");
+    expect(tool.value.toolName).toBe("bash_exec");
   });
 });
 
@@ -425,5 +471,17 @@ describe("pending run helpers", () => {
 
     expect(openRuns.has("RUN-OPEN")).toBe(true);
     expect(openRuns.has("RUN-CLOSED")).toBe(false);
+  });
+});
+
+
+describe("new submission stream ownership", () => {
+  it("rejects historical and foreign events before claiming run control", () => {
+    const createdAt = "2026-06-10T00:00:00.000Z";
+    const now = Date.parse(createdAt);
+    expect(belongsToNewChatTurn({ type: "RUN_STARTED", threadId: "SESSION-1", runId: "old", timestamp: now - 600_000 }, "SESSION-1", createdAt)).toBe(false);
+    expect(belongsToNewChatTurn({ type: "RUN_STARTED", threadId: "OTHER", runId: "foreign", timestamp: now }, "SESSION-1", createdAt)).toBe(false);
+    expect(belongsToNewChatTurn({ type: "RUN_STARTED", threadId: "SESSION-1", runId: "current", timestamp: now - 1_000 }, "SESSION-1", createdAt)).toBe(true);
+    expect(belongsToNewChatTurn({ type: "TEXT_MESSAGE_CONTENT", delta: "text" }, "SESSION-1", createdAt)).toBe(true);
   });
 });

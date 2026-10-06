@@ -1,5 +1,6 @@
 import {
   aguiEventMillis,
+  isAguiExecutionTerminalEvent,
   aguiEventType,
   buildAguiUserWorkCards,
   summarizeReasoning,
@@ -7,10 +8,7 @@ import {
 import type { TranscriptAguiEvent } from "./types";
 
 export function isAguiRunTerminal(events: TranscriptAguiEvent[]) {
-  return events.some((event) => {
-    const type = aguiEventType(event).toUpperCase();
-    return type.includes("RUN_FINISHED") || type.includes("RUN_ERROR");
-  });
+  return events.some(isAguiExecutionTerminalEvent);
 }
 
 export function aguiWorkElapsedMilliseconds(
@@ -39,7 +37,9 @@ function currentReasoningSummary(events: TranscriptAguiEvent[]) {
   const reasoningCards = buildAguiUserWorkCards(events)
     .filter((card) => card.kind === "reasoning");
   const latestReasoning = reasoningCards.at(-1)?.value;
-  return latestReasoning ? summarizeReasoning(latestReasoning) : "";
+  // Raw reasoning belongs in the expandable reasoning card. Only structured
+  // summaries may be promoted into the always-visible activity label.
+  return latestReasoning?.summary.trim() ? summarizeReasoning(latestReasoning) : "";
 }
 
 export function currentAguiWorkSnapshot(events: TranscriptAguiEvent[]): AguiWorkSnapshot | null {

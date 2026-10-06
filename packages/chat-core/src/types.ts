@@ -149,6 +149,8 @@ export interface ChatUserInputQuestion {
   questionId: string;
   question: string;
   options: ChatUserInputOption[];
+  allowCustomAnswer?: boolean;
+  allowSkip?: boolean;
 }
 
 export interface ChatUserInputAnswer {
@@ -169,6 +171,7 @@ export interface ChatUserInputRequest {
   status: "Pending" | "Answered";
   requestedAt: number;
   answeredAt?: number | null;
+  nativeInteraction?: { reason: string; responseSchema: unknown; optionPayloads: Record<string, unknown> };
 }
 
 export interface ChatAguiResumeEntry {
@@ -189,6 +192,8 @@ export interface ChatUserInputLabels {
   next: string;
   continue: string;
   confirm?: string;
+  approve?: string;
+  reject?: string;
   continuing: string;
   otherOptionLabel: string;
   otherOptionDescription: string;
@@ -199,6 +204,9 @@ export interface ChatUserInputLabels {
 }
 
 export interface ChatRunNoticeLabels {
+  mcpUnavailable?: string;
+  presentationIncomplete?: string;
+  presentationIncompleteDetail?: string;
   compactionRequested: string;
   compactionStarted: string;
   compactionCompleted: string;
@@ -240,6 +248,7 @@ export interface ChatWorkRailLabels {
   workedFor: (duration: string) => string;
   workingFor: (duration: string) => string;
   failed?: string;
+  stopped?: string;
   notices?: Partial<ChatRunNoticeLabels>;
   askingQuestions?: (count: number) => string;
   askedQuestions?: (count: number) => string;
@@ -374,7 +383,8 @@ export interface ChatAguiStreamEvent {
   parentMessageId?: string;
   timestamp?: number;
   outcome?: ChatAguiRunOutcome | null;
-  result?: ChatSendResult;
+  // AG-UI native results are opaque JSON; adapters validate product completion payloads.
+  result?: unknown;
   [key: string]: unknown;
 }
 

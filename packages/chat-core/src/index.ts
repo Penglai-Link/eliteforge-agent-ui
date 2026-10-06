@@ -8,3 +8,5 @@ export * from "./normalize";
 export * from "./transcript";
 export * from "./types";
 export * from "./window-state";
+
+export * from "./nativeInteractions";

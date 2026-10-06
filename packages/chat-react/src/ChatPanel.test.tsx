@@ -107,6 +107,94 @@ describe("ChatPanel theme hooks", () => {
 });
 
 describe("ChatPanel submit controls", () => {
+  it("shows exact cancellation neutrally in live output and durable replay", () => {
+    const user = message("USER", "Stop this response");
+    const startedAt = Date.parse(user.createdAt) + 1;
+    const events: ChatAguiStreamEvent[] = [
+      { type: "RUN_STARTED", runId: "RUN-1", threadId: "SESSION-1", timestamp: startedAt },
+      { type: "RUN_ERROR", runId: "RUN-1", threadId: "SESSION-1", timestamp: startedAt + 1,
+        code: "AGENT_CANCELLED", message: "Agent run cancelled" },
+    ];
+    const props = { draft: "", onDraftChange: () => undefined, onSend: () => undefined, session: activeSession(), messages: [user] };
+    const { rerender } = render(<ChatPanel {...props} liveAguiEvents={events} />);
+    expect(screen.getByText(/^Run stopped ·/)).toBeTruthy();
+    expect(screen.getByRole("status").textContent).toContain("Run stopped");
+    expect(screen.getByRole("status").className).not.toContain("ef-chat__run-notice--error");
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(screen.queryByText(/^Working for/)).toBeNull();
+    rerender(<ChatPanel {...props} protocolEvents={events} />);
+    expect(screen.getByText(/^Run stopped ·/)).toBeTruthy();
+    expect(screen.getAllByRole("status")).toHaveLength(1);
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+
+  it("uses a custom stopped label for both the neutral notice and rail", () => {
+    const user = message("USER", "Stop this response");
+    renderPanel({
+      messages: [user],
+      workRailLabels: {
+        ariaLabel: "智能体工作过程", preparing: "准备中", responding: "回复中", thinking: "思考中",
+        workedFor: (duration) => `已工作 ${duration}`, workingFor: (duration) => `正在工作 ${duration}`,
+        stopped: "已停止",
+      },
+      protocolEvents: [{
+        type: "RUN_ERROR", runId: "RUN-1", threadId: "SESSION-1", timestamp: Date.parse(user.createdAt) + 1,
+        code: "AGENT_CANCELLED", message: "Agent run cancelled",
+      }],
+    });
+    expect(screen.getByText(/^已停止 ·/)).toBeTruthy();
+    expect(screen.getByRole("status").textContent).toContain("已停止");
+    expect(screen.getByRole("status").className).not.toContain("ef-chat__run-notice--error");
+    expect(screen.queryByText(/^Run stopped/)).toBeNull();
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+
+  it.each(["AGENT_MODEL_FAILED", "AGENT_RUN_FAILED", "AGENT_RUN_STOPPED"])(
+    "keeps code %s red even with cancellation wording",
+    (code) => {
+      const user = message("USER", "Try a model response");
+      renderPanel({ messages: [user], protocolEvents: [{
+        type: "RUN_ERROR", runId: "RUN-1", threadId: "SESSION-1", timestamp: Date.parse(user.createdAt) + 1,
+        code, message: "Agent run cancelled",
+      }] });
+      expect(screen.getByText(/^Run failed ·/)).toBeTruthy();
+      expect(screen.getByRole("alert").textContent).toContain("Agent run cancelled");
+      expect(screen.getByRole("alert").className).toContain("ef-chat__run-notice--error");
+      expect(screen.queryByText(/^Run stopped/)).toBeNull();
+    },
+  );
+
+  it.each(["RUN-1", "CHILD-1"])("retains a real failure in %s when the parent is subsequently cancelled", (failedRunId) => {
+    const user = message("USER", "Run collaborating agents");
+    const base = { threadId: "SESSION-1", timestamp: Date.parse(user.createdAt) + 1 };
+    renderPanel({ messages: [user], protocolEvents: [
+      { ...base, type: "RUN_ERROR", runId: failedRunId, code: "AGENT_RUN_FAILED", message: "Model stream failed" },
+      { ...base, timestamp: base.timestamp + 1, type: "RUN_ERROR", runId: "RUN-1", code: "AGENT_CANCELLED", message: "Agent run cancelled" },
+    ] });
+    expect(screen.getByText(/^Run failed ·/)).toBeTruthy();
+    expect(screen.getByRole("alert").textContent).toContain("Model stream failed");
+    if (failedRunId === "CHILD-1") {
+      // Separate run rails preserve the child error and the parent's neutral stop.
+      expect(screen.getByText(/^Run stopped ·/)).toBeTruthy();
+      expect(screen.getByRole("status").textContent).toContain("Agent run cancelled");
+    } else {
+      expect(screen.queryAllByText(/^Run stopped/)).toHaveLength(0);
+    }
+  });
+
+  it("keeps actual presentation loss red after a cancellation", () => {
+    const user = message("USER", "Stop with incomplete output");
+    const base = { runId: "RUN-1", threadId: "SESSION-1", timestamp: Date.parse(user.createdAt) + 1 };
+    renderPanel({ messages: [user], protocolEvents: [
+      { ...base, type: "RUN_ERROR", code: "AGUI_OUTPUT_OVERFLOW", message: "Output lost" },
+      { ...base, timestamp: base.timestamp + 1, type: "RUN_ERROR", code: "AGENT_CANCELLED", message: "Agent run cancelled" },
+    ] });
+    expect(screen.getByText(/^Run stopped ·/)).toBeTruthy();
+    expect(screen.getByRole("status").textContent).toContain("Run stopped");
+    expect(screen.getByRole("alert").textContent).toContain("Presentation replay is incomplete");
+    expect(screen.getByRole("alert").className).toContain("ef-chat__run-notice--error");
+  });
+
   it("shows budget failures without expanding the rail or adding an assistant message", () => {
     const user = message("USER", "Inspect tools");
     renderPanel({
@@ -287,7 +375,7 @@ describe("ChatPanel submit controls", () => {
     expect(screen.getByText("First option")).toBeTruthy();
   });
 
-  it("only labels an active empty assistant message as waiting", () => {
+  it("hides the active empty assistant card while retaining historical empty responses", () => {
     const userMessage = {
       actor: "User",
       channel: "MAIN_AGENT",
@@ -349,7 +437,8 @@ describe("ChatPanel submit controls", () => {
       />,
     );
 
-    expect(screen.getByText("Waiting for assistant output...")).toBeTruthy();
+    expect(screen.queryByText("Waiting for assistant output...")).toBeNull();
+    expect(document.querySelectorAll('[data-theme-part="chat-message-assistant"]')).toHaveLength(0);
     expect(screen.queryByText("No assistant response was produced.")).toBeNull();
   });
 

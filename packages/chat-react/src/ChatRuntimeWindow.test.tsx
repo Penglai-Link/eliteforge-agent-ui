@@ -115,7 +115,7 @@ describe("ChatRuntimeWindow", () => {
     expect(screen.getAllByRole("article")).toHaveLength(1);
   });
 
-  it("renders a failed run notice when the request is rejected before RUN_STARTED", async () => {
+  it("renders actionable admission feedback without inventing an executed run when rejected before RUN_STARTED", async () => {
     const onError = vi.fn();
     const adapter: ChatAdapter = {
       ...createAdapter().adapter,
@@ -134,8 +134,9 @@ describe("ChatRuntimeWindow", () => {
 
     const failure = await screen.findByRole("alert");
     expect(failure.textContent).toContain("Person-AI authorization is required");
-    expect(screen.getByText(/^Run failed ·/)).toBeTruthy();
-    expect(onError).not.toHaveBeenCalled();
+    expect(screen.queryByText(/^Run failed ·/)).toBeNull();
+    expect(screen.queryByText(/Working for/)).toBeNull();
+    expect(onError).toHaveBeenCalledWith("Person-AI authorization is required", "Chat send failed");
     expect(screen.queryByText("Waiting for assistant output...")).toBeNull();
   });
 

@@ -3,6 +3,7 @@ import {
   AssistantReplyQueue,
   defaultAssistantReplySpeed,
   buildTranscriptPresentation,
+  belongsToNewChatTurn,
   createMockChatAdapter,
   enqueueChatSubmission,
   ChatAdapterError,
@@ -840,6 +841,7 @@ async function runMessage(
       sendInput,
       {
         onAguiEvent: (event) => {
+            if (!belongsToNewChatTurn(event, activeSession.sessionId, optimisticCreatedAt)) return;
           if (
             !ownsRuntimeStreamObserver(
               activeObserverRef.value,

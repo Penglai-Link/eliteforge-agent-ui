@@ -220,7 +220,7 @@ export function ChatUserInputCard({
         </fieldset>
       </div>
       <div className="ef-chat__user-input-actions">
-        <label className="ef-chat__user-input-other">
+        {question.allowCustomAnswer !== false ? <label className="ef-chat__user-input-other">
           <PencilLine aria-hidden="true" size={15} />
           <textarea
             aria-label={labels.otherAnswerAriaLabel(currentIndex + 1)}
@@ -233,14 +233,14 @@ export function ChatUserInputCard({
             onChange={(event) => updateOtherText(event.target.value)}
             onKeyDown={handleOtherKeyDown}
           />
-        </label>
+        </label> : null}
         <button
           className={`ef-chat__user-input-skip${hasAnswer ? " is-confirm" : ""}`}
-          disabled={disabled}
+          disabled={disabled || (question.allowSkip === false && !hasAnswer)}
           type="button"
           onClick={submitOtherOrSkip}
         >
-          {hasAnswer ? labels.confirm ?? labels.continue : labels.skipOptionLabel}
+          {hasAnswer || question.allowSkip === false ? labels.confirm ?? labels.continue : labels.skipOptionLabel}
         </button>
       </div>
     </section>

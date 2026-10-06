@@ -25,7 +25,7 @@ const summary = computed(
     summarizeReasoning(props.card) ||
     (props.card.ended ? "Reasoning captured." : "Thinking..."),
 );
-const detail = computed(() => props.card.content || props.card.summary);
+const detail = computed(() => props.card.summary);
 </script>
 
 <template>

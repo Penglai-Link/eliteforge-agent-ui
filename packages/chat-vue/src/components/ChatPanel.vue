@@ -271,7 +271,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="ef-chat" data-theme-part="chat">
+  <div class="ef-chat" data-theme-part="chat" data-theme-anchor="chat">
     <span
       aria-hidden="true"
       class="ef-chat__theme-effect-layer"
@@ -282,7 +282,7 @@ onMounted(() => {
       aria-label="Image preview"
       aria-modal="true"
       class="ef-chat__image-preview-dialog"
-      role="dialog"
+      role="dialog" data-theme-anchor="dialog"
       @click.self="closeImagePreview"
     >
       <div class="ef-chat__image-preview-content">
@@ -454,7 +454,7 @@ onMounted(() => {
           <textarea
             ref="composerRef"
             class="ef-chat__textarea"
-            data-theme-part="chat-input"
+            data-theme-part="chat-input" data-theme-anchor="chat-input"
             :autofocus="autoFocusComposer"
             :disabled="disabledInput"
             :placeholder="composerPlaceholder"
