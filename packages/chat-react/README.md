@@ -88,3 +88,5 @@ const adapter: ChatAdapter = {
 - `ChatWindow`：可悬浮、拖动和调整大小的聊天窗口。
 
 各组件完整 props 与 adapter 类型以包导出的 TypeScript 声明为准。
+
+宿主使用统一气泡提示时，设置 `errorDisplay="external"` 并提供 `onError`。发送前的校验和请求错误只通过回调报告，不在输入框上方重复显示；运行失败事件仍保留在运行历史中。默认 `inline` 会在输入框上方显示发送错误。

@@ -71,6 +71,8 @@ export interface ChatRuntimeWindowProps {
   debugOptions?: ChatDebugOptions;
   emptyDescription?: string;
   emptyTitle?: string;
+  /** Use external feedback when the host reports admission errors through onError. */
+  errorDisplay?: "inline" | "external";
   floatingTitle?: string;
   floatingSubtitle?: string;
   formatAnnotationCount?: (count: number) => string;
@@ -202,6 +204,7 @@ export function ChatRuntimeWindow({
   debugOptions,
   emptyDescription,
   emptyTitle,
+  errorDisplay = "inline",
   floatingSubtitle = "AI assistant",
   floatingTitle = "Assistant",
   formatAnnotationCount,
@@ -1131,7 +1134,7 @@ export function ChatRuntimeWindow({
           }]);
           setLiveAguiAnchorMessageCodes((current) => ({ ...current, [runId]: optimisticUserCode }));
         }
-        if (!aguiEnabled || !knownNativeFailure) {
+        if (!aguiEnabled || !knownNativeFailure || errorDisplay === "external") {
           setSubmissionError(errorMessage);
           onError(errorMessage, "Chat send failed");
         }
@@ -1537,7 +1540,7 @@ export function ChatRuntimeWindow({
 
   const composerFeedback = <>
     {composerHeader ?? pendingAttachmentHeader}
-    {submissionError ? <div className="ef-chat__run-notice ef-chat__run-notice--error" role="alert">
+    {errorDisplay === "inline" && submissionError ? <div className="ef-chat__run-notice ef-chat__run-notice--error" role="alert">
       <div className="ef-chat__run-notice-content"><div className="ef-chat__run-notice-detail">{submissionError}</div></div>
     </div> : null}
   </>;

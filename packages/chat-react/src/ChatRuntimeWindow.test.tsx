@@ -91,7 +91,7 @@ function completedResult(
 }
 
 describe("ChatRuntimeWindow", () => {
-  it("keeps streamed run errors visible when sending fails before an assistant reply", async () => {
+  it.each(["inline", "external"] as const)("keeps streamed run errors in history with %s feedback", async (errorDisplay) => {
     const onError = vi.fn();
     const adapter: ChatAdapter = {
       ...createAdapter().adapter,
@@ -104,13 +104,14 @@ describe("ChatRuntimeWindow", () => {
         throw new ChatAdapterError("Model is unavailable", { code: "model_unavailable", status: 200 });
       }),
     };
-    render(<ChatRuntimeWindow adapter={adapter} config={{ floating: false }} initialSession={restoredSession()} onError={onError} />);
+    render(<ChatRuntimeWindow adapter={adapter} config={{ floating: false }} initialSession={restoredSession()} onError={onError} errorDisplay={errorDisplay} />);
     await waitFor(() => expect(adapter.loadMessages).toHaveBeenCalled());
     const input = screen.getByRole("textbox");
     fireEvent.change(input, { target: { value: "Inspect context" } });
     fireEvent.keyDown(input, { key: "Enter" });
     await waitFor(() => expect(screen.getByRole("alert").textContent).toContain("Model is unavailable"));
-    expect(onError).not.toHaveBeenCalled();
+    if (errorDisplay === "external") expect(onError).toHaveBeenCalledExactlyOnceWith("Model is unavailable", "Chat send failed");
+    else expect(onError).not.toHaveBeenCalled();
     expect(screen.getByText(/^Run failed ·/)).toBeTruthy();
     expect(screen.getAllByRole("article")).toHaveLength(1);
   });
@@ -138,6 +139,20 @@ describe("ChatRuntimeWindow", () => {
     expect(screen.queryByText(/Working for/)).toBeNull();
     expect(onError).toHaveBeenCalledWith("Person-AI authorization is required", "Chat send failed");
     expect(screen.queryByText("Waiting for assistant output...")).toBeNull();
+  });
+
+  it("reports admission failures externally without inserting composer feedback", async () => {
+    const onError = vi.fn();
+    const adapter = createAdapter().adapter;
+    adapter.streamMessage = vi.fn().mockRejectedValue(new ChatAdapterError("workspaceCode is required", { code: "CHAT_WORKSPACE_REQUIRED", status: 400 }));
+    render(<ChatRuntimeWindow adapter={adapter} config={{ floating: false }} initialSession={restoredSession()} onError={onError} errorDisplay="external" />);
+    await waitFor(() => expect(adapter.loadMessages).toHaveBeenCalled());
+    const input = screen.getByRole("textbox");
+    fireEvent.change(input, { target: { value: "hello" } });
+    fireEvent.keyDown(input, { key: "Enter" });
+    await waitFor(() => expect(onError).toHaveBeenCalledExactlyOnceWith("workspaceCode is required", "Chat send failed"));
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(screen.queryByText("workspaceCode is required")).toBeNull();
   });
 
   it("shows pending images as thumbnails and files with name and type, then clears them after send", async () => {
