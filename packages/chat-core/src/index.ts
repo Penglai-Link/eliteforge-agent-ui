@@ -10,3 +10,4 @@ export * from "./types";
 export * from "./window-state";
 
 export * from "./nativeInteractions";
+export * from "./history";

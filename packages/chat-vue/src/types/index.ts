@@ -7,6 +7,7 @@ import type {
   ChatDebugOptions,
   ChatFloatingState,
   ChatMessage,
+  ChatHistoryLabels,
   ChatMessageAttachment,
   ChatQueuedSubmission,
   ChatRunningSubmitMode,
@@ -38,6 +39,10 @@ export interface ChatPanelProps {
   liveAguiPendingAnchorMessageCode?: string;
   liveAguiPending?: boolean;
   messages: ChatMessage[];
+  historyLoading?: boolean;
+  historyLoadingOlder?: boolean;
+  historyLabels?: ChatHistoryLabels;
+  onLoadOlderHistory?: () => void;
   onCreateSession?: () => void;
   onNewSession?: () => void;
   onDraftChange: (value: string) => void;

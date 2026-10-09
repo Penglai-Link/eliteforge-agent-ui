@@ -1,3 +1,4 @@
+import type { ChatHistoryLabels, HistoryMessageView, HistoryQuery, SessionHistory } from "./history";
 export type ChatSessionStatus = "ACTIVE" | "ARCHIVED";
 export type ChatSessionSource = string;
 export type ChatMessageRole = "USER" | "ASSISTANT";
@@ -71,6 +72,7 @@ export interface UpdateChatSessionInput {
 }
 
 export interface ChatMessage {
+  history?: HistoryMessageView;
   id: number | string;
   messageId: string;
   sessionId: string;
@@ -421,6 +423,8 @@ export interface ChatAdapter {
   ) => Promise<ChatActiveRunResult>;
   loadAguiEvents: (sessionId: string) => Promise<ChatAguiEvent[]>;
   loadMessages: (sessionId: string) => Promise<ChatMessage[]>;
+  /** Authoritative structured history. Ordinary reads skip all replay endpoints. */
+  loadHistory?: (sessionId: string, query: HistoryQuery, signal?: AbortSignal) => Promise<SessionHistory>;
   loadUserInputRequests?: (
     sessionId: string,
     signal?: AbortSignal,
@@ -467,6 +471,7 @@ export interface ChatFloatingState {
 }
 
 export interface ChatClientConfig {
+  historyLabels?: ChatHistoryLabels;
   defaultSessionId?: string;
   disabledInput?: boolean;
   disabledToBottom?: boolean;

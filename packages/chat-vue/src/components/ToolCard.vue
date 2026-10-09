@@ -18,6 +18,7 @@ import CopyValueButton from "./CopyValueButton.vue";
 
 const props = defineProps<{
   card: ToolWorkCard;
+  statusLabel?: string;
   nested?: boolean;
   stepNumber?: number;
 }>();
@@ -40,7 +41,7 @@ const toolLabel = computed(() =>
 );
 const nestedToolLabel = computed(
   () =>
-    `${complete.value ? "Ran" : "Running"} ${toolLabel.value.replace(/^Run\s+/i, "")}`,
+    props.statusLabel ? `${toolLabel.value} · ${props.statusLabel}` : `${complete.value ? "Ran" : "Running"} ${toolLabel.value.replace(/^Run\s+/i, "")}`,
 );
 
 watch(
@@ -130,7 +131,7 @@ function hasToolParameterPayload(value: unknown): boolean {
                 )
               "
             >
-              {{ complete ? "done" : "running" }}
+              {{ props.statusLabel ?? (complete ? "done" : "running") }}
             </span>
           </span>
         </span>

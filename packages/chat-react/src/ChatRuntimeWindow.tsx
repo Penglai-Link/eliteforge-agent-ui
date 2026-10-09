@@ -13,6 +13,11 @@ import {
   isAguiExecutionTerminalEvent,
   nativeUserInputRequests,
   nativeUserInputAnswer,
+  historyMessages,
+  historyEventRunId,
+  historyUserInputRequests,
+  type SessionHistory,
+  type HistoryCursor,
   removeQueuedChatSubmission,
   takeNextQueuedChatSubmission,
   type ChatFloatingState,
@@ -243,6 +248,9 @@ export function ChatRuntimeWindow({
   );
   const [session, setSession] = useState<ChatSession | null>(normalizedInitialSession);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [historySnapshot, setHistorySnapshot] = useState<SessionHistory | null>(null);
+  const [historyCursor, setHistoryCursor] = useState<HistoryCursor | null>(null);
+  const [historyLoadingOlder, setHistoryLoadingOlder] = useState(false);
   const [userInputRequest, setUserInputRequest] = useState<ChatUserInputRequest | null>(null);
   const [userInputRequests, setUserInputRequests] = useState<ChatUserInputRequest[]>([]);
   const answeredNativeInteractionsRef = useRef(new Set<string>());
@@ -485,6 +493,11 @@ export function ChatRuntimeWindow({
     sessionId: string,
     signal?: AbortSignal,
   ) => {
+    if (activeAdapter.loadHistory) {
+      const page = await activeAdapter.loadHistory(sessionId, { limit: 20, cursor: null }, signal);
+      const run = page.activeRuns.find((r) => r.status === "Running" && r.parentRunId === null);
+      return run ? { runId: run.id, runtimeAdapterKey: "framework", supportsSteer: activeAdapter.capabilities.supportsSteer ?? false, state: "RUNNING" as const } : null;
+    }
     if (
       !activeAdapter.capabilities.supportsActiveRun
       || !activeAdapter.getActiveRun
@@ -496,6 +509,7 @@ export function ChatRuntimeWindow({
   }, [activeAdapter]);
 
   async function refreshPresentationAfterTurn(sessionId: string, runId: string, canApply = () => true): Promise<boolean> {
+    if (activeAdapter.loadHistory) return true;
     if (!aguiEnabled) return true;
     const [audits, protocol] = await Promise.allSettled([
       activeAdapter.loadAguiEvents(sessionId),
@@ -522,6 +536,20 @@ export function ChatRuntimeWindow({
   async function refreshCompletedTurn(sessionId: string, runId: string, epoch: number) {
     const canApply = () => activeSessionCodeRef.current === sessionId
       && presentationRefreshEpochRef.current === epoch && !sendingRef.current;
+    if (activeAdapter.loadHistory) {
+      try {
+        const page = await activeAdapter.loadHistory(sessionId, { limit: 20, cursor: null });
+        if (!canApply()) return;
+        setMessages(historyMessages(page)); setHistorySnapshot(page); setHistoryCursor(page.nextCursor);
+        const pending = historyUserInputRequests(page, config.userInputLabels);
+        setUserInputRequests(pending); setUserInputRequest(pending[0] ?? null);
+        setProtocolEvents([]); setAguiEvents([]);
+        const committed = new Set(page.runs.filter((r) => ["Completed", "Failed", "Interrupted", "Waiting"].includes(r.status)).map((r) => r.id));
+        setLiveAguiEvents((events) => events.filter((e) => !committed.has(historyEventRunId(e))));
+        setLiveAguiAnchorMessageCodes({});
+      } catch (error) { reportReadErrors(sessionId, [error]); }
+      return;
+    }
     const [snapshot, presentation] = await Promise.allSettled([
       activeAdapter.loadMessages(sessionId),
       refreshPresentationAfterTurn(sessionId, runId, canApply),
@@ -671,10 +699,16 @@ export function ChatRuntimeWindow({
     detachSteerObserver(false);
   }, []);
 
-  const nativePendingRequests = useMemo(() => nativeUserInputRequests(
+  const liveNativePendingRequests = useMemo(() => nativeUserInputRequests(
     mergeTranscriptAguiEvents(protocolEvents, liveAguiEvents) as ChatAguiStreamEvent[],
     session?.sessionId ?? "", config.userInputLabels,
   ), [protocolEvents, liveAguiEvents, session?.sessionId, config.userInputLabels]);
+  const nativePendingRequests = useMemo(() => {
+    const durable = historySnapshot ? historyUserInputRequests(historySnapshot, config.userInputLabels).filter((r) => r.nativeInteraction) : [];
+    const pending = new Map(durable.map((r) => [r.requestId, r]));
+    liveNativePendingRequests.forEach((r) => pending.set(r.requestId, r));
+    return [...pending.values()];
+  }, [historySnapshot, liveNativePendingRequests, config.userInputLabels]);
   useEffect(() => { answeredNativeInteractionsRef.current.clear(); }, [session?.sessionId]);
   useEffect(() => {
     const pending = nativePendingRequests.filter((request) => !answeredNativeInteractionsRef.current.has(request.requestId));
@@ -687,6 +721,14 @@ export function ChatRuntimeWindow({
   }, [nativePendingRequests]);
 
   const readSessionStateParts = useCallback(async (sessionId: string, signal?: AbortSignal) => {
+    if (activeAdapter.loadHistory) {
+      const page = await activeAdapter.loadHistory(sessionId, { limit: 20, cursor: null }, signal);
+      const running = page.activeRuns.find((r) => r.status === "Running" && r.parentRunId === null);
+      return { nextHistory: page, nextMessages: historyMessages(page), nextAguiEvents: [] as ChatAguiEvent[], nextProtocolEvents: [] as ChatAguiStreamEvent[],
+        healthyProtocolEvents: [] as ChatAguiStreamEvent[], healthNotice: undefined,
+        nextActiveRun: running ? { runId: running.id, runtimeAdapterKey: "framework", supportsSteer: activeAdapter.capabilities.supportsSteer ?? false, state: "RUNNING" as const } : null,
+        nextUserInputRequests: historyUserInputRequests(page, config.userInputLabels), errors: [] as unknown[] };
+    }
     const parts = await Promise.allSettled([
       activeAdapter.loadMessages(sessionId),
       aguiEnabled ? activeAdapter.loadAguiEvents(sessionId) : Promise.resolve([]),
@@ -712,6 +754,7 @@ export function ChatRuntimeWindow({
     } : undefined;
     const protocol = value(parts[2]);
     return {
+      nextHistory: undefined,
       nextMessages: value(parts[0]),
       nextAguiEvents: parts[2].status === "rejected"
         ? audits?.map((event) => ({ ...event, metadata: { ...event.metadata, replayIncomplete: "true" } }))
@@ -723,7 +766,32 @@ export function ChatRuntimeWindow({
       nextUserInputRequests: value(parts[4]),
       errors: parts.flatMap((part) => part.status === "rejected" ? [part.reason] : []),
     };
-  }, [activeAdapter, aguiEnabled, protocolReplayEnabled, loadActiveRunSnapshot]);
+  }, [activeAdapter, aguiEnabled, protocolReplayEnabled, loadActiveRunSnapshot, config.userInputLabels]);
+
+  async function loadOlderHistory() {
+    const sessionId = session?.sessionId;
+    const cursor = historyCursor;
+    if (!sessionId || !cursor || !activeAdapter.loadHistory || historyLoadingOlder) return;
+    setHistoryLoadingOlder(true);
+    try {
+      const page = await activeAdapter.loadHistory(sessionId, { limit: 20, cursor });
+      if (activeSessionCodeRef.current !== sessionId) return;
+      setMessages((current) => mergeChatMessagesChronologically(historyMessages(page), current));
+      setHistoryCursor(page.nextCursor);
+    } catch (error) {
+      if ((error as { status?: number })?.status === 409 && activeSessionCodeRef.current === sessionId) {
+        try {
+          const page = await activeAdapter.loadHistory(sessionId, { limit: 20, cursor: null });
+          if (activeSessionCodeRef.current === sessionId) {
+            setMessages(historyMessages(page)); setHistorySnapshot(page); setHistoryCursor(page.nextCursor);
+            const pending = historyUserInputRequests(page, config.userInputLabels);
+            setUserInputRequests(pending); setUserInputRequest(pending[0] ?? null);
+          }
+        } catch (reloadError) { reportReadErrors(sessionId, [reloadError]); }
+      } else reportReadErrors(sessionId, [error]);
+    }
+    finally { if (activeSessionCodeRef.current === sessionId) setHistoryLoadingOlder(false); }
+  }
 
   const reportReadErrors = useCallback((sessionId: string, errors: unknown[]) => {
     if (!errors.length) { lastReadErrorRef.current = ""; return; }
@@ -748,12 +816,16 @@ export function ChatRuntimeWindow({
         return;
       }
       setLoading(true);
+      setMessages([]); setHistorySnapshot(null); setHistoryCursor(null);
       try {
-        const { nextMessages, nextAguiEvents, nextProtocolEvents, nextActiveRun, nextUserInputRequests, errors, healthNotice, healthyProtocolEvents } =
+        const { nextMessages, nextAguiEvents, nextProtocolEvents, nextActiveRun, nextUserInputRequests, nextHistory, errors, healthNotice, healthyProtocolEvents } =
           await readSessionStateParts(session.sessionId, abortController.signal);
         if (!active || readEpoch !== presentationRefreshEpochRef.current) return;
         reportReadErrors(session.sessionId, errors);
-        if (!sendingRef.current && nextMessages !== undefined) setMessages(nextMessages);
+        if (!sendingRef.current && nextMessages !== undefined) {
+          setMessages(nextMessages);
+          if (nextHistory) { setHistorySnapshot(nextHistory); setHistoryCursor(nextHistory.nextCursor); }
+        }
         if (healthyProtocolEvents !== undefined) {
           setLiveAguiEvents((current) => removeRecoveredReadHealth(current, session.sessionId, healthyProtocolEvents));
         }
@@ -818,11 +890,14 @@ export function ChatRuntimeWindow({
       if (!session?.sessionId) return;
       const readEpoch = presentationRefreshEpochRef.current;
       try {
-        const { nextMessages, nextAguiEvents, nextProtocolEvents, nextActiveRun, nextUserInputRequests, errors, healthNotice, healthyProtocolEvents } =
+        const { nextMessages, nextAguiEvents, nextProtocolEvents, nextActiveRun, nextUserInputRequests, nextHistory, errors, healthNotice, healthyProtocolEvents } =
           await readSessionStateParts(session.sessionId);
         if (activeSessionCodeRef.current !== session.sessionId || readEpoch !== presentationRefreshEpochRef.current) return;
         reportReadErrors(session.sessionId, errors);
-        if (!sendingRef.current && nextMessages !== undefined) setMessages(nextMessages);
+        if (!sendingRef.current && nextMessages !== undefined) {
+          setMessages(nextMessages);
+          if (nextHistory) { setHistorySnapshot(nextHistory); setHistoryCursor(nextHistory.nextCursor); }
+        }
         if (healthyProtocolEvents !== undefined) {
           setLiveAguiEvents((current) => removeRecoveredReadHealth(current, session.sessionId, healthyProtocolEvents));
         }
@@ -1619,6 +1694,10 @@ export function ChatRuntimeWindow({
       liveAguiPendingAnchorMessageCode={liveAguiPendingAnchorMessageCode}
       liveAguiPending={liveAguiPending}
       messages={visibleMessages}
+      historyLoading={loading}
+      historyLoadingOlder={historyLoadingOlder}
+      historyLabels={config.historyLabels}
+      onLoadOlderHistory={historyCursor ? () => { void loadOlderHistory(); } : undefined}
       onCreateSession={onCreateSession ?? requestSessionCreation}
       onNewSession={handleNewSession}
       onDraftChange={setDraft}
@@ -1675,6 +1754,10 @@ export function ChatRuntimeWindow({
       liveAguiPendingAnchorMessageCode={liveAguiPendingAnchorMessageCode}
       liveAguiPending={liveAguiPending}
         messages={visibleMessages}
+        historyLoading={loading}
+        historyLoadingOlder={historyLoadingOlder}
+        historyLabels={config.historyLabels}
+        onLoadOlderHistory={historyCursor ? () => { void loadOlderHistory(); } : undefined}
         onCreateSession={onCreateSession ?? requestSessionCreation}
         onNewSession={handleNewSession}
         onDraftChange={setDraft}

@@ -1,6 +1,13 @@
 <script setup lang="ts">
 import {
   AssistantReplyQueue,
+  historyMessages,
+  historyEventRunId,
+  historyUserInputRequests,
+  nativeUserInputAnswer,
+  type SessionHistory,
+  type HistoryCursor,
+  type ChatAdapter,
   defaultAssistantReplySpeed,
   buildTranscriptPresentation,
   belongsToNewChatTurn,
@@ -149,6 +156,9 @@ const attachmentFileInput = ref<HTMLInputElement | null>(null);
 const sending = ref(false);
 const steering = ref(false);
 const loading = ref(false);
+const historySnapshot = shallowRef<SessionHistory | null>(null);
+const historyCursor = ref<HistoryCursor | null>(null);
+const historyLoadingOlder = ref(false);
 const liveAguiPending = ref(false);
 const liveAguiPendingAnchorMessageCode = ref("");
 const activeRunCode = ref("");
@@ -181,7 +191,7 @@ const protocolReplayEnabled = computed(
   () =>
     aguiEnabled.value &&
     activeAdapter.value.capabilities.supportsProtocolReplay &&
-    Boolean(activeAdapter.value.loadProtocolEvents),
+    Boolean(activeAdapter.value.loadProtocolEvents) && !activeAdapter.value.loadHistory,
 );
 const effectiveActiveRunCode = computed(
   () =>
@@ -305,6 +315,9 @@ async function loadActiveRunSnapshot(
   signal?: AbortSignal,
 ) {
   const adapter = activeAdapter.value;
+  if (adapter.loadHistory) {
+    return historyActiveRun(await adapter.loadHistory(sessionId, { limit: 20, cursor: null }, signal));
+  }
   if (!adapter.capabilities.supportsActiveRun || !adapter.getActiveRun) {
     throw new Error("Active-run status is not supported by this adapter");
   }
@@ -322,6 +335,7 @@ async function queryActiveRunSnapshot(
   signal?: AbortSignal,
 ): Promise<ActiveRunQueryResult> {
   const adapter = activeAdapter.value;
+  if (adapter.loadHistory) return { kind: "unsupported" };
   if (!adapter.capabilities.supportsActiveRun || !adapter.getActiveRun) {
     return { kind: "unsupported" };
   }
@@ -540,20 +554,11 @@ watch(
     }
 
     loading.value = true;
-    const [dataResult, activeRunResult] = await Promise.all([
-      Promise.all([
-        activeAdapter.value.loadMessages(nextSessionCode),
-        aguiEnabled.value
-          ? activeAdapter.value.loadAguiEvents(nextSessionCode)
-          : Promise.resolve([]),
-        protocolReplayEnabled.value && activeAdapter.value.loadProtocolEvents
-          ? activeAdapter.value.loadProtocolEvents(nextSessionCode)
-          : Promise.resolve([]),
-        activeAdapter.value.capabilities.supportsUserInputRequests && activeAdapter.value.loadUserInputRequests
-          ? activeAdapter.value.loadUserInputRequests(nextSessionCode, abortController.signal)
-          : Promise.resolve([]),
-      ]).then(
-        ([nextMessages, nextAguiEvents, nextProtocolEvents, nextUserInputRequests]) => ({
+    messages.value = []; historySnapshot.value = null; historyCursor.value = null;
+    const [dataResult, queriedActiveRunResult] = await Promise.all([
+      readPresentation(nextSessionCode, abortController.signal).then(
+        ([nextMessages, nextAguiEvents, nextProtocolEvents, nextUserInputRequests, nextHistory]) => ({
+          nextHistory,
           kind: "success" as const,
           nextAguiEvents,
           nextMessages,
@@ -564,9 +569,12 @@ watch(
       ),
       queryActiveRunSnapshot(nextSessionCode, abortController.signal),
     ]);
+    const activeRunResult = dataResult.kind === "success" && dataResult.nextHistory
+      ? { kind: "success" as const, activeRun: historyActiveRun(dataResult.nextHistory) }
+      : queriedActiveRunResult;
     if (!active || abortController.signal.aborted) return;
     if (dataResult.kind === "success") {
-      if (!sending.value) messages.value = dataResult.nextMessages;
+      if (!sending.value) { messages.value = dataResult.nextMessages; acceptHistory(dataResult.nextHistory); }
       aguiEvents.value = dataResult.nextAguiEvents;
       protocolEvents.value = dataResult.nextProtocolEvents;
       userInputRequests.value = dataResult.nextUserInputRequests;
@@ -597,6 +605,51 @@ watch(
   },
   { immediate: true },
 );
+
+async function readPresentation(sessionId: string, signal?: AbortSignal, adapter: ChatAdapter = activeAdapter.value) {
+  if (adapter.loadHistory) {
+    const page = await adapter.loadHistory(sessionId, { limit: 20, cursor: null }, signal);
+    return [historyMessages(page), [] as ChatAguiEvent[], [] as ChatAguiStreamEvent[], historyUserInputRequests(page, props.config.userInputLabels), page] as const;
+  }
+  const parts = await Promise.all([
+    adapter.loadMessages(sessionId),
+    aguiEnabled.value ? adapter.loadAguiEvents(sessionId) : Promise.resolve([]),
+    protocolReplayEnabled.value && adapter.loadProtocolEvents ? adapter.loadProtocolEvents(sessionId) : Promise.resolve([]),
+    adapter.capabilities.supportsUserInputRequests && adapter.loadUserInputRequests ? adapter.loadUserInputRequests(sessionId, signal) : Promise.resolve([]),
+  ]);
+  return [...parts, null] as const;
+}
+async function loadOlderHistory() {
+  const sessionId = session.value?.sessionId;
+  if (!sessionId || !historyCursor.value || !activeAdapter.value.loadHistory || historyLoadingOlder.value) return;
+  historyLoadingOlder.value = true;
+  try {
+    const page = await activeAdapter.value.loadHistory(sessionId, { limit: 20, cursor: historyCursor.value });
+    if (activeSessionCodeRef.value !== sessionId) return;
+    messages.value = mergeChatMessagesChronologically(historyMessages(page), messages.value);
+    historyCursor.value = page.nextCursor;
+  } catch (error) {
+    if ((error as { status?: number })?.status === 409 && activeSessionCodeRef.value === sessionId) {
+      try {
+        const page = await activeAdapter.value.loadHistory(sessionId, { limit: 20, cursor: null });
+        if (activeSessionCodeRef.value === sessionId) { messages.value = historyMessages(page); acceptHistory(page); }
+      } catch (reloadError) { reportError(reloadError instanceof Error ? reloadError.message : "Chat data could not be loaded", "Chat load failed"); }
+    } else reportError(error instanceof Error ? error.message : "Chat data could not be loaded", "Chat load failed");
+  }
+  finally { if (activeSessionCodeRef.value === sessionId) historyLoadingOlder.value = false; }
+}
+function acceptHistory(page: SessionHistory | null) {
+  if (!page) return;
+  historySnapshot.value = page; historyCursor.value = page.nextCursor;
+  userInputRequests.value = historyUserInputRequests(page, props.config.userInputLabels);
+  userInputRequest.value = userInputRequests.value.find((r) => r.status === "Pending") ?? null;
+  const committed = new Set(page.runs.filter((r) => ["Completed", "Failed", "Interrupted", "Waiting"].includes(r.status)).map((r) => r.id));
+  liveAguiEvents.value = liveAguiEvents.value.filter((e) => !committed.has(historyEventRunId(e)));
+}
+function historyActiveRun(page: SessionHistory): ChatActiveRun | null {
+  const run = page.activeRuns.find((r) => r.status === "Running" && r.parentRunId === null);
+  return run ? { runId: run.id, runtimeAdapterKey: "framework", supportsSteer: activeAdapter.value.capabilities.supportsSteer ?? false, state: "RUNNING" } : null;
+}
 
 const shouldPollData = computed(() =>
   Boolean(
@@ -629,20 +682,10 @@ watch(
     const intervalId = window.setInterval(async () => {
       if (refreshing || activeSessionCodeRef.value !== sessionId) return;
       refreshing = true;
-      const [dataResult, activeRunResult] = await Promise.all([
-        Promise.all([
-          activeAdapter.value.loadMessages(sessionId),
-          aguiEnabled.value
-            ? activeAdapter.value.loadAguiEvents(sessionId)
-            : Promise.resolve([]),
-          protocolReplayEnabled.value && activeAdapter.value.loadProtocolEvents
-            ? activeAdapter.value.loadProtocolEvents(sessionId)
-            : Promise.resolve([]),
-          activeAdapter.value.capabilities.supportsUserInputRequests && activeAdapter.value.loadUserInputRequests
-            ? activeAdapter.value.loadUserInputRequests(sessionId)
-            : Promise.resolve([]),
-        ]).then(
-          ([nextMessages, nextAguiEvents, nextProtocolEvents, nextUserInputRequests]) => ({
+      const [dataResult, queriedActiveRunResult] = await Promise.all([
+        readPresentation(sessionId, undefined).then(
+          ([nextMessages, nextAguiEvents, nextProtocolEvents, nextUserInputRequests, nextHistory]) => ({
+          nextHistory,
             kind: "success" as const,
             nextAguiEvents,
             nextMessages,
@@ -653,10 +696,13 @@ watch(
         ),
         queryActiveRunSnapshot(sessionId),
       ]);
+      const activeRunResult = dataResult.kind === "success" && dataResult.nextHistory
+        ? { kind: "success" as const, activeRun: historyActiveRun(dataResult.nextHistory) }
+        : queriedActiveRunResult;
       if (activeSessionCodeRef.value === sessionId) {
         let protocolSnapshot = protocolEvents.value;
         if (dataResult.kind === "success") {
-          if (!sending.value) messages.value = dataResult.nextMessages;
+          if (!sending.value) { messages.value = dataResult.nextMessages; acceptHistory(dataResult.nextHistory); }
           aguiEvents.value = dataResult.nextAguiEvents;
           protocolEvents.value = dataResult.nextProtocolEvents;
           userInputRequests.value = dataResult.nextUserInputRequests;
@@ -913,22 +959,8 @@ async function runMessage(
       result.session.sessionId === activeSession.sessionId
     ) {
       await assistantReplyQueue.waitForDrain(optimisticAssistantCode);
-      const [nextMessages, nextAguiEvents, nextProtocolEvents] =
-        await Promise.all([
-          adapter.loadMessages(result.session.sessionId).catch(() => null),
-          isAguiEnabled
-            ? adapter
-                .loadAguiEvents(result.session.sessionId)
-                .catch(() => null)
-            : Promise.resolve(null),
-          isAguiEnabled &&
-          protocolReplayEnabled.value &&
-          adapter.loadProtocolEvents
-            ? adapter
-                .loadProtocolEvents(result.session.sessionId)
-                .catch(() => null)
-            : Promise.resolve(isAguiEnabled ? [] : null),
-        ]);
+      const [nextMessages, nextAguiEvents, nextProtocolEvents, nextRequests, nextHistory] =
+        await readPresentation(result.session.sessionId, undefined, adapter).catch(() => [null, null, null, [], null] as const);
 
       if (
         ownsRuntimeStreamObserver(
@@ -937,6 +969,11 @@ async function runMessage(
           activeSessionCodeRef.value,
         )
       ) {
+        acceptHistory(nextHistory);
+        if (nextHistory) {
+          userInputRequests.value = [...nextRequests];
+          userInputRequest.value = nextRequests.find((r) => r.status === "Pending") ?? null;
+        }
         completedRunCode = result.run.runId;
         terminalHandledRunCodesRef.add(result.run.runId);
         if (
@@ -1234,7 +1271,7 @@ async function handleAnswerUserInput(answers: ChatUserInputAnswer[]) {
     const result = await adapter.answerUserInputRequestStream(
       activeSession,
       request.requestId,
-      { answers },
+      nativeUserInputAnswer(request, answers),
       {
         onAguiEvent: (event) => {
           if (!aguiEnabled.value) return;
@@ -1250,11 +1287,12 @@ async function handleAnswerUserInput(answers: ChatUserInputAnswer[]) {
       },
     );
     if (activeSessionCodeRef.value !== activeSession.sessionId) return;
-    const nextMessages = await adapter.loadMessages(activeSession.sessionId).catch(() => null);
+    const [nextMessages, durableAudits, durableProtocol, durableRequests, durableHistory] = await readPresentation(activeSession.sessionId, undefined, adapter).catch(() => [null, [], [], [], null] as const);
+    acceptHistory(durableHistory);
     messages.value = nextMessages
       ? nextMessages
       : mergeChatMessagesChronologically(messages.value, result.messages);
-    const nextUserInputRequests = adapter.loadUserInputRequests
+    const nextUserInputRequests = !adapter.loadHistory && adapter.loadUserInputRequests
       ? await adapter.loadUserInputRequests(activeSession.sessionId).catch(() => null)
       : null;
     if (nextUserInputRequests) {
@@ -1275,14 +1313,12 @@ async function handleAnswerUserInput(answers: ChatUserInputAnswer[]) {
     }
     session.value = result.session;
     if (aguiEnabled.value) {
-      const [nextAguiEvents, nextProtocolEvents] = await Promise.all([
-        adapter.loadAguiEvents(result.session.sessionId).catch(() => aguiEvents.value),
-        protocolReplayEnabled.value && adapter.loadProtocolEvents
-          ? adapter.loadProtocolEvents(result.session.sessionId).catch(() => protocolEvents.value)
-          : Promise.resolve([]),
-      ]);
-      aguiEvents.value = nextAguiEvents;
-      protocolEvents.value = nextProtocolEvents;
+      aguiEvents.value = [...durableAudits];
+      protocolEvents.value = [...durableProtocol];
+    }
+    if (durableHistory) {
+      userInputRequests.value = durableRequests;
+      userInputRequest.value = durableRequests.find((r) => r.status === "Pending") ?? null;
     }
     liveAguiEvents.value = [];
     liveAguiPending.value = false;
@@ -1488,6 +1524,10 @@ function handleRuntimeSend(mode?: ChatSubmitMode) {
 }
 
 const panelCommonProps = computed(() => ({
+  historyLoading: loading.value,
+  historyLoadingOlder: historyLoadingOlder.value,
+  historyLabels: props.config.historyLabels,
+  onLoadOlderHistory: historyCursor.value ? () => { void loadOlderHistory(); } : undefined,
   attachmentDownloader: attachmentDownloader.value,
   attachmentLabels: props.attachmentLabels,
   autoFocusComposer: props.autoFocusComposer,

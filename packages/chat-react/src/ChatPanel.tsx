@@ -27,6 +27,9 @@ import {
   buildAguiUserWorkCards,
   buildAguiRunNotices,
   buildTranscriptPresentation,
+  historyToolResult, historyBlockUrl,
+  defaultHistoryLabels,
+  type ChatHistoryLabels,
   currentAguiWorkSnapshot,
   describeDebugEvent,
   formatJsonBlockValue,
@@ -595,7 +598,9 @@ function ToolCard({
   card,
   labels = defaultWorkRailLabels,
   nested = false,
+  statusLabel,
 }: {
+  statusLabel?: string;
   card: ToolWorkCard;
   labels?: ChatWorkRailLabels;
   nested?: boolean;
@@ -608,7 +613,7 @@ function ToolCard({
   const toolCopy = { ...defaultToolWorkLabels, ...labels.tool };
   const toolName = toolCopy.resolveName(card.toolName, card.args);
   const domainExpansion = card.toolName === "discovery_expand_tool_domain";
-  const toolLabel = domainExpansion
+  const toolLabel = statusLabel ? toolName : domainExpansion
     ? (complete ? toolCopy.domainExpanded(toolName) : toolCopy.domainExpanding(toolName))
     : (complete ? toolCopy.completed(toolName) : toolCopy.running(toolName));
   const nestedToolLabel = toolLabel;
@@ -685,7 +690,7 @@ function ToolCard({
                       : "ef-chat__tool-status--running",
                   )}
                 >
-                  {complete ? toolCopy.statusDone : toolCopy.statusRunning}
+                  {statusLabel ?? (complete ? toolCopy.statusDone : toolCopy.statusRunning)}
                 </span>
               )}
             </span>
@@ -1025,6 +1030,32 @@ function AguiRunStatus({ notices, labels }: { notices: AguiRunNotice[]; labels: 
   });
 }
 
+function StructuredMessageDetails({ message, labels, historyLabels = defaultHistoryLabels }: { message: ChatMessage; labels?: ChatWorkRailLabels; historyLabels?: ChatHistoryLabels }) {
+  const view = message.history;
+  if (!view) return null;
+  const reasoning = view.message.content.filter((b) => b.type === "Reasoning").map((b) => "text" in b ? b.text : "").join("");
+  return <section className="ef-chat__history-details" data-history-message-id={message.messageId}>
+    {view.step ? <small>{historyLabels.step} {view.step.sequence} · {historyLabels.attempt} {view.step.attempt} · {historyLabels.statuses[view.message.status]}</small> : null}
+    {reasoning ? <ReasoningCard labels={labels} card={{ id: `${message.messageId}:reasoning`, runId: message.runId ?? "", content: reasoning, summary: reasoning,
+      ended: view.message.status !== "Running", firstMillis: view.message.createdAtMs, endMillis: view.step?.finishedAtMs ?? null, toolCards: [] }} /> : null}
+    {view.message.content.filter((b) => b.type !== "Text" && b.type !== "Reasoning").map((block, index) => <div key={index}>
+      {block.type === "Json" ? <pre>{JSON.stringify(block.value, null, 2)}</pre> : block.type === "Media" && block.mimeType.startsWith("image/") && historyBlockUrl(block) ? <img src={historyBlockUrl(block)!} alt={block.name ?? block.mimeType} loading="lazy" /> : block.type === "Media" || block.type === "Resource" ? historyBlockUrl(block) ? <a href={historyBlockUrl(block)!} target="_blank" rel="noreferrer">{block.name ?? (block.type === "Resource" ? block.uri : block.mimeType)}</a> : <code>{block.name ?? (block.type === "Resource" ? block.uri : block.mimeType)}</code> : null}
+    </div>)}
+    {view.message.structured != null ? <pre>{JSON.stringify(view.message.structured, null, 2)}</pre> : null}
+    {view.tools.map((tool) => <div key={tool.id} data-tool-invocation-id={tool.id}>
+      <small>{historyLabels.statuses[tool.status]}{tool.startedAtMs !== null && tool.finishedAtMs !== null ? ` · ${tool.finishedAtMs - tool.startedAtMs} ms` : ""}</small>
+      <ToolCard labels={labels} statusLabel={historyLabels.statuses[tool.status]} card={{ id: tool.id, runId: tool.runId, toolCallId: tool.id, toolName: tool.toolName, args: tool.arguments,
+        result: historyToolResult(tool), logs: [], parentReasoningId: null, firstMillis: tool.startedAtMs ?? view.message.createdAtMs,
+        started: tool.status === "Running", ended: ["Completed", "Failed"].includes(tool.status) }} />
+    </div>)}
+    {view.interactions.filter((i) => i.response != null).map((interaction) => <details key={interaction.id} data-history-interaction-id={interaction.id}>
+      <summary>{interaction.prompt.filter((b) => b.type === "Text").map((b) => "text" in b ? b.text : "").join("")} · {historyLabels.statuses.Completed}</summary>
+      <pre>{JSON.stringify(interaction.response, null, 2)}</pre>
+    </details>)}
+    {view.run?.error ? <p role="status">{view.run.error}</p> : null}
+  </section>;
+}
+
 function AguiRunWorkRail({
   debugEvents,
   events,
@@ -1276,6 +1307,10 @@ export interface ChatPanelProps {
   liveAguiPendingAnchorMessageCode?: string;
   liveAguiPending?: boolean;
   messages: ChatMessage[];
+  historyLoading?: boolean;
+  historyLoadingOlder?: boolean;
+  historyLabels?: ChatHistoryLabels;
+  onLoadOlderHistory?: () => void;
   onCreateSession?: () => void;
   onNewSession?: () => void;
   onDraftChange: (value: string) => void;
@@ -1334,6 +1369,10 @@ export function ChatPanel({
   liveAguiPendingAnchorMessageCode,
   liveAguiPending,
   messages,
+  historyLoading = false,
+  historyLoadingOlder = false,
+  historyLabels = defaultHistoryLabels,
+  onLoadOlderHistory,
   onCreateSession,
   onNewSession,
   onDraftChange,
@@ -1570,7 +1609,9 @@ export function ChatPanel({
               onScroll={handleScroll}
             >
               <div className="ef-chat__transcript-inner">
-                {transcriptMessages.length ? (
+                {historyLoading ? <div role="status" aria-live="polite" className="ef-chat__history-loading"><LoaderCircle className="animate-spin" size={18} />{historyLabels.loading}</div> : null}
+                {!historyLoading && onLoadOlderHistory ? <button type="button" disabled={historyLoadingOlder} onClick={onLoadOlderHistory}>{historyLoadingOlder ? historyLabels.loading : historyLabels.loadOlder}</button> : null}
+                {!historyLoading && transcriptMessages.length ? (
                   historyTurns.map((turn) => (
                     <section
                       className="ef-chat__turn"
@@ -1579,6 +1620,7 @@ export function ChatPanel({
                     >
                       {(messagesByTurnId.get(turn.id) ?? []).map((message) => (
                         <Fragment key={message.messageId}>
+                          <StructuredMessageDetails message={message} labels={workRailLabels} historyLabels={historyLabels} />
                           {message.role === "USER" ? (
                             <div className="ef-chat__user-message-group">
                               <ChatAttachments
@@ -1597,7 +1639,7 @@ export function ChatPanel({
                                 />
                               ) : null}
                             </div>
-                          ) : (
+                          ) : message.history && !message.content.trim() ? null : (
                             <ChatBubble
                               currentUserDisplayName={currentUserDisplayName}
                               isStreaming={message.messageId === streamingAssistantMessageCode}

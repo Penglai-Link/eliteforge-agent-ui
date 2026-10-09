@@ -2,6 +2,7 @@
 import { ArrowDown, Bot, Pencil, Send, Square, X } from "lucide-vue-next";
 import {
   buildTranscriptPresentation,
+  defaultHistoryLabels,
   describeDebugEvent,
   type ChatAttachmentLabels,
   type ChatMessage,
@@ -11,6 +12,7 @@ import {
 import { computed, nextTick, onMounted, ref, watch } from "vue";
 import { cx, insertNewlineAtCursor } from "../utils";
 import ChatBubble from "./ChatBubble.vue";
+import StructuredMessageDetails from "./StructuredMessageDetails.vue";
 import WaitingRail from "./WaitingRail.vue";
 import ChatUserInputCard from "./ChatUserInputCard.vue";
 import AguiRunWorkRail from "./AguiRunWorkRail.vue";
@@ -327,10 +329,13 @@ onMounted(() => {
           class="ef-chat__transcript"
           @scroll="handleScroll"
         >
-          <div v-if="transcriptMessages.length" class="ef-chat__transcript-inner">
+          <div v-if="props.historyLoading" role="status" aria-live="polite">{{ (props.historyLabels ?? defaultHistoryLabels).loading }}</div>
+          <button v-if="!props.historyLoading && props.onLoadOlderHistory" type="button" :disabled="props.historyLoadingOlder" @click="props.onLoadOlderHistory">{{ props.historyLoadingOlder ? (props.historyLabels ?? defaultHistoryLabels).loading : (props.historyLabels ?? defaultHistoryLabels).loadOlder }}</button>
+          <div v-if="!props.historyLoading && transcriptMessages.length" class="ef-chat__transcript-inner">
             <template v-for="message in transcriptMessages" :key="message.messageId">
+              <StructuredMessageDetails :message="message" :labels="props.historyLabels" />
               <ChatBubble
-                v-if="!isUserInputAnswerSummary(message)"
+                v-if="!isUserInputAnswerSummary(message) && (!message.history || message.content.trim())"
                 :current-user-display-name="currentUserDisplayName"
                 :is-streaming="message.messageId === streamingAssistantMessageCode"
                 :message="message"
@@ -370,7 +375,7 @@ onMounted(() => {
             :size="40"
             :strokeWidth="1"
             class="ef-chat__transcript__bot"
-            v-else
+            v-else-if="!props.historyLoading"
           />
         <ChatUserInputCard
           v-if="props.userInputRequest?.status === 'Pending' && props.onAnswerUserInput"
