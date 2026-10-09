@@ -1,3 +1,4 @@
+import { ToolResultView } from "./ToolResultView";
 import { ChatA2UI } from "./ChatA2UI";
 import type { ChatA2uiActionHandler as ActionHandler, ChatA2uiSession } from "@eliteforge/agent-ui-chat-core";
 import {
@@ -767,7 +768,7 @@ function ToolCard({
                     className="max-h-64"
                     style={{ maxHeight: 256, overflowY: "auto" }}
                   >
-                    <JsonBlock value={card.result} />
+                    <ToolResultView value={card.result} />
                   </div>
                 ) : (
                   <div className="ef-chat__result-block">

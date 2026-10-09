@@ -127,10 +127,11 @@ export function historyUserInputRequests(page: SessionHistory, labels?: Partial<
 }
 
 export function historyToolResult(tool: HistoryToolInvocation): string {
+  if (tool.content.some(block => block.type === "Media" || block.type === "Resource" || block.type === "Json") || tool.structured != null || tool.resultReference != null) {
+    return JSON.stringify({ content: tool.content, structured: tool.structured, resultReference: tool.resultReference, isError: tool.isError });
+  }
   const text = historyText(tool.content);
   if (text) return text;
-  if (tool.structured !== null) return JSON.stringify(tool.structured, null, 2);
-  if (tool.resultReference?.type === "Resource") return tool.resultReference.uri;
   return "";
 }
 

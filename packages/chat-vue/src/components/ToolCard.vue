@@ -13,6 +13,7 @@ import {
 } from "@eliteforge/agent-ui-chat-core";
 import { computed, nextTick, ref, watch } from "vue";
 import { cx } from "../utils";
+import ToolResultView from "./ToolResultView.vue";
 import JsonBlock from "./JsonBlock.vue";
 import CopyValueButton from "./CopyValueButton.vue";
 
@@ -196,7 +197,7 @@ function hasToolParameterPayload(value: unknown): boolean {
             v-if="props.card.result"
             style="max-height: 256px; overflow-y: auto"
           >
-            <JsonBlock :value="props.card.result" />
+            <ToolResultView :value="props.card.result" />
           </div>
           <div v-else class="ef-chat__result-block">No result payload.</div>
         </section>
