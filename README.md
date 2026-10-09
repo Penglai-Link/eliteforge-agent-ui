@@ -41,3 +41,7 @@ React/Vue 演示使用 chat-core 的模拟 adapter，可创建会话、发送消
 ## 发布
 
 五个包使用 `@eliteforge/agent-ui-*` 命名空间，包级 `publishConfig` 指向内部 npm registry。发布前需要配置 npm 凭据；当前仅准备发布配置，不执行发布。
+
+## 独立 A2UI 客户端
+
+新增 a2ui-core、a2ui-react、a2ui-vue 三个包，提供 A2UI v0.9.1 最小 Catalog 与模拟交互闭环，见 [接入文档](docs/a2ui-client.md)。

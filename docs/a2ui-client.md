@@ -1,0 +1,138 @@
+# 独立 A2UI 客户端
+
+第一阶段只提供独立客户端。消息传输、聊天历史、AG-UI 桥接、Agent 和审批路由由后续阶段接入。
+
+## 包与使用
+
+- `@eliteforge/agent-ui-a2ui-core`：消息校验、surface 状态、绑定、action、订阅、快照和共享渲染语义。
+- `@eliteforge/agent-ui-a2ui-react`：React `A2UISurface`。
+- `@eliteforge/agent-ui-a2ui-vue`：Vue `A2UISurface`。
+
+```ts
+import { A2UIClient, CATALOG_ID } from '@eliteforge/agent-ui-a2ui-core';
+const client = new A2UIClient();
+client.apply({ version: 'v0.9.1', createSurface: {
+  surfaceId: 'profile', catalogId: CATALOG_ID, sendDataModel: true
+}});
+// 每收到一个完整 JSON 对象调用一次 apply；客户端不处理 JSONL/SSE 字节流。
+```
+
+React：
+
+```tsx
+import { A2UISurface } from '@eliteforge/agent-ui-a2ui-react';
+import '@eliteforge/agent-ui-a2ui-react/styles.css';
+<A2UISurface client={client} surfaceId="profile"
+  onAction={(message, metadata) => host.handle(message, metadata)} />
+```
+
+Vue：
+
+```vue
+<script setup lang="ts">
+import { A2UISurface } from '@eliteforge/agent-ui-a2ui-vue';
+import '@eliteforge/agent-ui-a2ui-vue/styles.css';
+</script>
+<template>
+  <A2UISurface :client="client" surface-id="profile" :on-action="host.handle" />
+</template>
+```
+
+`onAction(message, metadata)` 收到标准 `action` 信封和独立传输 metadata。
+宿主决定调用业务、继续 Agent 或发起审批，也负责异步请求状态及错误展示。
+`sendDataModel` 为真的 surface 放在 `metadata.a2uiClientDataModel.surfaces` 中。
+客户端不会自动调用审批恢复接口，也不会发送网络请求。
+
+## 支持范围
+
+协议固定为 `v0.9.1`，支持四种信封：`createSurface`、`updateComponents`、`updateDataModel`、`deleteSurface`。
+自定义 Catalog ID：`https://eliteforge.dev/a2ui/v0.9.1/minimal`。这是协议标识，不要求在线可下载。
+可从 core 包导出路径 `./catalog.json` 和 `./common_types.json` 获取配套 Schema；JavaScript 可直接导入 `catalog`。
+
+| 组件 | 支持 |
+| --- | --- |
+| Text | 纯文本、h1–h5；不解释 HTML/Markdown |
+| Row / Column | 静态 children、集合模板、justify / align |
+| Card | 单 child 引用 |
+| Button | child、default / primary / borderless、action.event |
+| TextField | shortText / longText / number / obscured；输入值为字符串 |
+| CheckBox | boolean value |
+| ChoicePicker | mutuallyExclusive / multipleSelection；value 为字符串数组 |
+| Image | 动态 URL、description、fit 与尺寸 variant |
+| Icon | person / check / close / add / mail / search / info / warning；svgPath；动态绑定 |
+| Divider | horizontal / vertical |
+| Slider | 数值绑定、min / max，允许小数；写入时校验范围 |
+| DateTimeInput | 日期、时间、日期时间；动态 min / max；可清空 |
+| Video / AudioPlayer | 动态 URL、浏览器原生播放控制；不自动播放 |
+
+支持字面量和 `{path}` 绑定、JSON Pointer 转义、集合模板中的相对路径、双向写入。
+只有绑定了 path 的输入才可编辑。缺失引用先渲染空占位，后续消息补齐。
+不支持完整官方 Basic Catalog；函数调用、checks、validationRegexp、ChoicePicker filterable / displayStyle 和 surface theme 均不在首版 Catalog 范围内，校验时拒绝。
+协议信封支持与组件/表达式能力需分别判断，不应把本客户端声明为完整 Basic Catalog 实现。
+
+## 常用扩展组件
+
+Catalog 当前共 33 个组件。除已有 15 个组件外，补充如下：
+
+| 分类 | 组件 | 行为 |
+| --- | --- | --- |
+| 官方布局与交互 | List、Tabs、Modal | List 支持静态和集合模板；Tabs 支持左右键/Home/End；Modal 使用原生 dialog，支持 Esc、焦点约束和关闭按钮 |
+| 自定义布局 | Grid、Spacer、Accordion | 响应式网格、间距、可恢复展开状态的折叠区域 |
+| 自定义表单 | NumberField、Select、Switch | 数字、字符串、布尔值双向绑定；输入校验与 action context 共用核心 |
+| 自定义展示 | Link、Badge、Avatar、Table | 安全链接、状态标签、头像回退、绑定数据行的只读表格 |
+| 自定义反馈 | Alert、Progress、Spinner、Skeleton、EmptyState | 提示、确定进度、加载、骨架屏和空状态；支持减少动态效果系统偏好 |
+
+以上 15 个自定义组件不是官方 Basic Catalog 的组件名，Agent 必须使用本包 Catalog。
+已覆盖官方 18 个组件名，但仍不等于完整 Basic Catalog：函数、checks、完整图标集合等仍受前述范围限制。
+Table 接收 `columns: [{key, label}]` 和 `rows: [...] | {path}`；单元格按文本输出，不解释 HTML。
+Modal 的 trigger 使用 Button 引用，点击只打开本地弹窗，不额外发出 trigger 配置的服务器 action；弹窗内容里的业务按钮正常回传。
+Tabs、Modal、Accordion 的本地状态写入 surface 的 `viewState`，快照导入导出会一起保存；这些状态不进入 `sendDataModel` metadata。
+`getViewState(surfaceId, JSON.stringify([componentId, scope]))` 与 `setViewState(...)` 可供宿主操作，状态字段为 `tab` 或 `open`。
+两端演示下方的“布局、数据与反馈”区域可验证新增组件、保存设置及弹窗。
+
+## 状态与恢复
+
+- `subscribe(listener)` 返回取消订阅函数；`getSnapshot()` 返回冻结的稳定快照。
+- `exportSnapshot()` 返回可序列化的独立副本。
+- `importSnapshot(snapshot)` 验证所有 surface、Catalog、组件和数据后一次性替换状态，失败保留原状态。
+- 每次 `apply` 原子提交；无效消息、未知 surface、重复 create、组件环和危险路径均抛错，由宿主捕获。
+- `updateComponents` 按 ID 替换整个组件定义；未涉及的组件保留。
+- `updateDataModel` 在指定路径替换值，省略 value 删除值；省略 path 或 `/` 替换整个模型。
+
+快照接口为后续历史恢复提供基础，本轮没有修改聊天历史存储格式。
+
+## 宿主组件
+
+渲染器的 `components` 参数按组件名注册渲染函数，可覆盖内置组件。
+回调收到 `RenderContext`：component、scope、resolve、setValue、children、dispatch 等。
+新增组件时，必须给 `new A2UIClient([{catalogId, schema}])` 提供相应 Catalog Schema，再在两端注册渲染函数。
+Schema 采用官方结构，含 `$defs.anyComponent`、`$defs.theme`，公共类型引用指向随包提供的 common_types ID。
+仅注册渲染函数不会放宽协议校验；只声明宿主实际支持的能力。
+
+## 主题与演示
+
+两端使用现有 `--color-*` 与 `--agent-ui-skin-font` 令牌，并带独立使用时的回退值。
+宿主可导入 `@eliteforge/agent-ui-chat-theme/styles.css` 应用完整现有主题。
+
+```sh
+npm run build
+npm run dev --workspace=@eliteforge/agent-ui-a2ui-react -- --port 5191
+npm run dev --workspace=@eliteforge/agent-ui-a2ui-vue -- --port 5192
+```
+
+打开对应地址，连续点击四次“接收下一条消息”，观察 surface → 标题/占位 → 数据 → 表单补齐。
+修改资料并保存，页面显示结构化 action、metadata 和宿主更新后的成功状态。
+两端共用 core 包 `./demo` 的固定消息和模拟宿主逻辑。
+页面下方还有独立的原子组件展示 surface，包括滑块、三种日期时间输入、图标、图片和本地音视频。
+点击“保存偏好”可查看新增输入的结构化 action 和宿主更新结果。
+
+日期模式写入 `YYYY-MM-DD`，时间模式写入 `HH:mm:ss`（也接受分钟精度）。
+日期时间模式按浏览器本地时区显示，编辑后写回带 `Z` 的 ISO 时间。动态 min / max 使用同一转换规则。
+媒体仅接收 http、https、blob 或相对 URL；危险协议不生成 src。图标 SVG 仅接受 path 数据，不解释 HTML。
+
+## 官方实现评估与来源
+
+核对 [v0.9.1 协议](https://a2ui.org/specification/v0.9.1-a2ui/) 与官方仓库提交 `03b77ae95a12f5040754f8cc48a8fa9ab761c377`。
+官方 `typescript/web_core` 包当前为 0.12.0，包含 Lit、signals、Zod 等依赖，协议代码生成输入为 v0_9 等目录。
+官方已有 React 渲染器，没有对应 Vue 渲染器。本轮复用官方 server_to_client Schema，按最小支持范围裁剪公共类型和 Catalog；不引入官方运行时。
+保留 `packages/a2ui-core/LICENSE.a2ui`。`common_types.json` 禁用了函数调用；`catalog.json` 裁剪为33 个组件及上述能力。
