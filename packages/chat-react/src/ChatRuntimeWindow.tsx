@@ -57,6 +57,8 @@ interface ToastLikeCallback {
 }
 
 export interface ChatRuntimeWindowProps {
+  /** Open a local composer and create its session on the first submission. */
+  allowDraftSession?: boolean;
   agentReplyEffect?: AssistantReplyEffect;
   agentReplySpeed?: number;
   adapter?: ChatAdapter;
@@ -84,6 +86,8 @@ export interface ChatRuntimeWindowProps {
   onError?: ToastLikeCallback;
   onInfo?: ToastLikeCallback;
   onPendingAttachmentsChange?: (attachments: ChatMessageAttachment[]) => void;
+  /** Hosts can stage pasted files locally until the first submission. */
+  onPasteAttachment?: (file: File) => void | Promise<void>;
   onRunStateChange?: (state: ChatRuntimeRunState) => void;
   onSessionChange?: (session: ChatSession | null) => void;
   pendingAttachments?: ChatMessageAttachment[];
@@ -190,6 +194,7 @@ function PendingAttachmentCard({
 }
 
 export function ChatRuntimeWindow({
+  allowDraftSession = false,
   agentReplyEffect = "off",
   agentReplySpeed = 120,
   adapter,
@@ -216,6 +221,7 @@ export function ChatRuntimeWindow({
   onError = defaultErrorReporter,
   onInfo,
   onPendingAttachmentsChange,
+  onPasteAttachment,
   onRunStateChange,
   onSessionChange,
   pendingAttachments: controlledPendingAttachments,
@@ -254,6 +260,9 @@ export function ChatRuntimeWindow({
   const [streamingAssistantMessageCode, setStreamingAssistantMessageCode] = useState<string | null>(null);
   const [steering, setSteering] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [creatingSession, setCreatingSession] = useState(false);
+  const sessionCreationRef = useRef<Promise<ChatSession> | null>(null);
+  const initialSubmitPendingRef = useRef<symbol | null>(null);
   const [liveAguiPending, setLiveAguiPending] = useState(false);
   const [activeRunCode, setActiveRunCode] = useState("");
   const [activeRunSupportsSteer, setActiveRunSupportsSteer] = useState<boolean | null>(null);
@@ -265,6 +274,8 @@ export function ChatRuntimeWindow({
   const lastReadErrorRef = useRef("");
   const activeRunCodeRef = useRef("");
   const remoteActiveRunRef = useRef<ChatActiveRun | null>(null);
+  const completedRunKeysRef = useRef(new Set<string>());
+  const presentationRefreshEpochRef = useRef(0);
   const activeRunStatusPendingRef = useRef(false);
   const abortRef = useRef<AbortController | null>(null);
   const steerAbortRef = useRef<AbortController | null>(null);
@@ -455,8 +466,19 @@ export function ChatRuntimeWindow({
   }
 
   function replaceRemoteActiveRun(next: ChatActiveRun | null) {
+    if (next && completedRunKeysRef.current.has(`${activeSessionCodeRef.current}:${next.runId}`)) next = null;
     remoteActiveRunRef.current = next;
     setRemoteActiveRun(next);
+  }
+
+  function acknowledgeCompletedTurn(sessionId: string, runId: string) {
+    const observedRunId = activeRunCodeRef.current;
+    for (const id of [observedRunId, runId]) {
+      if (id) completedRunKeysRef.current.add(`${sessionId}:${id}`);
+    }
+    replaceRemoteActiveRun(remoteActiveRunRef.current);
+    replaceActiveRunStatusPending(false);
+    return ++presentationRefreshEpochRef.current;
   }
 
   const loadActiveRunSnapshot = useCallback(async (
@@ -473,13 +495,13 @@ export function ChatRuntimeWindow({
     return result.activeRun;
   }, [activeAdapter]);
 
-  async function refreshPresentationAfterTurn(sessionId: string, runId: string): Promise<boolean> {
+  async function refreshPresentationAfterTurn(sessionId: string, runId: string, canApply = () => true): Promise<boolean> {
     if (!aguiEnabled) return true;
     const [audits, protocol] = await Promise.allSettled([
       activeAdapter.loadAguiEvents(sessionId),
       protocolReplayEnabled && activeAdapter.loadProtocolEvents ? activeAdapter.loadProtocolEvents(sessionId) : Promise.resolve([]),
     ]);
-    if (activeSessionCodeRef.current !== sessionId) return false;
+    if (activeSessionCodeRef.current !== sessionId || !canApply()) return false;
     const errors = [audits, protocol].flatMap((part) => part.status === "rejected" ? [part.reason] : []);
     reportReadErrors(sessionId, errors);
     const incomplete = errors.length > 0 || (audits.status === "fulfilled" && audits.value.some((event) => event.metadata?.replayIncomplete === "true"));
@@ -495,6 +517,21 @@ export function ChatRuntimeWindow({
     }
     if (incomplete) setLiveAguiEvents((current) => [...current, health]);
     return false;
+  }
+
+  async function refreshCompletedTurn(sessionId: string, runId: string, epoch: number) {
+    const canApply = () => activeSessionCodeRef.current === sessionId
+      && presentationRefreshEpochRef.current === epoch && !sendingRef.current;
+    const [snapshot, presentation] = await Promise.allSettled([
+      activeAdapter.loadMessages(sessionId),
+      refreshPresentationAfterTurn(sessionId, runId, canApply),
+    ]);
+    if (!canApply()) return;
+    if (snapshot.status === "fulfilled") setMessages(snapshot.value);
+    if (presentation.status === "fulfilled" && presentation.value) {
+      setLiveAguiEvents([]);
+      setLiveAguiAnchorMessageCodes({});
+    }
   }
 
   async function refreshActiveRun(sessionId: string) {
@@ -602,6 +639,7 @@ export function ChatRuntimeWindow({
       detachSteerObserver();
     }
     if (previousSessionCode !== nextSessionCode) {
+      presentationRefreshEpochRef.current += 1;
       replaceRemoteActiveRun(null);
       replaceActiveRunStatusPending(false);
       observedRemoteRunRef.current = null;
@@ -628,6 +666,7 @@ export function ChatRuntimeWindow({
   }, [onSessionChange, session]);
 
   useEffect(() => () => {
+    presentationRefreshEpochRef.current += 1;
     detachRunObserver("detach", false);
     detachSteerObserver(false);
   }, []);
@@ -699,6 +738,7 @@ export function ChatRuntimeWindow({
     let active = true;
     const abortController = new AbortController();
     async function loadSessionState() {
+      const readEpoch = presentationRefreshEpochRef.current;
       if (!session?.sessionId) {
         setMessages([]);
         setAguiEvents([]);
@@ -711,7 +751,7 @@ export function ChatRuntimeWindow({
       try {
         const { nextMessages, nextAguiEvents, nextProtocolEvents, nextActiveRun, nextUserInputRequests, errors, healthNotice, healthyProtocolEvents } =
           await readSessionStateParts(session.sessionId, abortController.signal);
-        if (!active) return;
+        if (!active || readEpoch !== presentationRefreshEpochRef.current) return;
         reportReadErrors(session.sessionId, errors);
         if (!sendingRef.current && nextMessages !== undefined) setMessages(nextMessages);
         if (healthyProtocolEvents !== undefined) {
@@ -776,10 +816,11 @@ export function ChatRuntimeWindow({
     if (!session?.sessionId || !shouldPollData) return;
     const intervalId = window.setInterval(async () => {
       if (!session?.sessionId) return;
+      const readEpoch = presentationRefreshEpochRef.current;
       try {
         const { nextMessages, nextAguiEvents, nextProtocolEvents, nextActiveRun, nextUserInputRequests, errors, healthNotice, healthyProtocolEvents } =
           await readSessionStateParts(session.sessionId);
-        if (activeSessionCodeRef.current !== session.sessionId) return;
+        if (activeSessionCodeRef.current !== session.sessionId || readEpoch !== presentationRefreshEpochRef.current) return;
         reportReadErrors(session.sessionId, errors);
         if (!sendingRef.current && nextMessages !== undefined) setMessages(nextMessages);
         if (healthyProtocolEvents !== undefined) {
@@ -869,10 +910,10 @@ export function ChatRuntimeWindow({
   }, [protocolEvents, protocolReplayEnabled, remoteActiveRun, session]);
 
   const sendDisabled = useMemo(() => {
-    if (loading || config.disabledInput || userInputRequest || userInputAnswerPending) return true;
+    if (loading || creatingSession || config.disabledInput || userInputRequest || userInputAnswerPending) return true;
     if (!draft.trim() && !pendingAttachments.length) return true;
     return false;
-  }, [config.disabledInput, draft, loading, pendingAttachments.length, session, userInputAnswerPending, userInputRequest]);
+  }, [config.disabledInput, creatingSession, draft, loading, pendingAttachments.length, session, userInputAnswerPending, userInputRequest]);
   const queueDisabled = useMemo(
     () => loading || Boolean(config.disabledInput) || Boolean(userInputRequest) || userInputAnswerPending || (!draft.trim() && !pendingAttachments.length) || !session,
     [config.disabledInput, draft, loading, pendingAttachments.length, session, userInputAnswerPending, userInputRequest],
@@ -881,23 +922,36 @@ export function ChatRuntimeWindow({
 
   async function ensureSession() {
     if (session) return session;
-    const created = await activeAdapter.createSession({
-      title: normalizeOptionalValue(config.title) ?? floatingTitle,
+    if (!sessionCreationRef.current) {
+      setCreatingSession(true);
+      sessionCreationRef.current = activeAdapter.createSession({
+        title: normalizeOptionalValue(config.title) ?? floatingTitle,
+      }).then((created) => {
+        activeSessionCodeRef.current = created.sessionId;
+        setSession(created);
+        setMessages([]);
+        setAguiEvents([]);
+        setProtocolEvents([]);
+        return created;
+      }).finally(() => {
+        sessionCreationRef.current = null;
+        setCreatingSession(false);
+      });
+    }
+    return sessionCreationRef.current;
+  }
+
+  function requestSessionCreation() {
+    void ensureSession().catch((error) => {
+      onError(error instanceof Error ? error.message : "Chat session creation failed", "Chat send failed");
     });
-    activeSessionCodeRef.current = created.sessionId;
-    setSession(created);
-    setMessages([]);
-    setAguiEvents([]);
-    setProtocolEvents([]);
-    return created;
   }
 
   async function handleAttachmentUpload(file: File) {
     if (!file || !activeAdapter.uploadAttachment || attachmentUploadPending) return;
-    const activeSession = await ensureSession();
-    if (!activeSession) return;
-    setAttachmentUploadPending(true);
     try {
+      const activeSession = await ensureSession();
+      setAttachmentUploadPending(true);
       const attachment = await activeAdapter.uploadAttachment(activeSession, {
         file,
         kind: file.type.startsWith("image/") ? "image" : "file",
@@ -907,10 +961,7 @@ export function ChatRuntimeWindow({
         setPendingAttachments((current) => [...current, attachment]);
       }
     } catch (error) {
-      onError(
-        error instanceof Error ? error.message : "Chat attachment upload failed",
-        "Attachment upload failed",
-      );
+      onError(error instanceof Error ? error.message : "Chat attachment upload failed", "Attachment upload failed");
     } finally {
       setAttachmentUploadPending(false);
     }
@@ -949,6 +1000,7 @@ export function ChatRuntimeWindow({
     const submittedAttachments = sendInput.attachments ?? [];
     const autoDrainEpoch = autoDrainEpochRef.current;
     const abortController = new AbortController();
+    let presentationEpoch = ++presentationRefreshEpochRef.current;
     abortRef.current = abortController;
     streamAbortReasonsRef.current.set(abortController, "none");
     currentLiveAguiFailedRunCodesRef.current.clear();
@@ -999,6 +1051,7 @@ export function ChatRuntimeWindow({
     // restore path is RUN_ALREADY_ACTIVE, which rejects before admission.
     let shouldRestoreSourceSubmission = false;
     let completedSession: ChatSession | null = null;
+    let completedRunId = "";
     try {
       const result = await activeAdapter.streamMessage(
         activeSession,
@@ -1055,7 +1108,10 @@ export function ChatRuntimeWindow({
         shouldRestoreSourceSubmission = false;
         return false;
       }
-      await assistantReplyQueueRef.current?.waitForDrain(optimisticAssistantCode);
+      // The product result acknowledges execution and persistence. Animation
+      // and replay reads must not keep the completed executor in the composer.
+      assistantReplyQueueRef.current?.flush(optimisticAssistantCode);
+      presentationEpoch = acknowledgeCompletedTurn(result.session.sessionId, result.run.runId);
       streamSucceeded = true;
       shouldRestoreSourceSubmission = false;
       setSession(result.session);
@@ -1067,24 +1123,11 @@ export function ChatRuntimeWindow({
           pendingUserInputRequest,
         ]);
       }
-      const nextMessages = await activeAdapter
-        .loadMessages(result.session.sessionId)
-        .catch(() => null);
-      if (nextMessages) {
-        setMessages(nextMessages);
-      } else {
-        setMessages((current) => mergeChatMessagesChronologically(
-          current,
-          result.messages,
-          [optimisticUserCode, optimisticAssistantCode],
-        ));
-      }
-      const durablePresentation = await refreshPresentationAfterTurn(result.session.sessionId, result.run.runId);
-      if (durablePresentation) {
-        setLiveAguiEvents([]);
-        setLiveAguiAnchorMessageCodes({});
-      }
+      setMessages((current) => mergeChatMessagesChronologically(
+        current, result.messages, [optimisticUserCode, optimisticAssistantCode],
+      ));
       completedSession = result.session;
+      completedRunId = result.run.runId;
       completed = currentStreamAbortReason(abortController) === "none"
         && autoDrainEpochRef.current === autoDrainEpoch;
     } catch (error) {
@@ -1155,6 +1198,10 @@ export function ChatRuntimeWindow({
       }
     }
 
+    if (streamSucceeded && completedSession) {
+      void refreshCompletedTurn(completedSession.sessionId, completedRunId, presentationEpoch);
+    }
+
     if (!streamSucceeded && shouldRestoreSourceSubmission) {
       restoreSourceSubmission();
     }
@@ -1185,6 +1232,7 @@ export function ChatRuntimeWindow({
       .reverse()
       .find((message) => message.role === "ASSISTANT")?.messageId ?? "";
     setUserInputAnswerPending(true);
+    let presentationEpoch = ++presentationRefreshEpochRef.current;
     setSendingState(true);
     setLiveAguiPending(aguiEnabled);
     setLiveAguiPendingAnchorMessageCode(continuationAnchorMessageCode);
@@ -1209,28 +1257,19 @@ export function ChatRuntimeWindow({
         },
       );
       if (userInputRequest.nativeInteraction) answeredNativeInteractionsRef.current.add(userInputRequest.requestId);
-      setMessages(await activeAdapter.loadMessages(session.sessionId).catch(() => result.messages));
+      presentationEpoch = acknowledgeCompletedTurn(result.session.sessionId, result.run.runId);
+      setMessages((current) => mergeChatMessagesChronologically(current, result.messages));
       setSession(result.session);
-      const nextUserInputRequests = activeAdapter.loadUserInputRequests
-        ? await activeAdapter.loadUserInputRequests(session.sessionId).catch(() => null)
-        : null;
-      if (nextUserInputRequests) {
-        setUserInputRequests(nextUserInputRequests);
-        setUserInputRequest(nextUserInputRequests.find((request) => request.status === "Pending") ?? null);
-      } else {
-        setUserInputRequest(result.userInputRequest?.status === "Pending" ? result.userInputRequest : null);
-        setUserInputRequests((current) => current.map((request) => (
-          request.requestId === userInputRequest.requestId
-            ? { ...request, answers, status: "Answered" as const }
-            : request
-        )));
-      }
-      const durablePresentation = await refreshPresentationAfterTurn(session.sessionId, result.run.runId);
-      if (durablePresentation) setLiveAguiEvents([]);
+      setUserInputRequest(result.userInputRequest?.status === "Pending" ? result.userInputRequest : null);
+      setUserInputRequests((current) => current.map((request) => (
+        request.requestId === userInputRequest.requestId
+          ? { ...request, answers, status: "Answered" as const }
+          : request
+      )));
       setLiveAguiPending(false);
       setLiveAguiPendingAnchorMessageCode("");
       setLiveAguiAnchorMessageCodes({});
-      await loadActiveRunSnapshot(session.sessionId).then(replaceRemoteActiveRun).catch(() => undefined);
+      void refreshCompletedTurn(result.session.sessionId, result.run.runId, presentationEpoch);
     } catch (error) {
       onError(error instanceof Error ? error.message : "Chat answer failed", "Chat answer failed");
     } finally {
@@ -1242,20 +1281,31 @@ export function ChatRuntimeWindow({
   }
 
   async function handleSend() {
-    if (sendingRef.current || sendDisabled || userInputRequest || userInputAnswerPending) return;
-    const activeSession = await ensureSession();
-    if (!activeSession) return;
+    if (initialSubmitPendingRef.current || sendingRef.current || sendDisabled || userInputRequest || userInputAnswerPending) return;
+    // Capture the submitted draft before awaiting session creation. Subsequent
+    // input changes must not alter the message being admitted.
     const content = draft.trim();
-    if (!content && !pendingAttachments.length) return;
-    const sendInput = createSendInput(activeSession, content, pendingAttachments);
-    if (!sendInput) return;
-    setDraft("");
-    setPendingAttachments([]);
-    if (remoteActiveRunRef.current) {
-      enqueueSubmission(activeSession, sendInput);
-      return;
+    const attachments = pendingAttachments;
+    if (!content && !attachments.length) return;
+    const submission = Symbol("initial-submission");
+    initialSubmitPendingRef.current = submission;
+    try {
+      const activeSession = await ensureSession();
+      const sendInput = createSendInput(activeSession, content, attachments);
+      if (!sendInput) return;
+      setDraft("");
+      setPendingAttachments([]);
+      if (remoteActiveRunRef.current) {
+        enqueueSubmission(activeSession, sendInput);
+        return;
+      }
+      if (initialSubmitPendingRef.current === submission) initialSubmitPendingRef.current = null;
+      await runMessage(activeSession, sendInput);
+    } catch (error) {
+      onError(error instanceof Error ? error.message : "Chat send failed", "Chat send failed");
+    } finally {
+      if (initialSubmitPendingRef.current === submission) initialSubmitPendingRef.current = null;
     }
-    await runMessage(activeSession, sendInput);
   }
 
   async function handleQueue() {
@@ -1547,6 +1597,7 @@ export function ChatRuntimeWindow({
 
   const panel = (
     <ChatPanel
+      allowDraftSession={allowDraftSession}
       attachmentLabels={attachmentLabels}
       attachmentDownloader={attachmentDownloader}
       autoFocusComposer={autoFocusComposer}
@@ -1555,7 +1606,7 @@ export function ChatRuntimeWindow({
       createSessionLabel={createSessionLabel}
       currentUserDisplayName={currentUserDisplayName}
       debugOptions={resolvedDebugOptions}
-      disabledInput={Boolean(config.disabledInput) || userInputRequest?.status === "Pending"}
+      disabledInput={creatingSession || Boolean(config.disabledInput) || userInputRequest?.status === "Pending"}
       draft={draft}
       emptyDescription={emptyDescription ?? "Create a session to start chatting."}
       emptyTitle={emptyTitle}
@@ -1568,10 +1619,10 @@ export function ChatRuntimeWindow({
       liveAguiPendingAnchorMessageCode={liveAguiPendingAnchorMessageCode}
       liveAguiPending={liveAguiPending}
       messages={visibleMessages}
-      onCreateSession={onCreateSession ?? (() => { void ensureSession(); })}
+      onCreateSession={onCreateSession ?? requestSessionCreation}
       onNewSession={handleNewSession}
       onDraftChange={setDraft}
-      onPasteAttachment={handleAttachmentUpload}
+      onPasteAttachment={onPasteAttachment ?? handleAttachmentUpload}
       onEditMessage={setDraft}
       onEditQueuedMessage={handleEditQueuedMessage}
       onRemoveQueuedMessage={handleRemoveQueuedMessage}
@@ -1604,6 +1655,7 @@ export function ChatRuntimeWindow({
   if (config.floating !== false) {
     return (
       <ChatWindow
+        allowDraftSession={allowDraftSession}
         attachmentLabels={attachmentLabels}
         attachmentDownloader={attachmentDownloader}
         autoFocusComposer={autoFocusComposer}
@@ -1611,7 +1663,7 @@ export function ChatRuntimeWindow({
         composerHeader={composerFeedback}
         currentUserDisplayName={currentUserDisplayName}
         debugOptions={resolvedDebugOptions}
-        disabledInput={Boolean(config.disabledInput) || userInputRequest?.status === "Pending"}
+        disabledInput={creatingSession || Boolean(config.disabledInput) || userInputRequest?.status === "Pending"}
         draft={draft}
         emptyDescription={emptyDescription ?? "Create a session to start chatting."}
         emptyTitle={emptyTitle}
@@ -1623,10 +1675,10 @@ export function ChatRuntimeWindow({
       liveAguiPendingAnchorMessageCode={liveAguiPendingAnchorMessageCode}
       liveAguiPending={liveAguiPending}
         messages={visibleMessages}
-        onCreateSession={onCreateSession ?? (() => { void ensureSession(); })}
+        onCreateSession={onCreateSession ?? requestSessionCreation}
         onNewSession={handleNewSession}
         onDraftChange={setDraft}
-        onPasteAttachment={handleAttachmentUpload}
+        onPasteAttachment={onPasteAttachment ?? handleAttachmentUpload}
         onEditMessage={setDraft}
         onEditQueuedMessage={handleEditQueuedMessage}
         onRemoveQueuedMessage={handleRemoveQueuedMessage}

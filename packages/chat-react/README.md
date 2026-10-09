@@ -35,6 +35,10 @@ export function App() {
 
 发送消息后，模拟 adapter 会回显内容并产生一组 AG-UI 流事件。包内 `npm run dev` 页面也使用该模拟 adapter。
 
+如果要在首次发送前保持本地草稿，给 `ChatRuntimeWindow` 设置 `allowDraftSession`。组件会直接显示输入框，空白输入不会创建会话；首次有效发送才调用 `adapter.createSession`。创建期间会锁定重复提交，创建失败保留草稿并通过 `onError` 报告，用户可重试。默认关闭该选项，保持原有空会话展示。
+
+宿主可通过 `onPasteAttachment` 接管粘贴文件，在本地暂存附件，再在首次发送时上传；默认附件上传需要先创建会话。
+
 ## 接入自己的后端
 
 为宿主实现 `ChatAdapter`，把后端协议转换成 chat-core 的通用类型。最小实现需要声明能力并提供会话、消息、AG-UI 事件和流式发送方法：

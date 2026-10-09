@@ -1253,6 +1253,8 @@ function WaitingRail({ labels = defaultWorkRailLabels }: { labels?: ChatWorkRail
 }
 
 export interface ChatPanelProps {
+  /** Show the composer before a persisted session exists. */
+  allowDraftSession?: boolean;
   attachmentDownloader?: (attachment: ChatMessageAttachment) => Promise<Blob>;
   attachmentLabels?: ChatAttachmentLabels;
   autoFocusComposer?: boolean;
@@ -1310,6 +1312,7 @@ export interface ChatPanelProps {
 }
 
 export function ChatPanel({
+  allowDraftSession = false,
   attachmentDownloader,
   attachmentLabels = defaultAttachmentLabels,
   autoFocusComposer = false,
@@ -1547,7 +1550,7 @@ export function ChatPanel({
           </div>
         </header>
       ) : null}
-      {session ? (
+      {session || allowDraftSession ? (
         <>
           <div
             className={cx(

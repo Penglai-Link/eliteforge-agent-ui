@@ -90,6 +90,70 @@ function completedResult(
   };
 }
 
+describe("draft session admission", () => {
+  it.each([false, true])("renders a draft composer (floating=%s), then creates and sends on the first valid submission", async (floating) => {
+    const { adapter } = createAdapter();
+    adapter.createSession = vi.fn().mockResolvedValue(restoredSession());
+    adapter.streamMessage = vi.fn().mockResolvedValue(completedResult("RUN-1"));
+    render(<ChatRuntimeWindow adapter={adapter} config={{ floating }} allowDraftSession onError={vi.fn()} />);
+    const input = screen.getByRole("textbox");
+    expect(screen.queryByText("No session selected")).toBeNull();
+    expect(adapter.createSession).not.toHaveBeenCalled();
+    expect(adapter.loadMessages).not.toHaveBeenCalled();
+    fireEvent.change(input, { target: { value: "   " } });
+    fireEvent.keyDown(input, { key: "Enter" });
+    expect(adapter.createSession).not.toHaveBeenCalled();
+    fireEvent.change(input, { target: { value: "Review this" } });
+    fireEvent.keyDown(input, { key: "Enter" });
+    await waitFor(() => expect(adapter.streamMessage).toHaveBeenCalledTimes(1));
+    expect(adapter.createSession).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(adapter.streamMessage).mock.calls[0][1].content).toBe("Review this");
+  });
+
+  it("locks concurrent first submissions while session creation is pending", async () => {
+    let resolveCreation!: (session: ChatSession) => void;
+    const { adapter } = createAdapter();
+    adapter.createSession = vi.fn(() => new Promise(resolve => { resolveCreation = resolve; }));
+    adapter.streamMessage = vi.fn().mockResolvedValue(completedResult("RUN-1"));
+    render(<ChatRuntimeWindow adapter={adapter} config={{ floating: false }} allowDraftSession onError={vi.fn()} />);
+    const input = screen.getByRole("textbox");
+    fireEvent.change(input, { target: { value: "Review" } });
+    fireEvent.keyDown(input, { key: "Enter" });
+    fireEvent.keyDown(input, { key: "Enter" });
+    expect(adapter.createSession).toHaveBeenCalledTimes(1);
+    expect((input as HTMLTextAreaElement).disabled).toBe(true);
+    await act(async () => { resolveCreation(restoredSession()); });
+    await waitFor(() => expect(adapter.streamMessage).toHaveBeenCalledTimes(1));
+  });
+
+  it("preserves the draft and reports one error when creation fails, then allows retry", async () => {
+    const { adapter } = createAdapter();
+    const onError = vi.fn();
+    adapter.createSession = vi.fn().mockRejectedValueOnce(new Error("offline")).mockResolvedValue(restoredSession());
+    adapter.streamMessage = vi.fn().mockResolvedValue(completedResult("RUN-1"));
+    render(<ChatRuntimeWindow adapter={adapter} config={{ floating: false }} allowDraftSession onError={onError} />);
+    const input = screen.getByRole("textbox");
+    fireEvent.change(input, { target: { value: "Retry me" } });
+    fireEvent.keyDown(input, { key: "Enter" });
+    await waitFor(() => expect(onError).toHaveBeenCalledExactlyOnceWith("offline", "Chat send failed"));
+    expect((input as HTMLTextAreaElement).value).toBe("Retry me");
+    expect(adapter.streamMessage).not.toHaveBeenCalled();
+    fireEvent.keyDown(input, { key: "Enter" });
+    await waitFor(() => expect(adapter.streamMessage).toHaveBeenCalledTimes(1));
+    expect(adapter.createSession).toHaveBeenCalledTimes(2);
+  });
+
+  it("lets a host stage pasted files without creating a session", async () => {
+    const { adapter } = createAdapter();
+    const onPasteAttachment = vi.fn();
+    render(<ChatRuntimeWindow adapter={adapter} config={{ floating: false }} allowDraftSession onPasteAttachment={onPasteAttachment} onError={vi.fn()} />);
+    const file = new File(["image"], "image.png", { type: "image/png" });
+    fireEvent.paste(screen.getByRole("textbox"), { clipboardData: { items: [{ kind: "file", type: "image/png", getAsFile: () => file }], getData: () => "" } });
+    await waitFor(() => expect(onPasteAttachment).toHaveBeenCalledWith(file));
+    expect(adapter.createSession).not.toHaveBeenCalled();
+  });
+});
+
 describe("ChatRuntimeWindow", () => {
   it.each(["inline", "external"] as const)("keeps streamed run errors in history with %s feedback", async (errorDisplay) => {
     const onError = vi.fn();
