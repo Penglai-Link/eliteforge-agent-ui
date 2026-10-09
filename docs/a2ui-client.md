@@ -111,7 +111,26 @@ Schema 采用官方结构，含 `$defs.anyComponent`、`$defs.theme`，公共类
 
 ## 主题与演示
 
+React A2UI 与 chat-react 共用 `chat-theme/src/primitives.css` 的局部默认样式，构建后包含在各自的 `styles.css` 中，不要求宿主使用 Tailwind 或加载全局主题。默认使用紧凑控件、4px 控件圆角和 8px 面板圆角，观感参考 Tron，但不依赖 Tron。
+
 两端使用现有 `--color-*` 与 `--agent-ui-skin-font` 令牌，并带独立使用时的回退值。
+React 宿主可以在共同祖先上覆盖下列共享令牌，Chat 与 A2UI 会一起生效：
+
+| 令牌 | 默认值 | 用途 |
+| --- | --- | --- |
+| `--agent-ui-font` | skin font / font-sans / Inter / sans-serif | 字体 |
+| `--agent-ui-control-height` | `2rem` | 标准按钮、A2UI 输入框和选择器最小高度 |
+| `--agent-ui-control-radius` | `4px` | 控件圆角 |
+| `--agent-ui-panel-radius` | `8px` | A2UI 卡片、弹窗和 Chat 提问卡片圆角 |
+| `--agent-ui-control-font-size` | `0.875rem` | 控件字号 |
+| `--agent-ui-control-padding` | `0.625rem` | 控件水平内边距 |
+| `--agent-ui-gap` | `0.75rem` | A2UI 布局间距 |
+| `--agent-ui-panel-padding` | `1rem` | A2UI 卡片和弹窗内边距 |
+| `--agent-ui-transition-duration` | `120ms` | 控件状态过渡 |
+
+现有 Chat 专用颜色覆盖接口保留；要让两端颜色同步，优先覆盖共享的 `--color-*`。图标按钮、长文本输入和聊天编辑器保留各自用途所需的尺寸。
+
+React 演示服务的 `/style-preview.html` 提供 Chat / A2UI 并排预览，支持独立默认、浅色、深色和宿主令牌覆盖。Vue 渲染器本次保持原样。
 宿主可导入 `@eliteforge/agent-ui-chat-theme/styles.css` 应用完整现有主题。
 
 ```sh

@@ -1,0 +1,9 @@
+body { margin: 0; padding: 24px; font-family: Inter, sans-serif; color: var(--color-on-surface, #1c1b1b); background: var(--color-background, #fdf8f8); }
+main { max-width: 1200px; margin: auto; }
+h1 { font-size: 24px; } h2 { font-size: 16px; font-weight: 500; }
+nav { display: flex; gap: 8px; margin: 24px 0; flex-wrap: wrap; }
+nav button { padding: 6px 10px; cursor: pointer; }
+.comparison { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+.comparison section { min-width: 0; }
+.custom { --agent-ui-control-height: 40px; --agent-ui-control-radius: 10px; --agent-ui-panel-radius: 12px; --color-primary: #7056b8; --color-on-primary: white; --color-focus-ring: #7056b8; }
+@media(max-width: 760px) { .comparison { grid-template-columns: 1fr; } }

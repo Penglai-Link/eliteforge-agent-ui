@@ -1,3 +1,5 @@
+@import "../../chat-theme/src/primitives.css";
+
 .ef-chat,
 .ef-chat-window__panel {
   --agent-ui-chat-surface: var(
@@ -38,7 +40,7 @@
   );
   --agent-ui-chat-primary: var(
     --agent-ui-chat-primary-color,
-    var(--color-primary, #0f172a)
+    var(--color-primary, #000000)
   );
   --agent-ui-chat-on-primary: var(
     --agent-ui-chat-on-primary-color,
@@ -473,8 +475,8 @@
 }
 
 .ef-chat__button_send {
-  width: 34px;
-  height: 34px;
+  width: var(--_agent-ui-control-height);
+  height: var(--_agent-ui-control-height);
   font-size: 20px !important;
   padding: 0px !important;
 }
@@ -488,14 +490,15 @@
   gap: 6px;
   border: 0;
   cursor: pointer;
-  font-size: 13px;
-  font-weight: 600;
-  transition: transform 120ms ease, background 120ms ease, opacity 120ms ease;
+  font-family: inherit;
+  font-size: var(--_agent-ui-control-font-size);
+  font-weight: 500;
+  transition: background var(--_agent-ui-duration) ease, opacity var(--_agent-ui-duration) ease;
 }
 
 .ef-chat__button:hover,
 .ef-chat-window__control:hover {
-  transform: translateY(-1px);
+  filter: brightness(0.96);
 }
 
 .ef-chat__button:disabled,
@@ -507,11 +510,11 @@
 }
 
 .ef-chat__button {
-  min-height: 34px;
-  border-radius: 999px;
+  min-height: var(--_agent-ui-control-height);
+  border-radius: var(--_agent-ui-control-radius);
   background: var(--agent-ui-chat-primary);
   color: var(--agent-ui-chat-on-primary);
-  padding: 0 14px;
+  padding: 0 var(--_agent-ui-control-padding);
 }
 
 .ef-chat__button--secondary {
@@ -527,7 +530,7 @@
 .ef-chat__icon-button {
   height: 24px;
   width: 24px;
-  border-radius: 6px;
+  border-radius: var(--_agent-ui-control-radius);
   background: transparent;
   color: var(--agent-ui-chat-text-muted);
 }
@@ -535,8 +538,9 @@
 .ef-chat__button:focus-visible,
 .ef-chat__icon-button:focus-visible,
 .ef-chat-window__control:focus-visible {
-  outline: none;
-  box-shadow: 0 0 0 2px var(--agent-ui-chat-focus);
+  outline: 2px solid var(--agent-ui-chat-focus);
+  outline-offset: 3px;
+  box-shadow: none;
 }
 
 .ef-chat__icon-button:hover {
@@ -1734,7 +1738,7 @@
   margin: 16px 0 0;
   padding: 0.75rem;
   border: 1px solid var(--agent-ui-chat-border);
-  border-radius: 0.875rem;
+  border-radius: var(--_agent-ui-panel-radius);
   background: var(--agent-ui-chat-surface-strong);
   box-shadow: 0 2px 8px rgba(15, 23, 42, 0.06);
   animation: ef-chat-user-input-pop 180ms ease-out both;
@@ -1750,7 +1754,7 @@
 .ef-chat__user-input-question { position: relative; display: grid; gap: 0.375rem; border: 0; padding: 0; margin: 0; animation: ef-chat-user-input-question-in 160ms ease-out both; }
 .ef-chat__user-input-question > legend { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
 .ef-chat__user-input-options { display: grid; gap: 0.125rem; }
-.ef-chat__user-input-option { position: relative; display: flex; gap: 0.5rem; align-items: flex-start; padding: 0.5rem 0.5625rem; border: 1px solid transparent; border-radius: 0.625rem; background: transparent; cursor: pointer; transition: background-color 120ms ease, border-color 120ms ease; }
+.ef-chat__user-input-option { position: relative; display: flex; gap: 0.5rem; align-items: flex-start; padding: 0.5rem 0.5625rem; border: 1px solid transparent; border-radius: var(--_agent-ui-control-radius); background: transparent; cursor: pointer; transition: background-color 120ms ease, border-color 120ms ease; }
 .ef-chat__user-input-option:hover { background: color-mix(in srgb, var(--color-surface, #fff) 92%, var(--agent-ui-chat-border) 8%); }
 .ef-chat__user-input-option.is-selected { border-color: color-mix(in srgb, var(--agent-ui-chat-border) 90%, transparent); background: color-mix(in srgb, var(--color-surface, #fff) 88%, var(--agent-ui-chat-border) 12%); }
 .ef-chat__user-input-option:focus-within { outline: 2px solid color-mix(in srgb, var(--color-primary, #2563eb) 45%, transparent); outline-offset: -2px; }
@@ -1764,7 +1768,7 @@
 .ef-chat__user-input-other { display: flex; min-width: 0; flex: 1; align-items: center; gap: 0.5rem; color: var(--color-on-surface-variant, #64748b); }
 .ef-chat__user-input-other-answer { min-height: 1.75rem; width: 100%; max-height: 7rem; resize: vertical; border: 0; border-radius: 0.5rem; padding: 0.35rem 0; background: transparent; color: var(--color-on-surface, #0f172a); font-size: 0.75rem; outline: none; }
 .ef-chat__user-input-other-answer::placeholder { color: var(--color-on-surface-variant, #64748b); }
-.ef-chat__user-input-skip { flex: none; border: 1px solid var(--agent-ui-chat-border); border-radius: 999px; padding: 0.3rem 0.6rem; background: transparent; color: var(--color-on-surface-variant, #64748b); font-size: 0.75rem; }
+.ef-chat__user-input-skip { flex: none; border: 1px solid var(--agent-ui-chat-border); border-radius: var(--_agent-ui-control-radius); padding: 0.3rem 0.6rem; background: transparent; color: var(--color-on-surface-variant, #64748b); font-size: 0.75rem; }
 .ef-chat__user-input-skip.is-confirm { border-color: var(--color-on-surface, #0f172a); background: var(--color-on-surface, #0f172a); color: var(--color-surface, #fff); font-weight: 600; }
 .ef-chat__user-input-skip:hover:not(:disabled) { background: color-mix(in srgb, var(--color-surface, #fff) 88%, var(--agent-ui-chat-border) 12%); }
 .ef-chat__user-input-skip.is-confirm:hover:not(:disabled) { background: color-mix(in srgb, var(--color-on-surface, #0f172a) 88%, white 12%); }
@@ -1797,3 +1801,5 @@
   .ef-chat__user-input-question,
   .ef-chat__rail-current-text { animation: none; }
 }
+
+.ef-chat__button:hover:disabled, .ef-chat-window__control:hover:disabled { filter: none; }

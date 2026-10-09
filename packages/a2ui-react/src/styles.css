@@ -1,12 +1,15 @@
+@import "../../chat-theme/src/primitives.css";
+
 .a2ui-surface {
-  font-family: var(--agent-ui-skin-font, sans-serif);
+  font-family: var(--_agent-ui-font);
+  font-size: var(--agent-ui-system-font-size, 16px);
   color: var(--color-on-surface, #1c1b1b);
   line-height: 1.5;
 }
 .a2ui-row,
 .a2ui-column {
   display: flex;
-  gap: 16px;
+  gap: var(--_agent-ui-gap);
   min-width: 0;
 }
 .a2ui-row {
@@ -16,9 +19,9 @@
   flex-direction: column;
 }
 .a2ui-card {
-  padding: 24px;
+  padding: var(--_agent-ui-panel-padding);
   border: 1px solid var(--color-card-border, #e5e5e5);
-  border-radius: 16px;
+  border-radius: var(--_agent-ui-panel-radius);
   background: var(--color-surface-container-lowest, #fff);
 }
 .a2ui-textfield {
@@ -29,18 +32,22 @@
 .a2ui-surface input:not([type="checkbox"]):not([type="radio"]),
 .a2ui-surface textarea {
   font: inherit;
-  padding: 10px 12px;
+  min-height: var(--_agent-ui-control-height);
+  font-size: var(--_agent-ui-control-font-size);
+  padding: 4px var(--_agent-ui-control-padding);
   border: 1px solid var(--color-outline-variant, #c4c7c7);
-  border-radius: 8px;
+  border-radius: var(--_agent-ui-control-radius);
   color: inherit;
-  background: var(--color-surface, #fff);
+  background: var(--color-elevated-surface, #fff);
 }
 .a2ui-button {
   font: inherit;
   cursor: pointer;
   border: 1px solid var(--color-outline-variant, #c4c7c7);
-  border-radius: 8px;
-  padding: 10px 16px;
+  border-radius: var(--_agent-ui-control-radius);
+  min-height: var(--_agent-ui-control-height);
+  font-size: var(--_agent-ui-control-font-size);
+  padding: 4px var(--_agent-ui-control-padding);
   color: inherit;
   background: var(--color-surface-container, #f1edec);
 }
@@ -71,7 +78,7 @@
 .a2ui-image {
   max-width: 100%;
   height: auto;
-  border-radius: 8px;
+  border-radius: var(--_agent-ui-control-radius);
 }
 .a2ui-image[data-variant="avatar"] {
   width: 64px;
@@ -125,7 +132,7 @@
   max-width: 640px;
 }
 .a2ui-video {
-  border-radius: 8px;
+  border-radius: var(--_agent-ui-control-radius);
   background: var(--color-surface-container, #f1edec);
 }
 
@@ -142,7 +149,7 @@
 .a2ui-grid {
   display: grid;
   grid-template-columns: repeat(var(--a2ui-columns, 2), minmax(0, 1fr));
-  gap: 16px;
+  gap: var(--_agent-ui-gap);
 }
 .a2ui-spacer {
   height: 16px;
@@ -176,7 +183,9 @@
   cursor: pointer;
   border: 0;
   border-bottom: 3px solid transparent;
-  padding: 10px 16px;
+  min-height: var(--_agent-ui-control-height);
+  font-size: var(--_agent-ui-control-font-size);
+  padding: 4px var(--_agent-ui-control-padding);
   background: transparent;
   color: var(--color-on-surface, #222);
 }
@@ -191,8 +200,8 @@
   color: var(--color-on-surface, #222);
   background: var(--color-surface-container-lowest, #fff);
   border: 1px solid var(--color-outline-variant, #ccc);
-  border-radius: 16px;
-  padding: 24px;
+  border-radius: var(--_agent-ui-panel-radius);
+  padding: var(--_agent-ui-panel-padding);
   width: min(560px, calc(100% - 32px));
   max-height: 85vh;
   overflow: auto;
@@ -208,7 +217,7 @@
 }
 .a2ui-accordion {
   border: 1px solid var(--color-outline-variant, #ccc);
-  border-radius: 10px;
+  border-radius: var(--_agent-ui-panel-radius);
   padding: 12px;
 }
 .a2ui-accordion summary {
@@ -227,10 +236,10 @@
 .a2ui-select select {
   font: inherit;
   color: inherit;
-  background: var(--color-surface, #fff);
+  background: var(--color-elevated-surface, #fff);
   border: 1px solid var(--color-outline-variant, #ccc);
-  border-radius: 8px;
-  padding: 10px;
+  border-radius: var(--_agent-ui-control-radius);
+  padding: 4px var(--_agent-ui-control-padding);
 }
 .a2ui-switch {
   display: flex;
@@ -295,8 +304,8 @@
   color: var(--color-on-accent-container, #133761);
 }
 .a2ui-alert {
-  padding: 16px;
-  border-radius: 10px;
+  padding: var(--_agent-ui-panel-padding);
+  border-radius: var(--_agent-ui-panel-radius);
   display: flex;
   flex-direction: column;
   gap: 4px;
@@ -379,7 +388,7 @@
 }
 .a2ui-table caption {
   text-align: left;
-  padding: 10px;
+  padding: 4px var(--_agent-ui-control-padding);
   font-weight: 600;
 }
 .a2ui-table th,
@@ -412,3 +421,28 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* Same control rhythm and state treatment as Chat, without styling host controls. */
+.a2ui-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-weight: 500;
+  transition: background var(--_agent-ui-duration) ease, opacity var(--_agent-ui-duration) ease;
+}
+.a2ui-button > .a2ui-text { margin: 0; font: inherit; }
+.a2ui-button:hover { filter: brightness(0.96); }
+.a2ui-button[data-variant="borderless"]:hover { background: var(--color-hover-surface, #f2f2f7); }
+.a2ui-surface :is(button, input, select, textarea):disabled {
+  cursor: not-allowed;
+  opacity: 0.46;
+  filter: none;
+}
+.a2ui-select select {
+  min-height: var(--_agent-ui-control-height);
+  font-size: var(--_agent-ui-control-font-size);
+}
+.a2ui-surface textarea { resize: vertical; min-height: 5rem; }
+.a2ui-surface :is(input, select, textarea)[aria-invalid="true"] { border-color: var(--color-error, #ba1a1a); }
+.a2ui-modal dialog::backdrop { background: var(--color-backdrop-scrim, rgba(15, 23, 42, 0.24)); }
