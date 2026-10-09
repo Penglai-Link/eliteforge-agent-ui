@@ -412,3 +412,10 @@
     grid-template-columns: 1fr;
   }
 }
+
+.a2ui-questioncard, .a2ui-approvalcard { display:grid; gap: .75rem; padding: 1rem; border: 1px solid var(--ef-border, #ddd); border-radius: .75rem; }
+.a2ui-questioncard fieldset { display:grid; gap:.5rem; border:0; padding:0; }
+.a2ui-questioncard label { display:flex; gap:.5rem; align-items:baseline; flex-wrap:wrap; }
+.a2ui-questioncard small { opacity:.7; }
+.a2ui-questioncard button, .a2ui-approvalcard button { margin-inline-end:.5rem; padding:.4rem .7rem; }
+.a2ui-questioncard textarea { width:100%; min-height:4rem; }

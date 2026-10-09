@@ -15,6 +15,7 @@ export default defineConfig({
     }),
   ],
   build: {
+    rollupOptions: { external: ["@eliteforge/agent-ui-a2ui-core"] },
     lib: {
       entry: fileURLToPath(new URL("./src/index.ts", import.meta.url)),
       fileName: "index",

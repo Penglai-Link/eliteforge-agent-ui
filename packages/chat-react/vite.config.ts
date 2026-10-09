@@ -27,6 +27,8 @@ export default defineConfig({
       },
       rollupOptions: {
         external: [
+          "@eliteforge/agent-ui-a2ui-core",
+          "@eliteforge/agent-ui-a2ui-react",
           "@eliteforge/agent-ui-chat-core",
           "lucide-react",
           "react",

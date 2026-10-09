@@ -11,6 +11,8 @@ export function nativeUserInputRequests(events: ChatAguiStreamEvent[], sessionId
     .find((event) => ["RUN_STARTED", "RUN_FINISHED", "RUN_ERROR"].includes(event.type) && !isAguiPresentationFailureEvent(event));
   if (terminal?.type !== "RUN_FINISHED" || terminal.outcome?.type !== "interrupt" || !terminal.runId) return [];
   return terminal.outcome.interrupts.filter((interrupt) => !Array.isArray(interrupt.metadata?.questions)).map((interrupt) => {
+    const interaction = record(interrupt.metadata?.interaction);
+    const presentation = record(interaction.presentation);
     const schema = record(interrupt.responseSchema);
     const approval = interrupt.reason === "approval_required" || schema.type === "boolean";
     const choices = approval ? [true, false] : Array.isArray(schema.enum) ? schema.enum : "const" in schema ? [schema.const] : [];
@@ -23,9 +25,10 @@ export function nativeUserInputRequests(events: ChatAguiStreamEvent[], sessionId
     const question = interrupt.message || (typeof schema.title === "string" ? schema.title : "Input required");
     return {
       requestId: interrupt.id, sessionId, runId: terminal.runId!, intro: question, status: "Pending" as const,
+      ...(presentation.kind === "a2ui" && Array.isArray(presentation.messages) ? { a2uiInteraction: {messages: presentation.messages, surfaceId: String((presentation.messages[0] as any)?.createSurface?.surfaceId ?? "")} } : {}),
       requestedAt: terminal.timestamp ?? 0,
-      questions: [{ questionId: interrupt.id, question, options, allowCustomAnswer: !choices.length, allowSkip: false }],
-      nativeInteraction: { reason: interrupt.reason, responseSchema: interrupt.responseSchema, optionPayloads },
+      questions: Array.isArray(presentation.questions) ? presentation.questions.map((q: any)=>({questionId:String(q.id),question:String(q.question),options:(q.options??[]).map((o:any)=>({optionId:String(o.id),label:String(o.label),description:o.description})),allowCustomAnswer:q.allow_free_text,allowSkip:q.allow_skip})) : [{ questionId: interrupt.id, question, options, allowCustomAnswer: !choices.length, allowSkip: false }],
+      nativeInteraction: { questionnaire:Array.isArray(presentation.questions), reason: interrupt.reason, responseSchema: interrupt.responseSchema, optionPayloads },
     };
   });
 }
@@ -34,6 +37,9 @@ export function nativeUserInputRequests(events: ChatAguiStreamEvent[], sessionId
 export function nativeUserInputAnswer(request: ChatUserInputRequest, answers: ChatUserInputAnswer[]): ChatUserInputAnswerInput {
   const native = request.nativeInteraction;
   if (!native) return { answers };
+  if (native.questionnaire) {
+    return {answers:[],resume:[{interruptId:request.requestId,status:"resolved",payload:{answers:Object.fromEntries(answers.map(a=>[a.questionId,a.answerKind === "Option" ? {option_id:a.optionId} : a.answerKind === "Skipped" ? {skip:true} : {text:a.otherText}]))}}]};
+  }
   const answer = answers.find((entry) => entry.questionId === request.requestId);
   if (!answer || answer.answerKind === "Skipped") throw new Error("An interaction answer is required");
   let payload: unknown;
@@ -42,7 +48,7 @@ export function nativeUserInputAnswer(request: ChatUserInputRequest, answers: Ch
   } else if (answer.answerKind === "Other" && request.questions[0]?.allowCustomAnswer) {
     const text = answer.otherText ?? "";
     const schema = record(native.responseSchema);
-    if (schema.type === "string") payload = text;
+    if (schema.type === "string" && !request.a2uiInteraction) payload = text;
     else { try { payload = JSON.parse(text); } catch { throw new Error("Enter a valid JSON answer"); } }
   } else throw new Error("Select a valid interaction answer");
   return { answers: [], resume: [{ interruptId: request.requestId, status: "resolved", payload }] };

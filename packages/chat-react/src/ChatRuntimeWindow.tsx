@@ -1,3 +1,4 @@
+import { ChatA2uiSession, AGENT_CATALOG_ID, type ChatA2uiActionHandler as ActionHandler } from "@eliteforge/agent-ui-chat-core";
 import {
   AssistantReplyQueue,
   buildTranscriptPresentation,
@@ -62,6 +63,8 @@ interface ToastLikeCallback {
 }
 
 export interface ChatRuntimeWindowProps {
+  /** Forward A2UI actions to the host transport. */
+  onA2UIAction?: ActionHandler;
   /** Open a local composer and create its session on the first submission. */
   allowDraftSession?: boolean;
   agentReplyEffect?: AssistantReplyEffect;
@@ -236,6 +239,7 @@ export function ChatRuntimeWindow({
   sidebarContent,
   windowState,
   onWindowStateChange,
+  onA2UIAction,
   renderMarkdownLink,
 }: ChatRuntimeWindowProps) {
   const activeAdapter = useMemo(
@@ -248,6 +252,21 @@ export function ChatRuntimeWindow({
   );
   const [session, setSession] = useState<ChatSession | null>(normalizedInitialSession);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const a2uiSession = useMemo(() => new ChatA2uiSession(session?.sessionId ?? ""), [session?.sessionId]);
+  const [a2uiEpoch, setA2uiEpoch] = useState(0);
+  useEffect(() => a2uiSession.client.subscribe(() => setA2uiEpoch(value => value + 1)), [a2uiSession]);
+  const reloadA2ui = useCallback(async () => {
+    if (!a2uiSession.sessionId || !activeAdapter.loadA2uiState) return;
+    const state = await activeAdapter.loadA2uiState(a2uiSession.sessionId);
+    a2uiSession.hydrate(state);
+  }, [a2uiSession, activeAdapter]);
+  useEffect(() => { void reloadA2ui().catch(error => onError(String(error), "A2UI state failed")); }, [reloadA2ui]);
+  const receiveA2ui = (event: ChatAguiStreamEvent) => {
+    try { if (!a2uiSession.applyEvent(event)) void reloadA2ui().catch(error => onError(String(error), "A2UI recovery failed")); }
+    catch (error) { onError(String(error), "A2UI presentation failed"); void reloadA2ui().catch(() => {}); }
+  };
+  const presentedMessages = useMemo(() => mergeChatMessagesChronologically(messages, a2uiSession.messages()), [messages, a2uiSession, a2uiEpoch]);
+
   const [historySnapshot, setHistorySnapshot] = useState<SessionHistory | null>(null);
   const [historyCursor, setHistoryCursor] = useState<HistoryCursor | null>(null);
   const [historyLoadingOlder, setHistoryLoadingOlder] = useState(false);
@@ -422,8 +441,8 @@ export function ChatRuntimeWindow({
   // session out of the transcript during that render so their attachments
   // cannot be downloaded through the new session's adapter.
   const visibleMessages = useMemo(
-    () => messages.filter((message) => message.sessionId === session?.sessionId),
-    [messages, session?.sessionId],
+    () => presentedMessages.filter((message) => message.sessionId === session?.sessionId),
+    [presentedMessages, session?.sessionId],
   );
 
   function setSendingState(value: boolean) {
@@ -540,7 +559,7 @@ export function ChatRuntimeWindow({
       try {
         const page = await activeAdapter.loadHistory(sessionId, { limit: 20, cursor: null });
         if (!canApply()) return;
-        setMessages(historyMessages(page)); setHistorySnapshot(page); setHistoryCursor(page.nextCursor);
+        setMessages(historyMessages(page, config.userInputLabels)); setHistorySnapshot(page); setHistoryCursor(page.nextCursor);
         const pending = historyUserInputRequests(page, config.userInputLabels);
         setUserInputRequests(pending); setUserInputRequest(pending[0] ?? null);
         setProtocolEvents([]); setAguiEvents([]);
@@ -724,7 +743,7 @@ export function ChatRuntimeWindow({
     if (activeAdapter.loadHistory) {
       const page = await activeAdapter.loadHistory(sessionId, { limit: 20, cursor: null }, signal);
       const running = page.activeRuns.find((r) => r.status === "Running" && r.parentRunId === null);
-      return { nextHistory: page, nextMessages: historyMessages(page), nextAguiEvents: [] as ChatAguiEvent[], nextProtocolEvents: [] as ChatAguiStreamEvent[],
+      return { nextHistory: page, nextMessages: historyMessages(page, config.userInputLabels), nextAguiEvents: [] as ChatAguiEvent[], nextProtocolEvents: [] as ChatAguiStreamEvent[],
         healthyProtocolEvents: [] as ChatAguiStreamEvent[], healthNotice: undefined,
         nextActiveRun: running ? { runId: running.id, runtimeAdapterKey: "framework", supportsSteer: activeAdapter.capabilities.supportsSteer ?? false, state: "RUNNING" as const } : null,
         nextUserInputRequests: historyUserInputRequests(page, config.userInputLabels), errors: [] as unknown[] };
@@ -776,14 +795,14 @@ export function ChatRuntimeWindow({
     try {
       const page = await activeAdapter.loadHistory(sessionId, { limit: 20, cursor });
       if (activeSessionCodeRef.current !== sessionId) return;
-      setMessages((current) => mergeChatMessagesChronologically(historyMessages(page), current));
+      setMessages((current) => mergeChatMessagesChronologically(historyMessages(page, config.userInputLabels), current));
       setHistoryCursor(page.nextCursor);
     } catch (error) {
       if ((error as { status?: number })?.status === 409 && activeSessionCodeRef.current === sessionId) {
         try {
           const page = await activeAdapter.loadHistory(sessionId, { limit: 20, cursor: null });
           if (activeSessionCodeRef.current === sessionId) {
-            setMessages(historyMessages(page)); setHistorySnapshot(page); setHistoryCursor(page.nextCursor);
+            setMessages(historyMessages(page, config.userInputLabels)); setHistorySnapshot(page); setHistoryCursor(page.nextCursor);
             const pending = historyUserInputRequests(page, config.userInputLabels);
             setUserInputRequests(pending); setUserInputRequest(pending[0] ?? null);
           }
@@ -1067,6 +1086,7 @@ export function ChatRuntimeWindow({
       restoreSourceSubmission();
       return false;
     }
+    sendInput = { ...sendInput, clientCapabilities: { ...sendInput.clientCapabilities, a2ui: { version: "v0.9.1", catalogIds: [AGENT_CATALOG_ID] } }, a2uiMetadata: a2uiSession.metadata(sendInput.metadata?.agentId as string | undefined ?? "main-agent") };
     const content = sendInput.content.trim();
     if (!content && !(sendInput.attachments?.length)) {
       restoreSourceSubmission();
@@ -1133,6 +1153,7 @@ export function ChatRuntimeWindow({
         sendInput,
         {
           onAguiEvent: (event) => {
+            receiveA2ui(event);
             if (!belongsToNewChatTurn(event, activeSession.sessionId, optimisticCreatedAt)) return;
             if (abortRef.current !== abortController) return;
             const runId = String(event.runId ?? event.runId ?? "");
@@ -1301,6 +1322,36 @@ export function ChatRuntimeWindow({
     return completed;
   }
 
+  const handleA2uiAction: ActionHandler = (message, metadata, context) => {
+    if (!context) { onA2UIAction?.(message, metadata); return; }
+    if (!session || !activeAdapter.sendA2uiActionStream || sendingRef.current || userInputRequest || session.status === "ARCHIVED") return;
+    const activeSession = session;
+    const controller = new AbortController();
+    abortRef.current = controller;
+    setSendingState(true);
+    setSubmissionError(null);
+    const input = a2uiSession.prepareAction(message, metadata, context.surface);
+    void activeAdapter.sendA2uiActionStream(activeSession, input, {
+      onAguiEvent: event => { if (abortRef.current !== controller || activeSessionCodeRef.current !== activeSession.sessionId) return; receiveA2ui(event); if (event.runId) { activeRunCodeRef.current = event.runId; setActiveRunCode(event.runId); } setLiveAguiEvents(current => [...current, event]); },
+    }, controller.signal).then(result => {
+      a2uiSession.completeAction(input.actionId);
+      if (activeSessionCodeRef.current !== activeSession.sessionId) return;
+      const epoch = acknowledgeCompletedTurn(result.session.sessionId, result.run.runId);
+      setMessages(current => mergeChatMessagesChronologically(current, result.messages));
+      setSession(result.session);
+      setUserInputRequest(result.userInputRequest?.status === "Pending" ? result.userInputRequest : null);
+      onA2UIAction?.(message, metadata, context);
+      void refreshCompletedTurn(result.session.sessionId, result.run.runId, epoch);
+      void reloadA2ui().catch(error => onError(String(error), "A2UI recovery failed"));
+    }).catch(error => {
+      if (abortRef.current !== controller || activeSessionCodeRef.current !== activeSession.sessionId) return;
+      setSubmissionError(String(error)); onError(String(error), "A2UI action failed");
+    }).finally(() => {
+      if (abortRef.current !== controller || activeSessionCodeRef.current !== activeSession.sessionId) return;
+      abortRef.current = null; activeRunCodeRef.current = ""; setSendingState(false); setActiveRunCode("");
+    });
+  };
+
   async function handleAnswerUserInput(answers: ChatUserInputAnswer[]) {
     if (!session || !userInputRequest || !activeAdapter.answerUserInputRequestStream) return;
     const continuationAnchorMessageCode = [...messages]
@@ -1317,9 +1368,10 @@ export function ChatRuntimeWindow({
       const result = await activeAdapter.answerUserInputRequestStream(
         session,
         userInputRequest.requestId,
-        nativeUserInputAnswer(userInputRequest, answers),
+        {...nativeUserInputAnswer(userInputRequest, answers), ...(activeAdapter.loadA2uiState ? {clientCapabilities: {userInputRequests:true,a2ui:{version:"v0.9.1" as const,catalogIds:[AGENT_CATALOG_ID]}}, a2uiMetadata:a2uiSession.metadata(session.metadata?.agentId as string | undefined ?? "main-agent")} : {})},
         {
           onAguiEvent: (event) => {
+            receiveA2ui(event);
             if (!aguiEnabled) return;
             setLiveAguiEvents((current) => [...current, event]);
             const runId = String(event.runId ?? event.runId ?? "");
@@ -1727,6 +1779,9 @@ export function ChatRuntimeWindow({
       userInputAnswerPending={userInputAnswerPending}
       userInputRequest={userInputRequest}
       onAnswerUserInput={(answers) => { void handleAnswerUserInput(answers); }}
+      a2uiSession={a2uiSession}
+      a2uiDisabled={sending || session?.status === "ARCHIVED"}
+      onA2UIAction={handleA2uiAction}
       renderMarkdownLink={renderMarkdownLink}
     />
   );
@@ -1790,7 +1845,10 @@ export function ChatRuntimeWindow({
         userInputRequest={userInputRequest}
         onAnswerUserInput={(answers) => { void handleAnswerUserInput(answers); }}
         onStateChange={onWindowStateChange}
-        renderMarkdownLink={renderMarkdownLink}
+        a2uiSession={a2uiSession}
+      a2uiDisabled={sending || session?.status === "ARCHIVED"}
+      onA2UIAction={handleA2uiAction}
+      renderMarkdownLink={renderMarkdownLink}
       />
     );
   }

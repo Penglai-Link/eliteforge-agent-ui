@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import ChatA2UI from "./ChatA2UI.vue";
+import type { ChatA2uiActionHandler as ActionHandler, ChatA2uiSession } from "@eliteforge/agent-ui-chat-core";
 import { Bot, Pencil, UserRound } from "lucide-vue-next";
 import { computed } from "vue";
 import { formatTime } from "@eliteforge/agent-ui-chat-core";
@@ -12,6 +14,9 @@ const props = defineProps<{
   emptyAssistantMessage?: string;
   isStreaming?: boolean;
   message: ChatMessage;
+  onA2UIAction?: ActionHandler;
+  a2uiSession?: ChatA2uiSession;
+  a2uiDisabled?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -60,7 +65,8 @@ const actorName = computed(() =>
     <MarkdownBlock
       v-else
       :content="props.message.content"
-      :empty-message="props.emptyAssistantMessage"
+      :empty-message="message.a2ui ? '' : props.emptyAssistantMessage"
     />
+    <ChatA2UI v-if="message.a2ui" :message="message" :on-action="onA2UIAction" :runtime="a2uiSession" :disabled="a2uiDisabled" />
   </article>
 </template>

@@ -1,3 +1,5 @@
+import { renderInteraction } from "./interaction-components";
+import agentCatalogSchema from "./schemas/agent_catalog.json";
 import { renderCommon, componentReferences } from "./common-components";
 import addFormats from "ajv-formats";
 import Ajv2020 from "ajv/dist/2020.js";
@@ -5,6 +7,8 @@ import envelope from "./schemas/server_to_client.json";
 import common from "./schemas/common_types.json";
 import catalogSchema from "./schemas/catalog.json";
 export const catalog: Record<string, any> = catalogSchema;
+export const agentCatalog: Record<string, any> = agentCatalogSchema;
+export const AGENT_CATALOG_ID = agentCatalog.catalogId as string;
 export const VERSION = "v0.9.1" as const;
 export const CATALOG_ID: string = catalogSchema.catalogId;
 export type Component = { id: string; component: string; [key: string]: any };
@@ -99,6 +103,14 @@ function writePath(model: any, path: string, value: any, remove = false): any {
 export class A2UIClient {
   private state: Snapshot = { version: VERSION, surfaces: {} };
   private listeners = new Set<() => void>();
+  private expiryTimer?: ReturnType<typeof setTimeout>;
+  private scheduleExpiry() {
+    if(this.expiryTimer) clearTimeout(this.expiryTimer);
+    if(!this.listeners.size) return;
+    const now = Date.now();
+    const times = Object.values(this.state.surfaces).flatMap(s => Object.values(s.components).map(c => c.expiresAtMs)).filter((t): t is number => typeof t === "number" && t > now);
+    if(times.length) this.expiryTimer = setTimeout(() => this.commit({...this.state}), Math.min(2147483647, Math.min(...times)-now+1));
+  }
   private validators = new Map<
     string,
     ReturnType<InstanceType<typeof Ajv2020>["compile"]>
@@ -106,6 +118,7 @@ export class A2UIClient {
   constructor(
     definitions: CatalogDefinition[] = [
       { catalogId: CATALOG_ID, schema: catalog },
+      { catalogId: AGENT_CATALOG_ID, schema: agentCatalog },
     ]
   ) {
     for (const definition of definitions) {
@@ -118,14 +131,17 @@ export class A2UIClient {
   }
   subscribe = (listener: () => void): (() => void) => {
     this.listeners.add(listener);
+    this.scheduleExpiry();
     return () => {
       this.listeners.delete(listener);
+      this.scheduleExpiry();
     };
   };
   getSnapshot = (): Snapshot => this.state;
   private commit(next: Snapshot) {
     this.state = deepFreeze(next);
     for (const listener of this.listeners) listener();
+    this.scheduleExpiry();
   }
   exportSnapshot(): Snapshot {
     return copy(this.state);
@@ -285,6 +301,8 @@ export class A2UIClient {
         "NumberField",
         "Select",
         "Switch",
+        "QuestionCard",
+        "ApprovalCard",
       ].includes(c.component) ||
       !object(c.value) ||
       typeof c.value.path !== "string"
@@ -351,7 +369,7 @@ export class A2UIClient {
     const s = this.surface(surfaceId),
       c = s.components[componentId],
       event = c?.action?.event;
-    if (c?.component !== "Button" || !event)
+    if (!c || !["Button", "QuestionCard", "ApprovalCard"].includes(c.component) || !event)
       throw new Error("No server action");
     const context = Object.fromEntries(
       Object.entries(event.context ?? {}).map(([k, v]) => [
@@ -500,6 +518,8 @@ export function renderSurface<T>(
       label = String(resolve(c.label) ?? "");
     const bound = object(c.value) && typeof c.value.path === "string";
     const key = JSON.stringify([id, scope]);
+    const interaction = renderInteraction(context, element, props);
+    if (interaction.handled) return interaction.node;
     const commonResult = renderCommon(
       context,
       element,

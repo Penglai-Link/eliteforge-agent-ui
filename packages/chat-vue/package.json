@@ -30,7 +30,9 @@
     "@eliteforge/agent-ui-chat-core": "0.1.0",
     "github-markdown-css": "^5.9.0",
     "lucide-vue-next": "^1.0.0",
-    "markdown-it": "^14.2.0"
+    "markdown-it": "^14.2.0",
+    "@eliteforge/agent-ui-a2ui-vue": "0.1.0",
+    "@eliteforge/agent-ui-a2ui-core": "0.1.0"
   },
   "devDependencies": {
     "@types/markdown-it": "^14.1.2",

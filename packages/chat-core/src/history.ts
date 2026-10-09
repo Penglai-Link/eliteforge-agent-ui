@@ -1,3 +1,4 @@
+import { interactionEnvelopes } from "./a2uiInteractions";
 import type { ChatMessage, ChatUserInputLabels, ChatUserInputRequest } from "./types";
 
 export type HistoryStatus = "Running" | "Waiting" | "Completed" | "Interrupted" | "Failed" | "Unknown" | "Planned" | "Approved";
@@ -50,7 +51,7 @@ export function historyEventRunId(event: { runId?: string | null; metadata?: unk
   return typeof nativeId === "string" ? nativeId : event.runId ?? "";
 }
 /** Linear projection of structured records; no AG-UI replay or checkpoint parsing. */
-export function historyMessages(page: SessionHistory): ChatMessage[] {
+export function historyMessages(page: SessionHistory, labels?: ChatUserInputLabels): ChatMessage[] {
   const steps = new Map(page.records.steps.map((s) => [s.id, s]));
   const runs = new Map(page.runs.map((r) => [r.id, r]));
   const tools = new Map<string, HistoryToolInvocation[]>();
@@ -58,7 +59,7 @@ export function historyMessages(page: SessionHistory): ChatMessage[] {
   const lastMessageByRun = new Map(page.records.messages.map((m) => [m.runId, m.id]));
   const interactionsByRun = new Map<string, HistoryInteraction[]>();
   page.records.interactions.forEach((i) => { const group = interactionsByRun.get(i.runId) ?? []; group.push(i); interactionsByRun.set(i.runId, group); });
-  return page.records.messages.map((message) => {
+  const messages: ChatMessage[] = page.records.messages.map((message) => {
     const step = message.stepId ? steps.get(message.stepId) ?? null : null;
     return {
       id: message.id, messageId: message.id, sessionId: page.sessionId, runId: message.runId,
@@ -68,6 +69,34 @@ export function historyMessages(page: SessionHistory): ChatMessage[] {
       createdAt: new Date(message.createdAtMs).toISOString(), history: { message, step, tools: tools.get(message.id) ?? [], run: runs.get(message.runId) ?? null, interactions: lastMessageByRun.get(message.runId) === message.id ? interactionsByRun.get(message.runId) ?? [] : [] },
     };
   });
+  // Resolved native interactions remain visible after a refresh. Their answers
+  // come directly from history records, never a second UI answer store.
+  for (const interaction of page.records.interactions) {
+    if (interaction.response == null) continue;
+    const request = historyUserInputRequests({ ...page, pendingInteractions: [interaction] }, labels)[0]!;
+    request.status = "Answered";
+    const value = interaction.response as any;
+    if (request.nativeInteraction?.questionnaire) {
+      request.answers = request.questions.map(q => {
+        const answer = value.answers?.[q.questionId] ?? {};
+        return { questionId:q.questionId, answerKind:answer.skip ? "Skipped" : answer.option_id ? "Option" : "Other", optionId:answer.option_id, otherText:answer.text };
+      });
+    } else {
+      request.answers = [{ questionId:interaction.id, answerKind:"Other", otherText:typeof value === "string" ? value : JSON.stringify(value) }];
+    }
+    const envelopes = request.a2uiInteraction ? [...request.a2uiInteraction.messages,
+      {version:"v0.9.1",updateDataModel:{surfaceId:request.a2uiInteraction.surfaceId,value}}] : interactionEnvelopes(request, labels);
+    // Approval values are booleans rather than questionnaire answers.
+    if (!request.a2uiInteraction && request.nativeInteraction?.reason === "approval_required") {
+      (envelopes[2] as any).updateDataModel.value.answer = value;
+    }
+    const run = page.runs.find(r => r.id === interaction.runId);
+    messages.push({ id:`interaction:${interaction.id}`,messageId:`interaction:${interaction.id}`,sessionId:page.sessionId,
+      runId:interaction.runId,role:"ASSISTANT",actor:"Assistant",channel:"history",content:"",
+      createdAt:new Date(run?.finishedAtMs ?? run?.startedAtMs ?? 0).toISOString(),
+      a2ui:{messages:envelopes,surfaceIds:[request.a2uiInteraction?.surfaceId ?? `interaction:${interaction.id}`]} });
+  }
+  return messages;
 }
 
 export function historyUserInputRequests(page: SessionHistory, labels?: Partial<ChatUserInputLabels>): ChatUserInputRequest[] {
@@ -83,6 +112,8 @@ export function historyUserInputRequests(page: SessionHistory, labels?: Partial<
     const question = typeof interaction.presentation?.intro === "string" ? interaction.presentation.intro : historyText(interaction.prompt) || "Input required";
     const presented = interaction.presentation?.questions;
     return { requestId: interaction.id, sessionId: page.sessionId, runId: interaction.runId, intro: question, status: "Pending" as const,
+      expiresAtMs: interaction.expiresAtMs,
+      ...(interaction.presentation?.kind === "a2ui" && Array.isArray(interaction.presentation.messages) ? { a2uiInteraction: { messages: interaction.presentation.messages, surfaceId: String((interaction.presentation.messages[0] as any)?.createSurface?.surfaceId ?? "") } } : {}),
       requestedAt: page.runs.find((r) => r.id === interaction.runId)?.startedAtMs ?? 0,
       questions: Array.isArray(presented) ? presented.map((entry: Record<string, unknown>) => ({
         questionId: String(entry.id ?? entry.questionId ?? ""), question: String(entry.question ?? ""),
@@ -90,7 +121,7 @@ export function historyUserInputRequests(page: SessionHistory, labels?: Partial<
         allowCustomAnswer: entry.allow_free_text === true || entry.allowCustomAnswer === true,
         allowSkip: entry.allow_skip === true || entry.allowSkip === true,
       })) : [{ questionId: interaction.id, question, options, allowCustomAnswer: !choices.length, allowSkip: false }],
-      ...(Array.isArray(presented) ? {} : { nativeInteraction: { reason: approval ? "approval_required" : "input_required", responseSchema: schema, optionPayloads } }),
+      nativeInteraction: { questionnaire:Array.isArray(presented), reason: approval ? "approval_required" : "input_required", responseSchema: schema, optionPayloads, ...(approval ? {details: {tool: page.records.toolInvocations.find(t=>t.id===interaction.invocationId)?.toolName ?? "", parameters: page.records.toolInvocations.find(t=>t.id===interaction.invocationId)?.arguments ?? {}}} : {}) },
     };
   });
 }

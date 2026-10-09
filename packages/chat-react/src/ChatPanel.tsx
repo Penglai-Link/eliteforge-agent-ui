@@ -1,3 +1,5 @@
+import { ChatA2UI } from "./ChatA2UI";
+import type { ChatA2uiActionHandler as ActionHandler, ChatA2uiSession } from "@eliteforge/agent-ui-chat-core";
 import {
   ArrowDown,
   Bot,
@@ -442,12 +444,18 @@ function ChatBubble({
   emptyAssistantMessage = "No assistant response was produced.",
   isStreaming = false,
   message,
+  a2uiSession,
+  a2uiDisabled,
+  onA2UIAction,
   onEditMessage,
 }: {
   currentUserDisplayName?: string;
   emptyAssistantMessage?: string;
   isStreaming?: boolean;
   message: ChatMessage;
+  a2uiSession?: ChatA2uiSession;
+  a2uiDisabled?: boolean;
+  onA2UIAction?: ActionHandler;
   onEditMessage?: (content: string) => void;
 }) {
   const isUser = message.role === "USER";
@@ -478,9 +486,10 @@ function ChatBubble({
         ) : (
           <MarkdownBlock
             content={message.content}
-            emptyMessage={emptyAssistantMessage}
+            emptyMessage={message.a2ui ? "" : emptyAssistantMessage}
           />
         )}
+        {message.a2ui ? <ChatA2UI message={message} runtime={a2uiSession} disabled={a2uiDisabled} onAction={onA2UIAction} /> : null}
       </article>
       <div className="ef-chat__message-actions ef-chat__message-actions--outside">
         <CopyValueButton
@@ -1315,6 +1324,9 @@ export interface ChatPanelProps {
   onNewSession?: () => void;
   onDraftChange: (value: string) => void;
   onPasteAttachment?: (file: File) => void | Promise<void>;
+  a2uiSession?: ChatA2uiSession;
+  a2uiDisabled?: boolean;
+  onA2UIAction?: ActionHandler;
   onEditMessage?: (content: string) => void;
   onEditQueuedMessage?: (id: string, content: string) => void;
   onRemoveQueuedMessage?: (id: string) => void;
@@ -1377,6 +1389,9 @@ export function ChatPanel({
   onNewSession,
   onDraftChange,
   onPasteAttachment,
+  a2uiSession,
+  a2uiDisabled,
+  onA2UIAction,
   onEditMessage,
   onEditQueuedMessage,
   onRemoveQueuedMessage,
@@ -1438,7 +1453,7 @@ export function ChatPanel({
   }, [activeStreamingAssistantMessageCode, messages, sending]);
   const transcriptMessages = useMemo(
     () => messages.filter((message) => (
-      message.messageId !== streamingAssistantMessageCode || message.content.trim().length > 0
+      message.messageId !== streamingAssistantMessageCode || message.content.trim().length > 0 || !!message.a2ui
     )),
     [messages, streamingAssistantMessageCode],
   );
@@ -1635,16 +1650,22 @@ export function ChatPanel({
                                   currentUserDisplayName={currentUserDisplayName}
                                   isStreaming={message.messageId === streamingAssistantMessageCode}
                                   message={message}
+                                  a2uiSession={a2uiSession}
+                                  a2uiDisabled={a2uiDisabled}
+                                  onA2UIAction={onA2UIAction}
                                   onEditMessage={onEditMessage}
                                 />
                               ) : null}
                             </div>
-                          ) : message.history && !message.content.trim() ? null : (
+                          ) : message.history && !message.a2ui && !message.content.trim() ? null : (
                             <ChatBubble
                               currentUserDisplayName={currentUserDisplayName}
                               isStreaming={message.messageId === streamingAssistantMessageCode}
                               message={message}
-                              onEditMessage={onEditMessage}
+                              a2uiSession={a2uiSession}
+                                  a2uiDisabled={a2uiDisabled}
+                                  onA2UIAction={onA2UIAction}
+                                  onEditMessage={onEditMessage}
                             />
                           )}
                           {showAgui &&
@@ -1685,7 +1706,7 @@ export function ChatPanel({
                 )}
             {userInputRequest?.status === "Pending" && onAnswerUserInput ? (
               <ChatUserInputCard
-                disabled={userInputAnswerPending}
+                disabled={userInputAnswerPending || session?.status === "ARCHIVED"}
                 labels={userInputLabels}
                 onSubmit={onAnswerUserInput}
                 request={userInputRequest}

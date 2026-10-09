@@ -1,0 +1,13 @@
+// @vitest-environment jsdom
+import {it,expect,vi} from "vitest";
+import {createApp,h,nextTick} from "vue";
+import {A2UIClient,AGENT_CATALOG_ID} from "@eliteforge/agent-ui-a2ui-core";
+import {A2UISurface} from "./index";
+function client(component:any){const c=new A2UIClient();c.apply({version:"v0.9.1",createSurface:{surfaceId:"s",catalogId:AGENT_CATALOG_ID}});c.apply({version:"v0.9.1",updateComponents:{surfaceId:"s",components:[{id:"root",intro:"Choose",value:{path:"/answer"},status:{path:"/status"},labels:{},action:{event:{name:"submit",context:{answer:{path:"/answer"}}}},...component}]}});c.apply({version:"v0.9.1",updateDataModel:{surfaceId:"s",value:{status:"Pending",answer:{}}}});return c;}
+it.each([true,false])("approval emits a boolean and disables after settlement (%s)",async decision=>{
+ const c=client({component:"ApprovalCard"}),host=document.createElement("div"),action=vi.fn();document.body.append(host);const app=createApp({render:()=>h(A2UISurface,{client:c,surfaceId:"s",onAction:action})});app.mount(host);const buttons=host.querySelectorAll("button");buttons[decision?0:1].click();await nextTick();expect(action.mock.calls[0][0].action.context.answer).toBe(decision);c.apply({version:"v0.9.1",updateDataModel:{surfaceId:"s",path:"/status",value:"Answered"}});await nextTick();expect([...host.querySelectorAll("button")].every(b=>b.disabled)).toBe(true);app.unmount();host.remove();
+});
+it("question accepts custom input and skip with the same action contract",async()=>{
+ const c=client({component:"QuestionCard",questions:[{questionId:"q",question:"Which?",options:[],allowCustomAnswer:true,allowSkip:true}]}),host=document.createElement("div"),action=vi.fn();document.body.append(host);const app=createApp({render:()=>h(A2UISurface,{client:c,surfaceId:"s",onAction:action})});app.mount(host);
+ const text=host.querySelector("textarea")!;text.value="custom";text.dispatchEvent(new Event("input",{bubbles:true}));await nextTick();[...host.querySelectorAll("button")].find(b=>b.textContent==="Continue")!.click();await nextTick();expect(action.mock.calls[0][0].action.context.answer.q.otherText).toBe("custom");[...host.querySelectorAll("button")].find(b=>b.textContent==="Skip")!.click();expect(action.mock.calls[1][0].action.context.answer.q.answerKind).toBe("Skipped");app.unmount();host.remove();
+});

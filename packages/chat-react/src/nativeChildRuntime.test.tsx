@@ -30,7 +30,7 @@ it("retains a real native approval after a completed transport when protocol rep
  })};
  render(<ChatRuntimeWindow adapter={adapter} config={{floating:false}} initialSession={session} onError={onError}/>);
  await waitFor(()=>expect(adapter.loadMessages).toHaveBeenCalled());fireEvent.change(screen.getByRole("textbox"),{target:{value:"Run"}});fireEvent.keyDown(screen.getByRole("textbox"),{key:"Enter"});
- expect(await screen.findByRole("radio",{name:"Approve"})).toBeTruthy();expect(await screen.findByRole("radio",{name:"Reject"})).toBeTruthy();
+ expect(await screen.findByRole("button",{name:"Approve"})).toBeTruthy();expect(await screen.findByRole("button",{name:"Reject"})).toBeTruthy();
  await waitFor(()=>expect(adapter.loadMessages).toHaveBeenCalledTimes(2));
- expect(screen.getByRole("radio",{name:"Approve"})).toBeTruthy();expect(onError).not.toHaveBeenCalled();
+ expect(screen.getByRole("button",{name:"Approve"})).toBeTruthy();expect(onError).not.toHaveBeenCalled();
 });

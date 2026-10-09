@@ -143,7 +143,7 @@ const streamingAssistantMessageCode = computed(() => {
 });
 const transcriptMessages = computed(() =>
   props.messages.filter((message) =>
-    message.messageId !== streamingAssistantMessageCode.value || message.content.trim().length > 0,
+    message.messageId !== streamingAssistantMessageCode.value || message.content.trim().length > 0 || !!message.a2ui,
   ),
 );
 
@@ -335,10 +335,11 @@ onMounted(() => {
             <template v-for="message in transcriptMessages" :key="message.messageId">
               <StructuredMessageDetails :message="message" :labels="props.historyLabels" />
               <ChatBubble
-                v-if="!isUserInputAnswerSummary(message) && (!message.history || message.content.trim())"
+                v-if="!isUserInputAnswerSummary(message) && (!message.history || message.a2ui || message.content.trim())"
                 :current-user-display-name="currentUserDisplayName"
                 :is-streaming="message.messageId === streamingAssistantMessageCode"
                 :message="message"
+                :on-a2-u-i-action="props.onA2UIAction" :a2ui-session="props.a2uiSession" :a2ui-disabled="props.a2uiDisabled"
                 @edit-message="
                   (content: string) => emit('edit-message', content)
                 "
@@ -379,7 +380,7 @@ onMounted(() => {
           />
         <ChatUserInputCard
           v-if="props.userInputRequest?.status === 'Pending' && props.onAnswerUserInput"
-          :disabled="props.userInputAnswerPending"
+          :disabled="props.userInputAnswerPending || props.session?.status === 'ARCHIVED'"
           :labels="props.userInputLabels"
           :request="props.userInputRequest"
           @submit="props.onAnswerUserInput"
@@ -537,7 +538,7 @@ onMounted(() => {
           </div>
         <ChatUserInputCard
           v-if="props.userInputRequest?.status === 'Pending' && props.onAnswerUserInput"
-          :disabled="props.userInputAnswerPending"
+          :disabled="props.userInputAnswerPending || props.session?.status === 'ARCHIVED'"
           :labels="props.userInputLabels"
           :request="props.userInputRequest"
           @submit="props.onAnswerUserInput"

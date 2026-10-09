@@ -26,7 +26,9 @@ export default defineConfig({
         formats: ["es"],
       },
       rollupOptions: {
-        external: ["@eliteforge/agent-ui-chat-core", "lucide-vue-next", "markdown-it", "vue"],
+        external: [
+          "@eliteforge/agent-ui-a2ui-core",
+          "@eliteforge/agent-ui-a2ui-vue","@eliteforge/agent-ui-chat-core", "lucide-vue-next", "markdown-it", "vue"],
       },
     },
     server: { host: "0.0.0.0" },

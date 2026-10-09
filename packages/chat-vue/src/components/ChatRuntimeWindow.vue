@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import {
   AssistantReplyQueue,
+  ChatA2uiSession, AGENT_CATALOG_ID, type ChatA2uiActionHandler,
   historyMessages,
   historyEventRunId,
   historyUserInputRequests,
@@ -107,6 +108,16 @@ const normalizedInitialSession = computed(() =>
 );
 const session = ref<ChatSession | null>(normalizedInitialSession.value);
 const messages = ref<ChatMessage[]>([]);
+const a2uiSession = shallowRef(new ChatA2uiSession(session.value?.sessionId ?? ""));
+const a2uiEpoch = ref(0);
+watch(() => session.value?.sessionId, (id, _, cleanup) => {
+  const runtime = new ChatA2uiSession(id ?? ""); a2uiSession.value = runtime;
+  cleanup(runtime.client.subscribe(() => a2uiEpoch.value++));
+  if (id && activeAdapter.value.loadA2uiState) void activeAdapter.value.loadA2uiState(id).then(s => runtime.hydrate(s)).catch(e => props.onError?.(String(e), "A2UI state failed"));
+}, {immediate: true});
+async function reloadA2ui() { const runtime = a2uiSession.value; if (runtime.sessionId && activeAdapter.value.loadA2uiState) runtime.hydrate(await activeAdapter.value.loadA2uiState(runtime.sessionId)); }
+function receiveA2ui(event: ChatAguiStreamEvent) { try { if (!a2uiSession.value.applyEvent(event)) void reloadA2ui().catch(e => props.onError?.(String(e), "A2UI recovery failed")); } catch(e) { props.onError?.(String(e), "A2UI presentation failed"); void reloadA2ui().catch(() => {}); } }
+const presentedMessages = computed(() => { void a2uiEpoch.value; return mergeChatMessagesChronologically(messages.value, a2uiSession.value.messages()); });
 const streamingAssistantMessageCode = ref<string | null>(null);
 const agentReplySpeed = computed(
   () => props.agentReplySpeed ?? defaultAssistantReplySpeed,
@@ -609,7 +620,7 @@ watch(
 async function readPresentation(sessionId: string, signal?: AbortSignal, adapter: ChatAdapter = activeAdapter.value) {
   if (adapter.loadHistory) {
     const page = await adapter.loadHistory(sessionId, { limit: 20, cursor: null }, signal);
-    return [historyMessages(page), [] as ChatAguiEvent[], [] as ChatAguiStreamEvent[], historyUserInputRequests(page, props.config.userInputLabels), page] as const;
+    return [historyMessages(page, props.config.userInputLabels), [] as ChatAguiEvent[], [] as ChatAguiStreamEvent[], historyUserInputRequests(page, props.config.userInputLabels), page] as const;
   }
   const parts = await Promise.all([
     adapter.loadMessages(sessionId),
@@ -626,13 +637,13 @@ async function loadOlderHistory() {
   try {
     const page = await activeAdapter.value.loadHistory(sessionId, { limit: 20, cursor: historyCursor.value });
     if (activeSessionCodeRef.value !== sessionId) return;
-    messages.value = mergeChatMessagesChronologically(historyMessages(page), messages.value);
+    messages.value = mergeChatMessagesChronologically(historyMessages(page, props.config.userInputLabels), messages.value);
     historyCursor.value = page.nextCursor;
   } catch (error) {
     if ((error as { status?: number })?.status === 409 && activeSessionCodeRef.value === sessionId) {
       try {
         const page = await activeAdapter.value.loadHistory(sessionId, { limit: 20, cursor: null });
-        if (activeSessionCodeRef.value === sessionId) { messages.value = historyMessages(page); acceptHistory(page); }
+        if (activeSessionCodeRef.value === sessionId) { messages.value = historyMessages(page, props.config.userInputLabels); acceptHistory(page); }
       } catch (reloadError) { reportError(reloadError instanceof Error ? reloadError.message : "Chat data could not be loaded", "Chat load failed"); }
     } else reportError(error instanceof Error ? error.message : "Chat data could not be loaded", "Chat load failed");
   }
@@ -822,6 +833,7 @@ async function runMessage(
     restoreSourceSubmission(sourceSubmission, queueGeneration);
     return false;
   }
+  sendInput = {...sendInput, clientCapabilities: {...sendInput.clientCapabilities, a2ui: {version: "v0.9.1", catalogIds: [AGENT_CATALOG_ID]}}, a2uiMetadata: a2uiSession.value.metadata(sendInput.metadata?.agentId as string | undefined ?? "main-agent")};
   const content = sendInput.content.trim();
   if (!content) {
     restoreSourceSubmission(sourceSubmission, queueGeneration);
@@ -887,6 +899,7 @@ async function runMessage(
       sendInput,
       {
         onAguiEvent: (event) => {
+          receiveA2ui(event);
             if (!belongsToNewChatTurn(event, activeSession.sessionId, optimisticCreatedAt)) return;
           if (
             !ownsRuntimeStreamObserver(
@@ -1246,6 +1259,24 @@ async function handleSubmit(mode: ChatSubmitMode = "send") {
   await handleSend();
 }
 
+const handleA2uiAction: ChatA2uiActionHandler = (message, metadata, context) => {
+  if (!context) {props.onA2UIAction?.(message,metadata);return;}
+  const current = session.value; const adapter = activeAdapter.value;
+  if (!current || !context || !adapter.sendA2uiActionStream || runActive.value || userInputRequest.value || current.status === "ARCHIVED") return;
+  const controller = new AbortController(); const observer = {controller, sessionId: current.sessionId, abortReason: "none" as RuntimeStreamAbortReason};
+  activeObserverRef.value = observer; sending.value = true;
+  const input = a2uiSession.value.prepareAction(message,metadata,context.surface);
+  void adapter.sendA2uiActionStream(current, input, {
+    onAguiEvent: event => { if (session.value?.sessionId !== current.sessionId || activeObserverRef.value !== observer) return; receiveA2ui(event); if(event.runId) activeRunCode.value = event.runId; liveAguiEvents.value.push(event); }
+  }, controller.signal).then(async result => {
+    if (session.value?.sessionId !== current.sessionId || activeObserverRef.value !== observer) return;
+    a2uiSession.value.completeAction(input.actionId);
+    messages.value = mergeChatMessagesChronologically(messages.value, result.messages); session.value = result.session;
+    userInputRequest.value = result.userInputRequest?.status === "Pending" ? result.userInputRequest : null;
+    props.onA2UIAction?.(message, metadata, context);
+    const [nextMessages, nextAudits, nextProtocol, nextRequests, nextHistory] = await readPresentation(current.sessionId); if (session.value?.sessionId !== current.sessionId || activeObserverRef.value !== observer) return; messages.value = nextMessages; aguiEvents.value=nextAudits; protocolEvents.value=nextProtocol; userInputRequests.value=nextRequests; userInputRequest.value=nextRequests.find(r=>r.status === "Pending") ?? null; acceptHistory(nextHistory); await reloadA2ui();
+  }).catch(e => props.onError?.(String(e), "A2UI action failed")).finally(() => { if(activeObserverRef.value === observer) {activeObserverRef.value = null; sending.value = false; activeRunCode.value = "";} });
+};
 async function handleAnswerUserInput(answers: ChatUserInputAnswer[]) {
   const activeSession = session.value;
   const request = userInputRequest.value;
@@ -1271,9 +1302,10 @@ async function handleAnswerUserInput(answers: ChatUserInputAnswer[]) {
     const result = await adapter.answerUserInputRequestStream(
       activeSession,
       request.requestId,
-      nativeUserInputAnswer(request, answers),
+      {...nativeUserInputAnswer(request, answers), ...(adapter.loadA2uiState ? {clientCapabilities: {userInputRequests:true,a2ui:{version:"v0.9.1" as const,catalogIds:[AGENT_CATALOG_ID]}}, a2uiMetadata:a2uiSession.value.metadata(activeSession.metadata?.agentId as string | undefined ?? "main-agent")} : {})},
       {
         onAguiEvent: (event) => {
+          receiveA2ui(event);
           if (!aguiEnabled.value) return;
           liveAguiEvents.value = [...liveAguiEvents.value, event];
           const runId = String(event.runId ?? event.runId ?? "");
@@ -1524,6 +1556,9 @@ function handleRuntimeSend(mode?: ChatSubmitMode) {
 }
 
 const panelCommonProps = computed(() => ({
+  onA2UIAction: handleA2uiAction,
+  a2uiSession: a2uiSession.value,
+  a2uiDisabled: runActive.value || session.value?.status === "ARCHIVED",
   historyLoading: loading.value,
   historyLoadingOlder: historyLoadingOlder.value,
   historyLabels: props.config.historyLabels,
@@ -1545,7 +1580,7 @@ const panelCommonProps = computed(() => ({
   liveAguiEvents: liveAguiEvents.value,
   liveAguiPendingAnchorMessageCode: liveAguiPendingAnchorMessageCode.value,
   liveAguiPending: liveAguiPending.value,
-  messages: messages.value,
+  messages: presentedMessages.value,
   streamingAssistantMessageCode: streamingAssistantMessageCode.value,
   onCreateSession: props.onCreateSession ?? (() => {
     void ensureSession();

@@ -1,3 +1,5 @@
+import type { ActionMetadata } from "@eliteforge/agent-ui-a2ui-core";
+import type { ChatA2uiState, ChatA2uiActionInput } from "./a2ui";
 import type { ChatHistoryLabels, HistoryMessageView, HistoryQuery, SessionHistory } from "./history";
 export type ChatSessionStatus = "ACTIVE" | "ARCHIVED";
 export type ChatSessionSource = string;
@@ -72,6 +74,8 @@ export interface UpdateChatSessionInput {
 }
 
 export interface ChatMessage {
+  /** Ordered A2UI protocol envelopes; persist alongside the message. */
+  a2ui?: { messages: unknown[]; surfaceIds?: string[] };
   history?: HistoryMessageView;
   id: number | string;
   messageId: string;
@@ -173,7 +177,9 @@ export interface ChatUserInputRequest {
   status: "Pending" | "Answered";
   requestedAt: number;
   answeredAt?: number | null;
-  nativeInteraction?: { reason: string; responseSchema: unknown; optionPayloads: Record<string, unknown> };
+  a2uiInteraction?: { messages: unknown[]; surfaceId: string };
+  expiresAtMs?: number | null;
+  nativeInteraction?: { questionnaire?: boolean; details?: Record<string, unknown>; reason: string; responseSchema: unknown; optionPayloads: Record<string, unknown> };
 }
 
 export interface ChatAguiResumeEntry {
@@ -183,6 +189,8 @@ export interface ChatAguiResumeEntry {
 }
 
 export interface ChatUserInputAnswerInput {
+  clientCapabilities?: SendChatMessageInput["clientCapabilities"];
+  a2uiMetadata?: ActionMetadata;
   answers: ChatUserInputAnswer[];
   resume?: ChatAguiResumeEntry[];
 }
@@ -269,9 +277,11 @@ export interface SendChatMessageInput {
   modelId?: string | null;
   reasoningEffort?: ReasoningEffort | null;
   metadata?: Record<string, unknown>;
+  a2uiMetadata?: ActionMetadata;
   attachments?: ChatMessageAttachment[];
   clientCapabilities?: {
     userInputRequests?: boolean;
+    a2ui?: { version: "v0.9.1"; catalogIds: string[] };
   };
 }
 
@@ -409,6 +419,8 @@ export interface ChatAdapterCapabilities {
 }
 
 export interface ChatAdapter {
+  loadA2uiState?: (sessionId: string, signal?: AbortSignal) => Promise<ChatA2uiState>;
+  sendA2uiActionStream?: (session: ChatSession, input: ChatA2uiActionInput, handlers?: ChatStreamHandlers, signal?: AbortSignal) => Promise<ChatSendResult>;
   capabilities: ChatAdapterCapabilities;
   createSession: (input: CreateChatSessionInput) => Promise<ChatSession>;
   deleteSession: (sessionId: string, signal?: AbortSignal) => Promise<ChatSession>;

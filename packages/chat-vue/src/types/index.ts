@@ -1,3 +1,4 @@
+import type { ChatA2uiActionHandler as ActionHandler, ChatA2uiSession } from "@eliteforge/agent-ui-chat-core";
 import type {
   AssistantReplyEffect,
   ChatAdapter,
@@ -21,6 +22,9 @@ import type {
 } from "@eliteforge/agent-ui-chat-core";
 
 export interface ChatPanelProps {
+  a2uiSession?: ChatA2uiSession;
+  a2uiDisabled?: boolean;
+  onA2UIAction?: ActionHandler;
   attachmentDownloader?: (attachment: ChatMessageAttachment) => Promise<Blob>;
   attachmentLabels?: ChatAttachmentLabels;
   autoFocusComposer?: boolean;
@@ -79,6 +83,10 @@ export interface ChatPanelProps {
 export type ToastLikeCallback = (message: string, title?: string) => void;
 
 export interface ChatRuntimeWindowProps {
+  /** Forward A2UI actions to the host transport. */
+  a2uiSession?: ChatA2uiSession;
+  a2uiDisabled?: boolean;
+  onA2UIAction?: ActionHandler;
   agentReplyEffect?: AssistantReplyEffect;
   agentReplySpeed?: number;
   adapter?: ChatAdapter;

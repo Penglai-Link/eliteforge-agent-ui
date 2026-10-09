@@ -52,11 +52,12 @@ export function buildChatHistoryTurns(
       return;
     }
 
+    if (!currentTurn && message.a2ui) currentTurn = { assistantPreview: "", hasAssistantReply: true, hasWorkActivity: false, id: `turn-${message.messageId}`, messageCodes: [], userMessageCode: message.messageId, userPreview: message.actor || "Assistant" };
     if (!currentTurn) return;
 
     currentTurn.messageCodes.push(message.messageId);
 
-    if (!currentTurn.hasAssistantReply && message.content.trim()) {
+    if (!currentTurn.hasAssistantReply && (message.content.trim() || message.a2ui)) {
       currentTurn.hasAssistantReply = true;
       currentTurn.assistantPreview = markdownPreview(message.content);
     }

@@ -31,7 +31,9 @@
     "github-markdown-css": "^5.9.0",
     "lucide-react": "^0.553.0",
     "react-markdown": "^10.1.0",
-    "remark-gfm": "^4.0.1"
+    "remark-gfm": "^4.0.1",
+    "@eliteforge/agent-ui-a2ui-react": "0.1.0",
+    "@eliteforge/agent-ui-a2ui-core": "0.1.0"
   },
   "peerDependencies": {
     "react": "^19.2.5",

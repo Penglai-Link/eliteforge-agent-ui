@@ -23,5 +23,8 @@
   "publishConfig": {
     "registry": "http://nexus.cisdigital.cn/repository/npm-internal/",
     "access": "restricted"
+  },
+  "dependencies": {
+    "@eliteforge/agent-ui-a2ui-core": "0.1.0"
   }
 }
