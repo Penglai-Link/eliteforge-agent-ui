@@ -8,7 +8,7 @@
     "packages/*"
   ],
   "scripts": {
-    "build": "turbo run build --filter=./packages/*",
+    "build": "turbo run build --filter=./packages/* --cache-dir=/Users/clouds3n/rust-cache/turbo/eliteforge-agent-ui",
     "postinstall": "patch-package && node packages/terminal/scripts/patch-xterm-ime.mjs",
     "test": "npm run test --workspaces --if-present",
     "check": "npm run build && npm test"
