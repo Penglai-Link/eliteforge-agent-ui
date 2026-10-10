@@ -8,6 +8,7 @@ import {
   BrainCircuit,
   CheckCircle2,
   CircleAlert,
+  CircleX,
   ChevronDown,
   ChevronRight,
   Copy,
@@ -601,6 +602,16 @@ function hasToolParameterPayload(value: unknown) {
   return true;
 }
 
+function toolResultFailed(result: string) {
+  if (!result) return false;
+  try {
+    const parsed: unknown = JSON.parse(result);
+    return Boolean(parsed && typeof parsed === "object" && "isError" in parsed && parsed.isError === true);
+  } catch {
+    return false;
+  }
+}
+
 function JsonBlock({ value }: { value: unknown }) {
   const preview = formatJsonBlockValue(value);
   if (!preview) return null;
@@ -612,13 +623,16 @@ function ToolCard({
   labels = defaultWorkRailLabels,
   nested = false,
   statusLabel,
+  userInputRequest,
 }: {
   statusLabel?: string;
   card: ToolWorkCard;
   labels?: ChatWorkRailLabels;
   nested?: boolean;
+  userInputRequest?: ChatUserInputRequest;
 }) {
   const complete = card.ended || Boolean(card.result);
+  const failed = toolResultFailed(card.result);
   const running = card.started && !complete;
   const interactionInfo = interactionToolSummary(card.toolName, card.args);
   const hasParameters = hasToolParameterPayload(card.args);
@@ -671,11 +685,17 @@ function ToolCard({
               "ef-chat__tool-badge",
               nested
                 ? "ef-chat__tool-badge--nested"
-                : "ef-chat__tool-badge--standalone",
+                : cx(
+                    "ef-chat__tool-badge--standalone",
+                    failed && "ef-chat__tool-badge--failed",
+                    complete && !failed && "ef-chat__tool-badge--done",
+                  ),
             )}
           >
             {nested ? (
               <span className="ef-chat__tool-timeline-dot" aria-hidden="true" />
+            ) : failed ? (
+              <CircleX size={14} />
             ) : complete ? (
               <CheckCircle2 size={14} />
             ) : running ? (
@@ -694,16 +714,14 @@ function ToolCard({
               >
                 {nested ? nestedToolLabel : toolLabel}
               </span>
-              {nested ? null : (
+              {nested || complete || failed ? null : (
                 <span
                   className={cx(
                     "ef-chat__tool-status",
-                    complete
-                      ? "ef-chat__tool-status--done"
-                      : "ef-chat__tool-status--running",
+                    "ef-chat__tool-status--running",
                   )}
                 >
-                  {statusLabel ?? (complete ? toolCopy.statusDone : toolCopy.statusRunning)}
+                  {statusLabel ?? toolCopy.statusRunning}
                 </span>
               )}
             </span>
@@ -723,7 +741,19 @@ function ToolCard({
           )}
         >
           <div className="ef-chat__tool-sections">
-            {interactionInfo !== null ? <p>{interactionInfo.join(" · ") || toolName}</p> : <>
+            {userInputRequest ? (
+              <ol className="ef-chat__rail-entry-list">
+                {userInputRequest.questions.map((question) => (
+                  <li className="ef-chat__user-input-work-answer" key={question.questionId}>
+                    <span className="ef-chat__user-input-work-question">{question.question}</span>
+                    <span className="ef-chat__user-input-work-value">
+                      {userInputAnswerText(userInputRequest, question, labels)}
+                    </span>
+                  </li>
+                ))}
+              </ol>
+            ) : null}
+            {interactionInfo !== null ? <p>{interactionInfo.join(" · ") || toolName}</p> : null}
             {hasParameters ? (
               <section>
                 <div
@@ -808,7 +838,6 @@ function ToolCard({
                 </div>
               </section>
             )}
-            </>}
           </div>
         </div>
       ) : null}
@@ -816,7 +845,7 @@ function ToolCard({
   );
 }
 
-function ToolGroupCard({ card, labels = defaultWorkRailLabels }: { card: ToolGroupWorkCard; labels?: ChatWorkRailLabels }) {
+function ToolGroupCard({ card, labels = defaultWorkRailLabels, userInputRequests = [] }: { card: ToolGroupWorkCard; labels?: ChatWorkRailLabels; userInputRequests?: ChatUserInputRequest[] }) {
   const toolCopy = { ...defaultToolWorkLabels, ...labels.tool };
   const toolCards = card.toolCards.filter((toolCard) => toolCard.started);
   const hasRunningTool = toolCards.some(
@@ -857,7 +886,7 @@ function ToolGroupCard({ card, labels = defaultWorkRailLabels }: { card: ToolGro
         <ol className="ef-chat__rail-entry-list">
           {toolCards.map((toolCard) => (
             <li key={toolCard.id}>
-              <ToolCard card={toolCard} labels={labels} nested />
+            <ToolCard card={toolCard} labels={labels} nested userInputRequest={userInputRequests.find((request) => request.runId === toolCard.runId)} />
             </li>
           ))}
         </ol>
@@ -940,50 +969,6 @@ function userInputAnswerText(
     ?? answer.optionId
     ?? labels.waitingForAnswer
     ?? "Waiting for your answer";
-}
-
-function UserInputWorkCard({
-  labels,
-  request,
-}: {
-  labels: ChatWorkRailLabels;
-  request: ChatUserInputRequest;
-}) {
-  const [expanded, setExpanded] = useState(false);
-  const summary = labels.askedQuestions?.(request.questions.length)
-    ?? `Asked ${request.questions.length} questions`;
-  return (
-    <section className="ef-chat__rail-entry" aria-label={summary}>
-      <button
-        aria-expanded={expanded}
-        className="ef-chat__rail-entry-toggle"
-        type="button"
-        onClick={() => setExpanded((value) => !value)}
-      >
-        <span className="ef-chat__rail-entry-label">
-          <MessageSquareText size={15} />
-          <span>{summary}</span>
-        </span>
-        <span className="ef-chat__rail-entry-chevron">
-          {expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-        </span>
-      </button>
-      {expanded ? (
-        <ol className="ef-chat__rail-entry-list">
-          {request.a2uiInteraction ? submittedFormSummary(request).map((row, index) => (
-            <li className="ef-chat__user-input-work-answer" key={index}><span className="ef-chat__user-input-work-question">{row.label}</span><span className="ef-chat__user-input-work-value">{row.value}</span></li>
-          )) : request.questions.map((question) => (
-            <li className="ef-chat__user-input-work-answer" key={question.questionId}>
-              <span className="ef-chat__user-input-work-question">{question.question}</span>
-              <span className="ef-chat__user-input-work-value">
-                {userInputAnswerText(request, question, labels)}
-              </span>
-            </li>
-          ))}
-        </ol>
-      ) : null}
-    </section>
-  );
 }
 
 function RunErrorDetails({ raw, fallback }: { raw: string; fallback: string }) {
@@ -1094,14 +1079,7 @@ function AguiRunWorkRail({
   const compacting = notices.some((notice) => (
     notice.kind === "compaction" && (notice.status === "requested" || notice.status === "started")
   ));
-  const userCards = useMemo<AguiUserWorkCard[]>(() => buildAguiUserWorkCards(events).flatMap((card): AguiUserWorkCard[] => {
-    if (card.kind === "tool" && card.value.toolName === "chat_ask_user") return [];
-    if (card.kind !== "toolGroup") return [card];
-    const toolCards = card.value.toolCards.filter((toolCard) => toolCard.toolName !== "chat_ask_user");
-    return toolCards.length
-      ? [{ ...card, value: { ...card.value, toolCards } }]
-      : [];
-  }), [events]);
+  const userCards = useMemo<AguiUserWorkCard[]>(() => buildAguiUserWorkCards(events), [events]);
   const matchingUserInputRequests = useMemo(() => {
     const runCodes = new Set(events.map((event) => aguiEventRunId(event)));
     return userInputRequests.filter((request) => (
@@ -1117,13 +1095,7 @@ function AguiRunWorkRail({
       kind: "agui" as const,
       card,
     })),
-    ...answeredUserInputRequests.map((request) => ({
-      firstMillis: request.requestedAt,
-      kind: "userInput" as const,
-      request,
-    })),
   ].sort((left, right) => left.firstMillis - right.firstMillis), [
-    answeredUserInputRequests,
     userCards,
   ]);
   const pendingUserInputRequest = matchingUserInputRequests.find(
@@ -1249,18 +1221,12 @@ function AguiRunWorkRail({
               style={{ maxWidth: "none", paddingLeft: 0 }}
             >
               <div className="ef-chat__rail-card-list">
-                {orderedWorkItems.map((item) => item.kind === "userInput" ? (
-                  <UserInputWorkCard
-                    labels={labels}
-                    request={item.request}
-                    key={`user-input-${item.request.requestId}`}
-                  />
-                ) : item.card.kind === "reasoning" ? (
+                {orderedWorkItems.map((item) => item.card.kind === "reasoning" ? (
                   <ReasoningCard card={item.card.value} key={item.card.value.id} labels={labels} />
                 ) : item.card.kind === "toolGroup" ? (
-                  <ToolGroupCard card={item.card.value} key={item.card.value.id} labels={labels} />
+                  <ToolGroupCard card={item.card.value} key={item.card.value.id} labels={labels} userInputRequests={answeredUserInputRequests} />
                 ) : (
-                  <ToolCard card={item.card.value} key={item.card.value.id} labels={labels} />
+                  <ToolCard card={item.card.value} key={item.card.value.id} labels={labels} userInputRequest={answeredUserInputRequests.find((request) => request.runId === item.card.value.runId)} />
                 ))}
               </div>
             </section>
