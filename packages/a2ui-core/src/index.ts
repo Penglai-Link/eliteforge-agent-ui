@@ -105,11 +105,17 @@ export class A2UIClient {
   private listeners = new Set<() => void>();
   private expiryTimer?: ReturnType<typeof setTimeout>;
   private scheduleExpiry() {
-    if(this.expiryTimer) clearTimeout(this.expiryTimer);
-    if(!this.listeners.size) return;
+    if (this.expiryTimer) clearTimeout(this.expiryTimer);
+    if (!this.listeners.size) return;
     const now = Date.now();
-    const times = Object.values(this.state.surfaces).flatMap(s => Object.values(s.components).map(c => c.expiresAtMs)).filter((t): t is number => typeof t === "number" && t > now);
-    if(times.length) this.expiryTimer = setTimeout(() => this.commit({...this.state}), Math.min(2147483647, Math.min(...times)-now+1));
+    const times = Object.values(this.state.surfaces)
+      .flatMap((s) => Object.values(s.components).map((c) => c.expiresAtMs))
+      .filter((t): t is number => typeof t === "number" && t > now);
+    if (times.length)
+      this.expiryTimer = setTimeout(
+        () => this.commit({ ...this.state }),
+        Math.min(2147483647, Math.min(...times) - now + 1)
+      );
   }
   private validators = new Map<
     string,
@@ -369,7 +375,11 @@ export class A2UIClient {
     const s = this.surface(surfaceId),
       c = s.components[componentId],
       event = c?.action?.event;
-    if (!c || !["Button", "QuestionCard", "ApprovalCard"].includes(c.component) || !event)
+    if (
+      !c ||
+      !["Button", "QuestionCard", "ApprovalCard"].includes(c.component) ||
+      !event
+    )
       throw new Error("No server action");
     const context = Object.fromEntries(
       Object.entries(event.context ?? {}).map(([k, v]) => [
@@ -505,6 +515,7 @@ export function renderSurface<T>(
     if (registry[c.component]) return registry[c.component](context);
     const props: Record<string, any> = {
       "data-a2ui-component": id,
+      "data-theme-part": "a2ui-" + c.component.toLowerCase(),
       class: `a2ui-${c.component.toLowerCase()}`,
       "data-variant": c.variant,
       "aria-label": c.accessibility?.label
@@ -571,11 +582,11 @@ export function renderSurface<T>(
           {
             ...props,
             viewBox: "0 0 24 24",
-            width: 24,
-            height: 24,
+            width: "var(--agent-ui-a2ui-icon-size, 24px)",
+            height: "var(--agent-ui-a2ui-icon-size, 24px)",
             fill: "none",
             stroke: "currentColor",
-            strokeWidth: 2,
+            strokeWidth: "var(--agent-ui-a2ui-icon-stroke-width, 2)",
             strokeLinecap: "round",
             strokeLinejoin: "round",
             role: props["aria-label"] ? "img" : undefined,
@@ -738,7 +749,9 @@ export function renderSurface<T>(
         return element("span", { "data-a2ui-unsupported": c.component }, []);
     }
   }
-  return element("div", { class: "a2ui-surface" }, [render("root")]);
+  return element("div", { class: "a2ui-surface", "data-theme-part": "a2ui" }, [
+    render("root"),
+  ]);
 }
 
 const iconPaths: Record<string, string> = {

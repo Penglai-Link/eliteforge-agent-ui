@@ -278,3 +278,86 @@ it("common input validation and structural cycles preserve prior state", () => {
   expect(() => c.importSnapshot(corrupt)).toThrow();
   expect(c.getSnapshot()).toBe(stable);
 });
+
+it("validates all statistics schemas and rejects invalid contracts atomically", async () => {
+  const { initializeStatisticsDemo } = await import("./demo");
+  const client = new A2UIClient();
+  initializeStatisticsDemo(client);
+  const before = client.exportSnapshot();
+  for (const component of [
+    { component: "Statistic", value: 5, precision: 21 },
+    { component: "Trend", value: 2, positiveIsGood: "yes" },
+    { component: "Sparkline", values: ["bad"] },
+    { component: "Chart", type: "scatter", labels: [], series: [] },
+    {
+      component: "Chart",
+      type: "line",
+      labels: ["A"],
+      series: [{ name: "x", values: ["bad"] }],
+    },
+    { component: "DescriptionList", items: [{ label: "x" }] },
+    { component: "Meter", value: "wrong" },
+  ]) {
+    expect(() =>
+      client.apply({
+        version: VERSION,
+        updateComponents: {
+          surfaceId: "statistics",
+          components: [{ id: "bad", ...component }],
+        },
+      })
+    ).toThrow();
+    expect(client.exportSnapshot()).toEqual(before);
+  }
+});
+
+it("agent catalog also accepts statistics components", async () => {
+  const { agentCatalog, AGENT_CATALOG_ID } = await import("./index");
+  const client = new A2UIClient();
+  client.apply({
+    version: VERSION,
+    createSurface: { surfaceId: "stats", catalogId: AGENT_CATALOG_ID },
+  });
+  const names = [
+    "Statistic",
+    "Trend",
+    "Sparkline",
+    "Meter",
+    "Chart",
+    "DescriptionList",
+  ];
+  for (const name of names)
+    expect(agentCatalog.components[name]).toEqual(catalog.components[name]);
+  client.apply({
+    version: VERSION,
+    updateComponents: {
+      surfaceId: "stats",
+      components: [{ id: "root", component: "Statistic", value: 12 }],
+    },
+  });
+  expect(client.surface("stats").components.root.component).toBe("Statistic");
+});
+
+it("gallery covers every catalog component with an independent named root", async () => {
+  const { initializeComponentGallery } = await import("./demo");
+  const gallery = initializeComponentGallery();
+  expect(gallery.entries.map((e) => e.name).sort()).toEqual(
+    Object.keys(catalog.components).sort()
+  );
+  for (const entry of gallery.entries) {
+    expect(
+      gallery.client.surface(entry.surfaceId).components.root.component
+    ).toBe(entry.name);
+  }
+  gallery.client.apply({
+    version: VERSION,
+    updateDataModel: {
+      surfaceId: "gallery-Statistic",
+      path: "/revenue",
+      value: 1,
+    },
+  });
+  expect(gallery.client.surface("gallery-Trend").dataModel.revenue).toBe(
+    128650.5
+  );
+});

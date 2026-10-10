@@ -1,0 +1,142 @@
+/* Statistics primitives share their styles across React and Vue. */
+.a2ui-statistic-label,
+.a2ui-data-empty {
+  color: var(
+    --agent-ui-a2ui-color-on-surface-variant,
+    var(--color-on-surface-variant, #555)
+  );
+}
+.a2ui-statistic-value {
+  font-size: var(--agent-ui-a2ui-statistic-value-font-size, 2rem);
+  font-weight: var(--agent-ui-a2ui-statistic-value-font-weight, 650);
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+.a2ui-statistic-value small {
+  font-size: var(--agent-ui-a2ui-statistic-value-unit-font-size, 0.875rem);
+  font-weight: var(--agent-ui-a2ui-statistic-value-unit-font-weight, 400);
+  margin-inline-start: var(
+    --agent-ui-a2ui-statistic-value-unit-margin-inline-start,
+    0.4rem
+  );
+}
+.a2ui-trend {
+  font-variant-numeric: tabular-nums;
+}
+.a2ui-trend[data-sentiment="good"] {
+  color: var(--agent-ui-a2ui-color-success, var(--color-success, #28744c));
+}
+.a2ui-trend[data-sentiment="bad"] {
+  color: var(--agent-ui-a2ui-color-error, var(--color-error, #ba1a1a));
+}
+.a2ui-meter {
+  display: grid;
+  gap: var(--agent-ui-a2ui-meter-gap, 0.5rem);
+  font-variant-numeric: tabular-nums;
+}
+.a2ui-meter meter {
+  width: 100%;
+  height: var(--agent-ui-a2ui-meter-height, 1.25rem);
+}
+.a2ui-sparkline,
+.a2ui-chart {
+  margin: 0;
+  min-width: 0;
+}
+.a2ui-sparkline svg {
+  width: 100%;
+  max-height: var(--agent-ui-a2ui-sparkline-max-height, 90px);
+  display: block;
+}
+.a2ui-chart svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+.a2ui-chart figcaption,
+.a2ui-sparkline figcaption {
+  font-weight: var(--agent-ui-a2ui-chart-caption-font-weight, 600);
+  margin-block-end: var(--agent-ui-a2ui-chart-caption-margin-block-end, 0.5rem);
+}
+.a2ui-chart-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--agent-ui-a2ui-chart-legend-gap, 0.5rem 1rem);
+  padding: 0;
+  list-style: none;
+  font-size: var(--agent-ui-a2ui-chart-legend-font-size, 0.875rem);
+}
+.a2ui-chart-legend li {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--agent-ui-a2ui-chart-legend-item-gap, 0.4rem);
+}
+.a2ui-chart-legend span {
+  width: var(--agent-ui-a2ui-chart-legend-swatch-width, 0.7rem);
+  height: var(--agent-ui-a2ui-chart-legend-swatch-height, 0.7rem);
+  border-radius: var(--agent-ui-a2ui-chart-legend-swatch-border-radius, 2px);
+}
+.a2ui-chart summary {
+  cursor: pointer;
+  font-size: var(--agent-ui-a2ui-chart-summary-font-size, 0.875rem);
+}
+.a2ui-donut-hole {
+  fill: var(
+    --agent-ui-a2ui-color-surface-container-lowest,
+    var(--color-surface-container-lowest, #fff)
+  );
+}
+.a2ui-descriptionlist dl {
+  display: grid;
+  grid-template-columns: minmax(6rem, 1fr) minmax(0, 3fr);
+  gap: var(--agent-ui-a2ui-descriptionlist-gap, 0.5rem 1rem);
+}
+.a2ui-descriptionlist dt {
+  color: var(
+    --agent-ui-a2ui-color-on-surface-variant,
+    var(--color-on-surface-variant, #555)
+  );
+}
+.a2ui-descriptionlist dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.a2ui-surface .a2ui-meter meter::-webkit-meter-bar {
+  background: var(
+    --agent-ui-a2ui-meter-track,
+    var(--color-surface-container, #f1edec)
+  );
+  border: 0;
+  border-radius: var(--agent-ui-a2ui-meter-border-radius, 99px);
+}
+.a2ui-surface .a2ui-meter meter::-webkit-meter-optimum-value {
+  background: var(
+    --agent-ui-a2ui-meter-good-color,
+    var(--color-success, #4f6f52)
+  );
+}
+.a2ui-surface .a2ui-meter meter::-webkit-meter-suboptimum-value {
+  background: var(
+    --agent-ui-a2ui-meter-warning-color,
+    var(--color-warning, #8a6a1f)
+  );
+}
+.a2ui-surface .a2ui-meter meter::-webkit-meter-even-less-good-value {
+  background: var(--agent-ui-a2ui-meter-bad-color, var(--color-error, #ba1a1a));
+}
+.a2ui-surface .a2ui-meter meter::-moz-meter-bar {
+  background: var(
+    --agent-ui-a2ui-meter-good-color,
+    var(--color-success, #4f6f52)
+  );
+}
+.a2ui-surface .a2ui-meter meter:-moz-meter-sub-optimum::-moz-meter-bar {
+  background: var(
+    --agent-ui-a2ui-meter-warning-color,
+    var(--color-warning, #8a6a1f)
+  );
+}
+.a2ui-surface .a2ui-meter meter:-moz-meter-sub-sub-optimum::-moz-meter-bar {
+  background: var(--agent-ui-a2ui-meter-bad-color, var(--color-error, #ba1a1a));
+}

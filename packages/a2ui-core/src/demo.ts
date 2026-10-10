@@ -1,3 +1,4 @@
+import { componentReferences } from "./common-components";
 import { A2UIClient, VERSION, CATALOG_ID, type ActionHandler } from "./index";
 export const profileMessages = [
   {
@@ -451,4 +452,355 @@ export function initializeCommonDemo(client: A2UIClient): ActionHandler {
         value: `已保存设置：${message.action.context.team} / ${message.action.context.quantity}`,
       },
     });
+}
+
+/** Statistics demo uses the same bound model in both framework adapters. */
+export function initializeStatisticsDemo(client: A2UIClient) {
+  client.apply({
+    version: VERSION,
+    createSurface: { surfaceId: "statistics", catalogId: CATALOG_ID },
+  });
+  client.apply({
+    version: VERSION,
+    updateDataModel: {
+      surfaceId: "statistics",
+      value: {
+        revenue: 128650.5,
+        growth: 12.8,
+        usage: 72,
+        points: [22, 30, 25, null, 42, 38, 56],
+        labels: ["周一", "周二", "周三", "周四", "周五", "周六", "周日"],
+        series: [
+          { name: "本周", values: [22, 30, 25, 38, 42, 38, 56] },
+          { name: "上周", values: [18, 24, 28, 30, 35, 32, 44] },
+        ],
+        distribution: [{ name: "请求量", values: [56, 28, 16] }],
+        items: [
+          { label: "统计范围", value: "最近 7 天" },
+          { label: "更新频率", value: "实时数据绑定" },
+          { label: "金额口径", value: "人民币，含税" },
+        ],
+      },
+    },
+  });
+  const charts = ["line", "bar", "area", "pie", "donut"];
+  const components: any[] = [
+    {
+      id: "root",
+      component: "Column",
+      children: [
+        "title",
+        "metrics",
+        "charts",
+        "description",
+        "empty",
+        "refresh",
+      ],
+    },
+    {
+      id: "title",
+      component: "Text",
+      variant: "h2",
+      text: "统计概览 · Card + Grid + Statistic + Trend + Sparkline + Meter",
+    },
+    {
+      id: "metrics",
+      component: "Grid",
+      columns: 3,
+      children: ["metric-card", "capacity-card", "trend-card"],
+    },
+    { id: "metric-card", component: "Card", child: "metric-content" },
+    {
+      id: "metric-content",
+      component: "Column",
+      children: ["revenue", "growth", "sparkline"],
+    },
+    {
+      id: "revenue",
+      component: "Statistic",
+      label: "累计收入",
+      value: { path: "/revenue" },
+      prefix: "¥",
+      unit: "元",
+      precision: 2,
+    },
+    {
+      id: "growth",
+      component: "Trend",
+      label: "同比",
+      value: { path: "/growth" },
+      unit: "%",
+      precision: 1,
+    },
+    {
+      id: "sparkline",
+      component: "Sparkline",
+      label: "近 7 天走势（含缺失点）",
+      values: { path: "/points" },
+    },
+    { id: "capacity-card", component: "Card", child: "capacity-content" },
+    {
+      id: "capacity-content",
+      component: "Column",
+      children: ["usage", "meter"],
+    },
+    {
+      id: "usage",
+      component: "Statistic",
+      label: "存储使用量",
+      value: { path: "/usage" },
+      unit: "GB",
+    },
+    {
+      id: "meter",
+      component: "Meter",
+      label: "存储额度",
+      value: { path: "/usage" },
+      max: 100,
+      low: 60,
+      high: 85,
+      optimum: 0,
+      unit: "GB",
+    },
+    { id: "trend-card", component: "Card", child: "trend-content" },
+    {
+      id: "trend-content",
+      component: "Column",
+      children: ["latency", "decline", "flat", "negative"],
+    },
+    {
+      id: "latency",
+      component: "Statistic",
+      label: "平均延迟",
+      value: 180,
+      unit: "ms",
+    },
+    {
+      id: "decline",
+      component: "Trend",
+      label: "延迟环比",
+      value: -8.2,
+      unit: "%",
+      positiveIsGood: false,
+    },
+    {
+      id: "flat",
+      component: "Trend",
+      label: "错误率变化",
+      value: 0,
+      unit: "%",
+    },
+    {
+      id: "negative",
+      component: "Trend",
+      label: "转化率环比",
+      value: -2.5,
+      unit: "%",
+    },
+    {
+      id: "charts",
+      component: "Grid",
+      columns: 2,
+      children: charts.map((type) => `chart-card-${type}`),
+    },
+    {
+      id: "description",
+      component: "DescriptionList",
+      label: "统计口径",
+      items: { path: "/items" },
+    },
+    {
+      id: "empty",
+      component: "Grid",
+      columns: 3,
+      children: ["empty-stat", "empty-spark", "empty-chart"],
+    },
+    {
+      id: "empty-stat",
+      component: "Statistic",
+      label: "待同步指标",
+      value: { path: "/missing" },
+    },
+    {
+      id: "empty-spark",
+      component: "Sparkline",
+      label: "暂无趋势",
+      values: [],
+    },
+    {
+      id: "empty-chart",
+      component: "Chart",
+      label: "暂无图表数据",
+      type: "bar",
+      labels: [],
+      series: [],
+    },
+    {
+      id: "refresh",
+      component: "Button",
+      child: "refresh-label",
+      action: { event: { name: "refreshStatistics" } },
+    },
+    { id: "refresh-label", component: "Text", text: "更新统计数据" },
+  ];
+  charts.forEach((type, i) => {
+    const circular = type === "pie" || type === "donut";
+    components.push(
+      { id: `chart-card-${type}`, component: "Card", child: `chart-${type}` },
+      {
+        id: `chart-${type}`,
+        component: "Chart",
+        type,
+        label: [
+          "请求量趋势",
+          "请求量对比",
+          "请求量面积",
+          "请求来源分布",
+          "请求来源占比",
+        ][i],
+        labels: circular ? ["网页", "移动端", "API"] : { path: "/labels" },
+        series: { path: circular ? "/distribution" : "/series" },
+      }
+    );
+  });
+  client.apply({
+    version: VERSION,
+    updateComponents: { surfaceId: "statistics", components },
+  });
+  let count = 0;
+  return () => {
+    count++;
+    client.apply({
+      version: VERSION,
+      updateDataModel: {
+        surfaceId: "statistics",
+        path: "/revenue",
+        value: 128650.5 + count * 1000,
+      },
+    });
+    client.apply({
+      version: VERSION,
+      updateDataModel: {
+        surfaceId: "statistics",
+        path: "/growth",
+        value: count % 2 ? -3.2 : 12.8,
+      },
+    });
+    client.apply({
+      version: VERSION,
+      updateDataModel: {
+        surfaceId: "statistics",
+        path: "/usage",
+        value: count % 2 ? 92 : 72,
+      },
+    });
+    client.apply({
+      version: VERSION,
+      updateDataModel: {
+        surfaceId: "statistics",
+        path: "/series/0/values/6",
+        value: 56 + count * 5,
+      },
+    });
+  };
+}
+
+/** Each gallery surface has its own model and exactly one showcased root component. */
+export function initializeComponentGallery() {
+  const source = createProfileDemo();
+  while (!source.done) source.next();
+  initializeAtomicDemo(source.client);
+  initializeCommonDemo(source.client);
+  initializeStatisticsDemo(source.client);
+  const client = new A2UIClient();
+  const selections: Record<string, string[]> = {
+    profile: ["title", "form", "root", "submit", "name", "newsletter", "role"],
+    atoms: [
+      "heading",
+      "image",
+      "icon",
+      "divider",
+      "volume",
+      "birthday",
+      "video",
+      "audio",
+    ],
+    common: [
+      "list",
+      "tabs",
+      "modal",
+      "quantity",
+      "team",
+      "enabled",
+      "link",
+      "badge",
+      "avatar",
+      "alert",
+      "progress",
+      "spinner",
+      "skeleton",
+      "empty",
+      "table",
+      "accordion",
+      "grid",
+      "spacer",
+    ],
+    statistics: [
+      "revenue",
+      "growth",
+      "sparkline",
+      "meter",
+      "chart-line",
+      "description",
+    ],
+  };
+  const entries: { name: string; surfaceId: string }[] = [];
+  for (const [sourceId, ids] of Object.entries(selections)) {
+    const surface = source.client.surface(sourceId);
+    for (const id of ids) {
+      const component = { ...surface.components[id] };
+      // Keep container samples small; full forms belong to the composition section.
+      if (component.component === "Column")
+        component.children = ["title", "status"];
+      if (component.component === "Card") component.child = "title";
+      if (component.component === "Grid")
+        component.children = ["title", "instructions"];
+      if (component.component === "Tabs")
+        component.tabs = [
+          { title: "第一页", child: "title" },
+          { title: "第二页", child: "instructions" },
+        ];
+      const name = component.component,
+        surfaceId = `gallery-${name}`;
+      const selected = new Map<string, any>();
+      const visit = (key: string) => {
+        if (selected.has(key)) return;
+        const item = key === id ? component : surface.components[key];
+        selected.set(key, item);
+        componentReferences(item).forEach(visit);
+      };
+      visit(id);
+      const components = [...selected.values()].map((item) => ({
+        ...item,
+        id: item.id === id ? "root" : item.id,
+      }));
+      client.apply({
+        version: VERSION,
+        createSurface: { surfaceId, catalogId: CATALOG_ID },
+      });
+      client.apply({
+        version: VERSION,
+        updateDataModel: {
+          surfaceId,
+          value: structuredClone(surface.dataModel),
+        },
+      });
+      client.apply({
+        version: VERSION,
+        updateComponents: { surfaceId, components },
+      });
+      entries.push({ name, surfaceId });
+    }
+  }
+  return { client, entries };
 }

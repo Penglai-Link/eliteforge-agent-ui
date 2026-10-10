@@ -48,6 +48,8 @@ export const A2UISurface = defineComponent({
           const svgAttrs: Record<string, string> = {
             onKeyDown: "onKeydown",
             strokeWidth: "stroke-width",
+            textAnchor: "text-anchor",
+            fontSize: "font-size",
             strokeLinecap: "stroke-linecap",
             strokeLinejoin: "stroke-linejoin",
           };

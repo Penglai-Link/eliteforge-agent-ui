@@ -1,5 +1,6 @@
+import { renderStatistics } from "./statistics-components";
 import type { Component, RenderContext } from "./index";
-type Element = (
+export type Element = (
   tag: string,
   attrs: Record<string, any>,
   children: any[]
@@ -52,6 +53,8 @@ export function renderCommon(
       typeof c.value === "object" &&
       typeof c.value.path === "string";
   const done = (node: any) => ({ handled: true, node });
+  const statistics = renderStatistics(ctx, h, props);
+  if (statistics.handled) return statistics;
   switch (c.component) {
     case "List":
       return done(

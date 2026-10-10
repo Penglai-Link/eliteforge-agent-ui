@@ -72,7 +72,7 @@ import '@eliteforge/agent-ui-a2ui-vue/styles.css';
 
 ## 常用扩展组件
 
-Catalog 当前共 33 个组件。除已有 15 个组件外，补充如下：
+Catalog 当前共 39 个组件。除已有 15 个组件外，补充如下：
 
 | 分类 | 组件 | 行为 |
 | --- | --- | --- |
@@ -111,26 +111,26 @@ Schema 采用官方结构，含 `$defs.anyComponent`、`$defs.theme`，公共类
 
 ## 主题与演示
 
-React A2UI 与 chat-react 共用 `chat-theme/src/primitives.css` 的局部默认样式，构建后包含在各自的 `styles.css` 中，不要求宿主使用 Tailwind 或加载全局主题。默认使用紧凑控件、4px 控件圆角和 8px 面板圆角，观感参考 Tron，但不依赖 Tron。
+React / Vue A2UI 与 Chat 共用 `chat-theme/src/primitives.css` 的局部默认样式，构建后包含在各自的 `styles.css` 中，不要求宿主使用 Tailwind 或加载全局主题。默认使用紧凑控件、6px 控件圆角和 10px 面板圆角，观感参考 Tron，但不依赖 Tron。
 
 两端使用现有 `--color-*` 与 `--agent-ui-skin-font` 令牌，并带独立使用时的回退值。
-React 宿主可以在共同祖先上覆盖下列共享令牌，Chat 与 A2UI 会一起生效：
+React / Vue 宿主可以在共同祖先上覆盖下列共享令牌，Chat 与 A2UI 会一起生效：
 
 | 令牌 | 默认值 | 用途 |
 | --- | --- | --- |
 | `--agent-ui-font` | skin font / font-sans / Inter / sans-serif | 字体 |
-| `--agent-ui-control-height` | `2rem` | 标准按钮、A2UI 输入框和选择器最小高度 |
-| `--agent-ui-control-radius` | `4px` | 控件圆角 |
-| `--agent-ui-panel-radius` | `8px` | A2UI 卡片、弹窗和 Chat 提问卡片圆角 |
+| `--agent-ui-control-height` | A2UI `2.25rem` / Chat `2rem` | 标准按钮、A2UI 输入框和选择器最小高度 |
+| `--agent-ui-control-radius` | A2UI `6px` / Chat `4px` | 控件圆角 |
+| `--agent-ui-panel-radius` | A2UI `10px` / Chat `8px` | A2UI 卡片、弹窗和 Chat 提问卡片圆角 |
 | `--agent-ui-control-font-size` | `0.875rem` | 控件字号 |
 | `--agent-ui-control-padding` | `0.625rem` | 控件水平内边距 |
-| `--agent-ui-gap` | `0.75rem` | A2UI 布局间距 |
-| `--agent-ui-panel-padding` | `1rem` | A2UI 卡片和弹窗内边距 |
+| `--agent-ui-gap` | A2UI `0.875rem` / Chat `0.75rem` | A2UI 布局间距 |
+| `--agent-ui-panel-padding` | A2UI `1.25rem` / Chat `1rem` | A2UI 卡片和弹窗内边距 |
 | `--agent-ui-transition-duration` | `120ms` | 控件状态过渡 |
 
 现有 Chat 专用颜色覆盖接口保留；要让两端颜色同步，优先覆盖共享的 `--color-*`。图标按钮、长文本输入和聊天编辑器保留各自用途所需的尺寸。
 
-React 演示服务的 `/style-preview.html` 提供 Chat / A2UI 并排预览，支持独立默认、浅色、深色和宿主令牌覆盖。Vue 渲染器本次保持原样。
+React 演示服务的 `/style-preview.html` 提供 Chat / A2UI 并排预览，支持独立默认、浅色、深色和宿主令牌覆盖。React / Vue A2UI 默认样式共用 `a2ui-core/components.css`。
 宿主可导入 `@eliteforge/agent-ui-chat-theme/styles.css` 应用完整现有主题。
 
 ```sh
@@ -154,4 +154,43 @@ npm run dev --workspace=@eliteforge/agent-ui-a2ui-vue -- --port 5192
 核对 [v0.9.1 协议](https://a2ui.org/specification/v0.9.1-a2ui/) 与官方仓库提交 `03b77ae95a12f5040754f8cc48a8fa9ab761c377`。
 官方 `typescript/web_core` 包当前为 0.12.0，包含 Lit、signals、Zod 等依赖，协议代码生成输入为 v0_9 等目录。
 官方已有 React 渲染器，没有对应 Vue 渲染器。本轮复用官方 server_to_client Schema，按最小支持范围裁剪公共类型和 Catalog；不引入官方运行时。
-保留 `packages/a2ui-core/LICENSE.a2ui`。`common_types.json` 禁用了函数调用；`catalog.json` 裁剪为33 个组件及上述能力。
+保留 `packages/a2ui-core/LICENSE.a2ui`。`common_types.json` 禁用了函数调用；`catalog.json` 裁剪为39 个组件及上述能力。
+
+
+## 统计展示组件
+
+React 与 Vue 共用 Core 渲染和数据绑定，支持以下组件：
+
+| 组件 | 必填属性 | 可选属性 |
+| --- | --- | --- |
+| `Statistic` | `value` | `label`、`precision`（0–20）、`grouping`、`prefix`、`unit` |
+| `Trend` | `value` | `label`、`precision`、`unit`、`positiveIsGood`（默认 true） |
+| `Sparkline` | `values` | `label` |
+| `Meter` | `value` | `label`、`min`（默认 0）、`max`（默认 100）、`low`、`high`、`optimum`、`unit` |
+| `Chart` | `type`、`labels`、`series` | `label` |
+| `DescriptionList` | `items` | `label` |
+
+`value` 支持动态数字绑定，`label`、`prefix`、`unit` 支持动态字符串绑定。
+`values`、`labels`、`series`、`items` 支持数组字面量或 `{ "path": "/data" }` 绑定。
+`series` 格式为 `[{ "name": "请求量", "values": [12, 18, null, 24] }]`；
+`items` 格式为 `[{ "label": "时间范围", "value": "最近 7 天" }]`。
+
+`Chart.type` 支持 `line`、`bar`、`area`、`pie`、`donut`。
+折线和面积图按 null / 缺失值断开，柱状图支持负数；饼图和环图使用首个系列，忽略负值，零总量显示空态。
+图表提供图例、SVG 名称、数据点标题，以及可展开的完整数据表。
+长维度名称或大量数据可通过数据表查看，适合对话内的小型统计图。
+
+缺失或非有限数字显示 `—`，空数组显示“暂无数据”。`Meter` 将显示值限制到有效区间，
+`max <= min` 显示空态。`Trend` 的箭头表示数值方向，颜色由 `positiveIsGood` 决定，
+例如延迟下降可设置 `positiveIsGood: false`。
+
+两端演示页均包含指标组合、五种图表、缺失点、空态、统计口径和“更新统计数据”按钮，
+用于验证绑定更新后指标、阈值和图表同步变化。
+
+演示页将全部 39 个通用组件逐个展示，并标明组件名称；每个独立示例使用独立 Surface 和数据模型。
+组合示例放在独立区域，标明参与组合的组件；顶部导航可跳转到两个区域。
+
+默认样式采用紧凑的控件尺寸、细边框、暖白表面和 Tron 主题色，React / Vue 共用 `a2ui-core/defaults.css`。宿主仍可通过 `--agent-ui-*` 尺寸变量和 `--color-*` 颜色变量覆盖；样式仅作用于 `.a2ui-surface`。
+
+完整 A2UI 主题接口见 [变量清单](a2ui-theme.md)，机器可读索引见 [a2ui-theme-tokens.json](a2ui-theme-tokens.json)。
+根挂点为 `data-theme-part="a2ui"`，组件根挂点为 `a2ui-<组件名称小写>`，例如 `a2ui-statistic`、`a2ui-chart`。
