@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { it, expect } from "vitest";
-import { A2UIClient, VERSION } from "@eliteforge/agent-ui-a2ui-core";
+import { A2UIClient, VERSION, catalog } from "@eliteforge/agent-ui-a2ui-core";
 import { initializeStatisticsDemo } from "@eliteforge/agent-ui-a2ui-core/demo";
 import { A2UISurface } from "./index";
 import {
@@ -97,7 +97,7 @@ it("statistics render, update, restore and handle missing/negative data", async 
   }
 });
 
-it("renders all 39 independently named gallery components", async () => {
+it("renders all independently named gallery components", async () => {
   const { initializeComponentGallery } = await import(
     "@eliteforge/agent-ui-a2ui-core/demo"
   );
@@ -114,7 +114,9 @@ it("renders all 39 independently named gallery components", async () => {
   app.mount(host);
   await nextTick();
   try {
-    expect(host.querySelectorAll("[data-example]")).toHaveLength(39);
+    expect(host.querySelectorAll("[data-example]")).toHaveLength(
+      Object.keys(catalog.components).length
+    );
     for (const entry of gallery.entries) {
       const section = host.querySelector(`[data-example="${entry.name}"]`)!;
       expect(section.querySelector("h3")?.textContent).toBe(entry.name);

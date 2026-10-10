@@ -72,7 +72,7 @@ import '@eliteforge/agent-ui-a2ui-vue/styles.css';
 
 ## 常用扩展组件
 
-Catalog 当前共 39 个组件。除已有 15 个组件外，补充如下：
+Catalog 当前共 79 个组件。除已有 15 个组件外，补充如下：
 
 | 分类 | 组件 | 行为 |
 | --- | --- | --- |
@@ -154,7 +154,7 @@ npm run dev --workspace=@eliteforge/agent-ui-a2ui-vue -- --port 5192
 核对 [v0.9.1 协议](https://a2ui.org/specification/v0.9.1-a2ui/) 与官方仓库提交 `03b77ae95a12f5040754f8cc48a8fa9ab761c377`。
 官方 `typescript/web_core` 包当前为 0.12.0，包含 Lit、signals、Zod 等依赖，协议代码生成输入为 v0_9 等目录。
 官方已有 React 渲染器，没有对应 Vue 渲染器。本轮复用官方 server_to_client Schema，按最小支持范围裁剪公共类型和 Catalog；不引入官方运行时。
-保留 `packages/a2ui-core/LICENSE.a2ui`。`common_types.json` 禁用了函数调用；`catalog.json` 裁剪为39 个组件及上述能力。
+保留 `packages/a2ui-core/LICENSE.a2ui`。`common_types.json` 禁用了函数调用；`catalog.json` 裁剪为79 个组件及上述能力。
 
 
 ## 统计展示组件
@@ -187,10 +187,14 @@ React 与 Vue 共用 Core 渲染和数据绑定，支持以下组件：
 两端演示页均包含指标组合、五种图表、缺失点、空态、统计口径和“更新统计数据”按钮，
 用于验证绑定更新后指标、阈值和图表同步变化。
 
-演示页将全部 39 个通用组件逐个展示，并标明组件名称；每个独立示例使用独立 Surface 和数据模型。
+演示页将全部 79 个通用组件逐个展示，并标明组件名称；每个独立示例使用独立 Surface 和数据模型。
 组合示例放在独立区域，标明参与组合的组件；顶部导航可跳转到两个区域。
 
 默认样式采用紧凑的控件尺寸、细边框、暖白表面和 Tron 主题色，React / Vue 共用 `a2ui-core/defaults.css`。宿主仍可通过 `--agent-ui-*` 尺寸变量和 `--color-*` 颜色变量覆盖；样式仅作用于 `.a2ui-surface`。
 
 完整 A2UI 主题接口见 [变量清单](a2ui-theme.md)，机器可读索引见 [a2ui-theme-tokens.json](a2ui-theme-tokens.json)。
 根挂点为 `data-theme-part="a2ui"`，组件根挂点为 `a2ui-<组件名称小写>`，例如 `a2ui-statistic`、`a2ui-chart`。
+
+## shadcn Base UI 对应组件
+
+新增 40 个原子组件，React / Vue 复用 Core 实现、Schema 和主题变量。完整对应关系、属性和支持边界见 [组件覆盖表](a2ui-shadcn-coverage.md)。演示页共 79 个独立示例，组合示例另列。

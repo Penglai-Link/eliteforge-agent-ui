@@ -1,3 +1,4 @@
+@import "./shadcn.css";
 @import "./defaults.css";
 @import "./statistics.css";
 @import "../chat-theme/src/primitives.css";

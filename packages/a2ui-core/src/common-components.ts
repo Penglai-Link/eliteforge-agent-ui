@@ -1,3 +1,4 @@
+import { renderShadcn } from "./shadcn-components";
 import { renderStatistics } from "./statistics-components";
 import type { Component, RenderContext } from "./index";
 export type Element = (
@@ -5,7 +6,16 @@ export type Element = (
   attrs: Record<string, any>,
   children: any[]
 ) => any;
-type ViewState = { tab?: number; open?: boolean };
+export type ViewState = {
+  tab?: number;
+  open?: boolean;
+  query?: string;
+  month?: string;
+  size?: number;
+  sort?: string;
+  desc?: boolean;
+  expanded?: string[];
+};
 export function componentReferences(c: Component): string[] {
   return [
     ...(c.child ? [c.child] : []),
@@ -15,6 +25,9 @@ export function componentReferences(c: Component): string[] {
       ? [c.children.componentId]
       : []),
     ...(c.tabs?.map((t: any) => t.child) ?? []),
+    ...(c.component === "Accordion"
+      ? c.items?.map((item: any) => item.child) ?? []
+      : []),
     ...(c.component === "Modal" ? [c.trigger, c.content] : []),
   ];
 }
@@ -53,6 +66,8 @@ export function renderCommon(
       typeof c.value === "object" &&
       typeof c.value.path === "string";
   const done = (node: any) => ({ handled: true, node });
+  const shadcn = renderShadcn(ctx, h, props, render, view, setView);
+  if (shadcn.handled) return shadcn;
   const statistics = renderStatistics(ctx, h, props);
   if (statistics.handled) return statistics;
   switch (c.component) {
@@ -185,6 +200,7 @@ export function renderCommon(
                 "button",
                 {
                   type: "button",
+                  class: "a2ui-button a2ui-modal-close",
                   "aria-label": "关闭对话框",
                   onClick: () => setView({ open: false }),
                 },
@@ -197,6 +213,85 @@ export function renderCommon(
       );
     }
     case "Accordion":
+      if (c.items) {
+        const expanded = view.expanded ?? [];
+        return done(
+          h(
+            "div",
+            props,
+            c.items.map((item: any) => {
+              const prefix =
+                "a2ui-" +
+                encodeURIComponent(
+                  JSON.stringify([surfaceId, c.id, scope, item.id])
+                );
+              const open = expanded.includes(item.id);
+              return h("section", {}, [
+                h("h3", {}, [
+                  h(
+                    "button",
+                    {
+                      id: prefix + "-trigger",
+                      type: "button",
+                      "aria-expanded": open,
+                      "aria-controls": prefix + "-panel",
+                      disabled: item.disabled,
+                      onClick: () =>
+                        setView({
+                          ...view,
+                          expanded: open
+                            ? expanded.filter((v) => v !== item.id)
+                            : c.multiple
+                            ? [...expanded, item.id]
+                            : [item.id],
+                        }),
+                      onKeyDown: (e: any) => {
+                        if (
+                          !["ArrowUp", "ArrowDown", "Home", "End"].includes(
+                            e.key
+                          )
+                        )
+                          return;
+                        e.preventDefault();
+                        const buttons = Array.from(
+                          e.currentTarget
+                            .closest(".a2ui-accordion")
+                            .querySelectorAll("h3 > button:not(:disabled)")
+                        ) as HTMLElement[];
+                        const index = buttons.indexOf(e.currentTarget);
+                        const next =
+                          e.key === "Home"
+                            ? 0
+                            : e.key === "End"
+                            ? buttons.length - 1
+                            : (index +
+                                (e.key === "ArrowDown" ? 1 : -1) +
+                                buttons.length) %
+                              buttons.length;
+                        buttons[next]?.focus();
+                      },
+                    },
+                    [
+                      text(resolve(item.title)),
+                      h("span", { "aria-hidden": true }, [open ? "−" : "+"]),
+                    ]
+                  ),
+                ]),
+                h(
+                  "div",
+                  {
+                    id: prefix + "-panel",
+                    role: "region",
+                    "aria-labelledby": prefix + "-trigger",
+                    hidden: !open,
+                  },
+                  [render(item.child)]
+                ),
+              ]);
+            })
+          )
+        );
+      }
       return done(
         h(
           "details",
@@ -239,36 +334,6 @@ export function renderCommon(
               },
             },
             []
-          ),
-        ])
-      );
-    case "Select":
-      return done(
-        h("label", props, [
-          label,
-          h(
-            "select",
-            {
-              value: value ?? "",
-              disabled: !bound,
-              onChange: (event: any) => setValue(event.target.value),
-            },
-            [
-              h(
-                "option",
-                {
-                  value: "",
-                  disabled: true,
-                  selected: !c.options.some((o: any) => o.value === value),
-                },
-                [text(resolve(c.placeholder)) || "请选择"]
-              ),
-              ...c.options.map((o: any) =>
-                h("option", { value: o.value, selected: o.value === value }, [
-                  text(resolve(o.label)),
-                ])
-              ),
-            ]
           ),
         ])
       );

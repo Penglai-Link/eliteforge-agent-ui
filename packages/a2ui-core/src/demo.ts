@@ -1,3 +1,5 @@
+import { initializeShadcnDemo } from "./shadcn-demo";
+export { initializeShadcnDemo } from "./shadcn-demo";
 import { componentReferences } from "./common-components";
 import { A2UIClient, VERSION, CATALOG_ID, type ActionHandler } from "./index";
 export const profileMessages = [
@@ -713,7 +715,9 @@ export function initializeComponentGallery() {
   initializeCommonDemo(source.client);
   initializeStatisticsDemo(source.client);
   const client = new A2UIClient();
+  const shadcnIds = initializeShadcnDemo(source.client);
   const selections: Record<string, string[]> = {
+    shadcn: shadcnIds,
     profile: ["title", "form", "root", "submit", "name", "newsletter", "role"],
     atoms: [
       "heading",
@@ -770,6 +774,15 @@ export function initializeComponentGallery() {
           { title: "第一页", child: "title" },
           { title: "第二页", child: "instructions" },
         ];
+      if (component.component === "Accordion") {
+        delete component.title;
+        delete component.child;
+        component.items = [
+          { id: "one", title: "什么是 A2UI？", child: "title" },
+          { id: "two", title: "如何绑定数据？", child: "instructions" },
+          { id: "three", title: "暂不可用", child: "title", disabled: true },
+        ];
+      }
       const name = component.component,
         surfaceId = `gallery-${name}`;
       const selected = new Map<string, any>();

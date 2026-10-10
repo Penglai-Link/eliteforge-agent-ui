@@ -172,15 +172,23 @@ it("common components edit, navigate, open modal and restore view state", async 
   expect(host.querySelectorAll("[role=listitem]").length).toBe(2);
   expect(host.querySelector("table")?.textContent).toContain("Alice");
   const quantity = host.querySelector("input[type=number]") as HTMLInputElement,
-    select = host.querySelector("select") as HTMLSelectElement,
+    select = host.querySelector(
+      ".a2ui-select [role=combobox]"
+    ) as HTMLButtonElement,
     toggle = host.querySelector("[role=switch]") as HTMLInputElement;
   await flush(() => {
     quantity.value = "5";
     quantity.dispatchEvent(new Event("input", { bubbles: true }));
-    select.value = "design";
-    select.dispatchEvent(new Event("change", { bubbles: true }));
+    select.click();
     toggle.click();
   });
+  await flush(() =>
+    (
+      host.querySelector(
+        ".a2ui-select [role=option]:last-child"
+      ) as HTMLButtonElement
+    ).click()
+  );
   await flush(() => {
     (
       host.querySelector("[data-a2ui-component=save]") as HTMLButtonElement

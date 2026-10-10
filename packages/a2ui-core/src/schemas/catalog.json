@@ -1274,12 +1274,53 @@
             },
             "defaultOpen": {
               "type": "boolean"
+            },
+            "items": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string"
+                  },
+                  "title": {
+                    "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicString"
+                  },
+                  "child": {
+                    "type": "string"
+                  },
+                  "disabled": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "id",
+                  "title",
+                  "child"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "multiple": {
+              "type": "boolean"
             }
           },
           "required": [
-            "component",
-            "title",
-            "child"
+            "component"
+          ],
+          "anyOf": [
+            {
+              "required": [
+                "title",
+                "child"
+              ]
+            },
+            {
+              "required": [
+                "items"
+              ]
+            }
           ]
         }
       ],
@@ -1645,6 +1686,1544 @@
         }
       ],
       "unevaluatedProperties": false
+    },
+    "ButtonGroup": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/ComponentCommon"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "component": {
+              "const": "ButtonGroup"
+            },
+            "children": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "label": {
+              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicString"
+            }
+          },
+          "required": [
+            "component",
+            "children"
+          ]
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "InputGroup": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/ComponentCommon"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "component": {
+              "const": "InputGroup"
+            },
+            "children": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "label": {
+              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicString"
+            },
+            "prefix": {
+              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicString"
+            },
+            "suffix": {
+              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicString"
+            }
+          },
+          "required": [
+            "component",
+            "children"
+          ]
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "Item": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/ComponentCommon"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "component": {
+              "const": "Item"
+            },
+            "children": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "label": {
+              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicString"
+            },
+            "title": {
+              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicString"
+            },
+            "description": {
+              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicString"
+            }
+          },
+          "required": [
+            "component",
+            "children"
+          ]
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "Sidebar": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/ComponentCommon"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "component": {
+              "const": "Sidebar"
+            },
+            "children": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "label": {
+              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicString"
+            }
+          },
+          "required": [
+            "component",
+            "children"
+          ]
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "ScrollArea": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/ComponentCommon"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "component": {
+              "const": "ScrollArea"
+            },
+            "children": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "label": {
+              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicString"
+            },
+            "height": {
+              "type": "number",
+              "minimum": 40,
+              "maximum": 2000
+            }
+          },
+          "required": [
+            "component",
+            "children"
+          ]
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "Direction": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/ComponentCommon"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "component": {
+              "const": "Direction"
+            },
+            "children": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "label": {
+              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicString"
+            },
+            "direction": {
+              "enum": [
+                "ltr",
+                "rtl"
+              ]
+            }
+          },
+          "required": [
+            "component",
+            "children"
+          ]
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "Bubble": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/ComponentCommon"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "component": {
+              "const": "Bubble"
+            },
+            "children": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "label": {
+              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicString"
+            },
+            "align": {
+              "enum": [
+                "start",
+                "end"
+              ]
+            }
+          },
+          "required": [
+            "component",
+            "children"
+          ]
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "MessageScroller": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/ComponentCommon"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "component": {
+              "const": "MessageScroller"
+            },
+            "children": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "label": {
+              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicString"
+            }
+          },
+          "required": [
+            "component",
+            "children"
+          ]
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "AspectRatio": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/ComponentCommon"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "component": {
+              "const": "AspectRatio"
+            },
+            "child": {
+              "type": "string"
+            },
+            "ratio": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            }
+          },
+          "required": [
+            "component",
+            "child"
+          ]
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "Label": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/ComponentCommon"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "component": {
+              "const": "Label"
+            },
+            "text": {
+              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicString"
+            }
+          },
+          "required": [
+            "component",
+            "text"
+          ]
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "Kbd": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/ComponentCommon"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "component": {
+              "const": "Kbd"
+            },
+            "text": {
+              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicString"
+            }
+          },
+          "required": [
+            "component",
+            "text"
+          ]
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "Marker": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/ComponentCommon"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "component": {
+              "const": "Marker"
+            },
+            "text": {
+              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicString"
+            }
+          },
+          "required": [
+            "component",
+            "text"
+          ]
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "Breadcrumb": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/ComponentCommon"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "component": {
+              "const": "Breadcrumb"
+            },
+            "label": {
+              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicString"
+            },
+            "items": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "label": {
+                    "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicString"
+                  },
+                  "url": {
+                    "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicString"
+                  }
+                },
+                "required": [
+                  "label"
+                ],
+                "additionalProperties": false
+              },
+              "minItems": 1
+            }
+          },
+          "required": [
+            "component",
+            "items"
+          ]
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "NavigationMenu": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/ComponentCommon"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "component": {
+              "const": "NavigationMenu"
+            },
+            "label": {
+              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicString"
+            },
+            "items": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "label": {
+                    "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicString"
+                  },
+                  "url": {
+                    "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicString"
+                  }
+                },
+                "required": [
+                  "label"
+                ],
+                "additionalProperties": false
+              },
+              "minItems": 1
+            }
+          },
+          "required": [
+            "component",
+            "items"
+          ]
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "Textarea": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/ComponentCommon"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "component": {
+              "const": "Textarea"
+            },
+            "label": {
+              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicString"
+            },
+            "value": {
+              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicString"
+            },
+            "placeholder": {
+              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicString"
+            },
+            "rows": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 40
+            },
+            "disabled": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "component",
+            "value"
+          ]
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "InputOTP": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/ComponentCommon"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "component": {
+              "const": "InputOTP"
+            },
+            "label": {
+              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicString"
+            },
+            "value": {
+              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicString"
+            },
+            "length": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 12
+            },
+            "disabled": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "component",
+            "value"
+          ]
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "Calendar": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/ComponentCommon"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "component": {
+              "const": "Calendar"
+            },
+            "label": {
+              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicString"
+            },
+            "value": {
+              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicString"
+            },
+            "min": {
+              "type": "string",
+              "format": "date"
+            },
+            "max": {
+              "type": "string",
+              "format": "date"
+            },
+            "disabled": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "component",
+            "value"
+          ]
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "DatePicker": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/ComponentCommon"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "component": {
+              "const": "DatePicker"
+            },
+            "label": {
+              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicString"
+            },
+            "value": {
+              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicString"
+            },
+            "min": {
+              "type": "string",
+              "format": "date"
+            },
+            "max": {
+              "type": "string",
+              "format": "date"
+            },
+            "disabled": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "component",
+            "value"
+          ]
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "Combobox": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/ComponentCommon"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "component": {
+              "const": "Combobox"
+            },
+            "label": {
+              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicString"
+            },
+            "value": {
+              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicString"
+            },
+            "placeholder": {
+              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicString"
+            },
+            "options": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "label": {
+                    "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicString"
+                  },
+                  "value": {
+                    "type": "string"
+                  },
+                  "disabled": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "label",
+                  "value"
+                ],
+                "additionalProperties": false
+              },
+              "minItems": 1
+            },
+            "disabled": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "component",
+            "value",
+            "options"
+          ]
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "Command": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/ComponentCommon"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "component": {
+              "const": "Command"
+            },
+            "label": {
+              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicString"
+            },
+            "value": {
+              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicString"
+            },
+            "placeholder": {
+              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicString"
+            },
+            "options": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "label": {
+                    "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicString"
+                  },
+                  "value": {
+                    "type": "string"
+                  },
+                  "disabled": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "label",
+                  "value"
+                ],
+                "additionalProperties": false
+              },
+              "minItems": 1
+            },
+            "disabled": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "component",
+            "value",
+            "options"
+          ]
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "Toggle": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/ComponentCommon"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "component": {
+              "const": "Toggle"
+            },
+            "label": {
+              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicString"
+            },
+            "value": {
+              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicBoolean"
+            },
+            "disabled": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "component",
+            "label",
+            "value"
+          ]
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "ToggleGroup": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/ComponentCommon"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "component": {
+              "const": "ToggleGroup"
+            },
+            "label": {
+              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicString"
+            },
+            "value": {
+              "oneOf": [
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                {
+                  "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DataBinding"
+                }
+              ]
+            },
+            "options": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "label": {
+                    "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicString"
+                  },
+                  "value": {
+                    "type": "string"
+                  },
+                  "disabled": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "label",
+                  "value"
+                ],
+                "additionalProperties": false
+              },
+              "minItems": 1
+            },
+            "multiple": {
+              "type": "boolean"
+            },
+            "disabled": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "component",
+            "value",
+            "options"
+          ]
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "Pagination": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/ComponentCommon"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "component": {
+              "const": "Pagination"
+            },
+            "label": {
+              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicString"
+            },
+            "value": {
+              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicNumber"
+            },
+            "totalPages": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "disabled": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "component",
+            "value",
+            "totalPages"
+          ]
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "Collapsible": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/ComponentCommon"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "component": {
+              "const": "Collapsible"
+            },
+            "label": {
+              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicString"
+            },
+            "child": {
+              "type": "string"
+            },
+            "defaultOpen": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "component",
+            "label",
+            "child"
+          ]
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "Popover": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/ComponentCommon"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "component": {
+              "const": "Popover"
+            },
+            "label": {
+              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicString"
+            },
+            "child": {
+              "type": "string"
+            },
+            "defaultOpen": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "component",
+            "label",
+            "child"
+          ]
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "HoverCard": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/ComponentCommon"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "component": {
+              "const": "HoverCard"
+            },
+            "label": {
+              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicString"
+            },
+            "child": {
+              "type": "string"
+            },
+            "defaultOpen": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "component",
+            "label",
+            "child"
+          ]
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "Tooltip": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/ComponentCommon"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "component": {
+              "const": "Tooltip"
+            },
+            "label": {
+              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicString"
+            },
+            "child": {
+              "type": "string"
+            },
+            "defaultOpen": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "component",
+            "label",
+            "child"
+          ]
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "Drawer": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/ComponentCommon"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "component": {
+              "const": "Drawer"
+            },
+            "label": {
+              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicString"
+            },
+            "child": {
+              "type": "string"
+            },
+            "defaultOpen": {
+              "type": "boolean"
+            },
+            "side": {
+              "enum": [
+                "left",
+                "right",
+                "top",
+                "bottom"
+              ]
+            }
+          },
+          "required": [
+            "component",
+            "label",
+            "child"
+          ]
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "Sheet": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/ComponentCommon"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "component": {
+              "const": "Sheet"
+            },
+            "label": {
+              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicString"
+            },
+            "child": {
+              "type": "string"
+            },
+            "defaultOpen": {
+              "type": "boolean"
+            },
+            "side": {
+              "enum": [
+                "left",
+                "right",
+                "top",
+                "bottom"
+              ]
+            }
+          },
+          "required": [
+            "component",
+            "label",
+            "child"
+          ]
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "AlertDialog": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/ComponentCommon"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "component": {
+              "const": "AlertDialog"
+            },
+            "label": {
+              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicString"
+            },
+            "child": {
+              "type": "string"
+            },
+            "defaultOpen": {
+              "type": "boolean"
+            },
+            "title": {
+              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicString"
+            },
+            "description": {
+              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicString"
+            },
+            "confirmLabel": {
+              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicString"
+            },
+            "action": {
+              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/Action"
+            }
+          },
+          "required": [
+            "component",
+            "label",
+            "child"
+          ]
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "DropdownMenu": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/ComponentCommon"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "component": {
+              "const": "DropdownMenu"
+            },
+            "label": {
+              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicString"
+            },
+            "value": {
+              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicString"
+            },
+            "options": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "label": {
+                    "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicString"
+                  },
+                  "value": {
+                    "type": "string"
+                  },
+                  "disabled": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "label",
+                  "value"
+                ],
+                "additionalProperties": false
+              },
+              "minItems": 1
+            },
+            "disabled": {
+              "type": "boolean"
+            },
+            "action": {
+              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/Action"
+            }
+          },
+          "required": [
+            "component",
+            "label",
+            "value",
+            "options"
+          ]
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "ContextMenu": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/ComponentCommon"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "component": {
+              "const": "ContextMenu"
+            },
+            "label": {
+              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicString"
+            },
+            "value": {
+              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicString"
+            },
+            "options": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "label": {
+                    "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicString"
+                  },
+                  "value": {
+                    "type": "string"
+                  },
+                  "disabled": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "label",
+                  "value"
+                ],
+                "additionalProperties": false
+              },
+              "minItems": 1
+            },
+            "disabled": {
+              "type": "boolean"
+            },
+            "action": {
+              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/Action"
+            }
+          },
+          "required": [
+            "component",
+            "label",
+            "value",
+            "options"
+          ]
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "Menubar": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/ComponentCommon"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "component": {
+              "const": "Menubar"
+            },
+            "label": {
+              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicString"
+            },
+            "value": {
+              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicString"
+            },
+            "options": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "label": {
+                    "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicString"
+                  },
+                  "value": {
+                    "type": "string"
+                  },
+                  "disabled": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "label",
+                  "value"
+                ],
+                "additionalProperties": false
+              },
+              "minItems": 1
+            },
+            "disabled": {
+              "type": "boolean"
+            },
+            "action": {
+              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/Action"
+            }
+          },
+          "required": [
+            "component",
+            "label",
+            "value",
+            "options"
+          ]
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "Field": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/ComponentCommon"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "component": {
+              "const": "Field"
+            },
+            "label": {
+              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicString"
+            },
+            "description": {
+              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicString"
+            },
+            "error": {
+              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicString"
+            },
+            "child": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "component",
+            "label",
+            "child"
+          ]
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "Carousel": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/ComponentCommon"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "component": {
+              "const": "Carousel"
+            },
+            "label": {
+              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicString"
+            },
+            "children": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "defaultIndex": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          "required": [
+            "component",
+            "children"
+          ]
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "Resizable": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/ComponentCommon"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "component": {
+              "const": "Resizable"
+            },
+            "label": {
+              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicString"
+            },
+            "children": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "minItems": 2,
+              "maxItems": 2
+            },
+            "defaultSize": {
+              "type": "number",
+              "minimum": 10,
+              "maximum": 90
+            }
+          },
+          "required": [
+            "component",
+            "children"
+          ]
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "Toast": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/ComponentCommon"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "component": {
+              "const": "Toast"
+            },
+            "title": {
+              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicString"
+            },
+            "description": {
+              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicString"
+            },
+            "variant": {
+              "enum": [
+                "info",
+                "success",
+                "error"
+              ]
+            },
+            "defaultOpen": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "component",
+            "title"
+          ]
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "Attachment": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/ComponentCommon"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "component": {
+              "const": "Attachment"
+            },
+            "name": {
+              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicString"
+            },
+            "url": {
+              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicString"
+            },
+            "description": {
+              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicString"
+            }
+          },
+          "required": [
+            "component",
+            "name",
+            "url"
+          ]
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "Message": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/ComponentCommon"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "component": {
+              "const": "Message"
+            },
+            "role": {
+              "enum": [
+                "user",
+                "assistant",
+                "system"
+              ]
+            },
+            "text": {
+              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicString"
+            }
+          },
+          "required": [
+            "component",
+            "role",
+            "text"
+          ]
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "DataTable": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/ComponentCommon"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "component": {
+              "const": "DataTable"
+            },
+            "label": {
+              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicString"
+            },
+            "columns": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "object",
+                "properties": {
+                  "key": {
+                    "type": "string"
+                  },
+                  "label": {
+                    "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicString"
+                  }
+                },
+                "required": [
+                  "key",
+                  "label"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "rows": {
+              "oneOf": [
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "object"
+                  }
+                },
+                {
+                  "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DataBinding"
+                }
+              ]
+            },
+            "pageSize": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            }
+          },
+          "required": [
+            "component",
+            "columns",
+            "rows"
+          ]
+        }
+      ],
+      "unevaluatedProperties": false
     }
   },
   "functions": {},
@@ -1776,6 +3355,126 @@
         },
         {
           "$ref": "#/components/DescriptionList"
+        },
+        {
+          "$ref": "#/components/ButtonGroup"
+        },
+        {
+          "$ref": "#/components/InputGroup"
+        },
+        {
+          "$ref": "#/components/Item"
+        },
+        {
+          "$ref": "#/components/Sidebar"
+        },
+        {
+          "$ref": "#/components/ScrollArea"
+        },
+        {
+          "$ref": "#/components/Direction"
+        },
+        {
+          "$ref": "#/components/Bubble"
+        },
+        {
+          "$ref": "#/components/MessageScroller"
+        },
+        {
+          "$ref": "#/components/AspectRatio"
+        },
+        {
+          "$ref": "#/components/Label"
+        },
+        {
+          "$ref": "#/components/Kbd"
+        },
+        {
+          "$ref": "#/components/Marker"
+        },
+        {
+          "$ref": "#/components/Breadcrumb"
+        },
+        {
+          "$ref": "#/components/NavigationMenu"
+        },
+        {
+          "$ref": "#/components/Textarea"
+        },
+        {
+          "$ref": "#/components/InputOTP"
+        },
+        {
+          "$ref": "#/components/Calendar"
+        },
+        {
+          "$ref": "#/components/DatePicker"
+        },
+        {
+          "$ref": "#/components/Combobox"
+        },
+        {
+          "$ref": "#/components/Command"
+        },
+        {
+          "$ref": "#/components/Toggle"
+        },
+        {
+          "$ref": "#/components/ToggleGroup"
+        },
+        {
+          "$ref": "#/components/Pagination"
+        },
+        {
+          "$ref": "#/components/Collapsible"
+        },
+        {
+          "$ref": "#/components/Popover"
+        },
+        {
+          "$ref": "#/components/HoverCard"
+        },
+        {
+          "$ref": "#/components/Tooltip"
+        },
+        {
+          "$ref": "#/components/Drawer"
+        },
+        {
+          "$ref": "#/components/Sheet"
+        },
+        {
+          "$ref": "#/components/AlertDialog"
+        },
+        {
+          "$ref": "#/components/DropdownMenu"
+        },
+        {
+          "$ref": "#/components/ContextMenu"
+        },
+        {
+          "$ref": "#/components/Menubar"
+        },
+        {
+          "$ref": "#/components/Field"
+        },
+        {
+          "$ref": "#/components/Carousel"
+        },
+        {
+          "$ref": "#/components/Resizable"
+        },
+        {
+          "$ref": "#/components/Toast"
+        },
+        {
+          "$ref": "#/components/Attachment"
+        },
+        {
+          "$ref": "#/components/Message"
+        },
+        {
+          "$ref": "#/components/DataTable"
         }
       ]
     },

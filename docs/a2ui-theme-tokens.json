@@ -1286,6 +1286,24 @@
         "selectors": [
           ".a2ui-surface\n  :is(\n    .a2ui-textfield,\n    .a2ui-numberfield,\n    .a2ui-select,\n    .a2ui-datetimeinput,\n    .a2ui-slider\n  )"
         ]
+      },
+      {
+        "default": "8px",
+        "selectors": [
+          ".a2ui-surface :is( .a2ui-field, .a2ui-textarea, .a2ui-inputotp, .a2ui-item, .a2ui-sidebar, .a2ui-attachment, .a2ui-command, .a2ui-combobox )"
+        ]
+      },
+      {
+        "default": "8px",
+        "selectors": [
+          ".a2ui-surface .a2ui-inputgroup"
+        ]
+      },
+      {
+        "default": "8px",
+        "selectors": [
+          ".a2ui-surface .a2ui-select"
+        ]
       }
     ]
   },
@@ -2180,6 +2198,24 @@
         "selectors": [
           "A2UI color fallback"
         ]
+      },
+      {
+        "default": "var(--color-on-surface-variant, #626267)",
+        "selectors": [
+          ".a2ui-surface :is(.a2ui-field small, .a2ui-item p, .a2ui-attachment small)"
+        ]
+      },
+      {
+        "default": "var(--color-on-surface-variant, #626267)",
+        "selectors": [
+          ".a2ui-surface .a2ui-breadcrumb li:not(:last-child)::after"
+        ]
+      },
+      {
+        "default": "var(--color-on-surface-variant, #626267)",
+        "selectors": [
+          ".a2ui-surface .a2ui-inputgroup > :is(.a2ui-inputgroup-prefix, .a2ui-inputgroup-suffix)"
+        ]
       }
     ]
   },
@@ -2213,6 +2249,18 @@
         "selectors": [
           "A2UI color fallback"
         ]
+      },
+      {
+        "default": "var(--color-error, #ba1a1a)",
+        "selectors": [
+          ".a2ui-surface .a2ui-field [role=\"alert\"]"
+        ]
+      },
+      {
+        "default": "var(--color-error, #ba1a1a)",
+        "selectors": [
+          ".a2ui-surface .a2ui-toast[data-variant=\"error\"]"
+        ]
       }
     ]
   },
@@ -2223,6 +2271,12 @@
         "default": "var(--color-success, #28744c)",
         "selectors": [
           "A2UI color fallback"
+        ]
+      },
+      {
+        "default": "var(--color-success, #4f6f52)",
+        "selectors": [
+          ".a2ui-surface .a2ui-toast[data-variant=\"success\"]"
         ]
       }
     ]
@@ -2268,6 +2322,42 @@
         "selectors": [
           "packages/chat-theme/src/primitives.css"
         ]
+      },
+      {
+        "default": "6px",
+        "selectors": [
+          ".a2ui-surface .a2ui-inputgroup"
+        ]
+      },
+      {
+        "default": "6px",
+        "selectors": [
+          ".a2ui-surface :is(.a2ui-combobox, .a2ui-command) [role=\"listbox\"]"
+        ]
+      },
+      {
+        "default": "6px",
+        "selectors": [
+          ".a2ui-surface .a2ui-inputgroup > .a2ui-inputgroup-prefix"
+        ]
+      },
+      {
+        "default": "6px",
+        "selectors": [
+          ".a2ui-surface .a2ui-inputgroup > .a2ui-inputgroup-suffix"
+        ]
+      },
+      {
+        "default": "6px",
+        "selectors": [
+          ".a2ui-surface .a2ui-inputgroup:not(:has(.a2ui-inputgroup-prefix)) input"
+        ]
+      },
+      {
+        "default": "6px",
+        "selectors": [
+          ".a2ui-surface .a2ui-inputgroup:not(:has(.a2ui-inputgroup-suffix)) input"
+        ]
       }
     ]
   },
@@ -2278,6 +2368,18 @@
         "default": "0.75rem",
         "selectors": [
           "packages/chat-theme/src/primitives.css"
+        ]
+      },
+      {
+        "default": "14px",
+        "selectors": [
+          ".a2ui-surface .a2ui-messagescroller"
+        ]
+      },
+      {
+        "default": "14px",
+        "selectors": [
+          ".a2ui-surface .a2ui-carousel"
         ]
       }
     ]
@@ -2290,6 +2392,18 @@
         "selectors": [
           "packages/chat-theme/src/primitives.css"
         ]
+      },
+      {
+        "default": "20px",
+        "selectors": [
+          ".a2ui-surface :is(.a2ui-drawer, .a2ui-sheet, .a2ui-alertdialog) dialog"
+        ]
+      },
+      {
+        "default": "24px",
+        "selectors": [
+          ".a2ui-surface .a2ui-modal dialog"
+        ]
       }
     ]
   },
@@ -2300,6 +2414,36 @@
         "default": "8px",
         "selectors": [
           "packages/chat-theme/src/primitives.css"
+        ]
+      },
+      {
+        "default": "10px",
+        "selectors": [
+          ".a2ui-surface .a2ui-attachment"
+        ]
+      },
+      {
+        "default": "10px",
+        "selectors": [
+          ".a2ui-surface .a2ui-popup"
+        ]
+      },
+      {
+        "default": "10px",
+        "selectors": [
+          ".a2ui-surface :is(.a2ui-drawer, .a2ui-sheet, .a2ui-alertdialog) dialog"
+        ]
+      },
+      {
+        "default": "10px",
+        "selectors": [
+          ".a2ui-surface .a2ui-toast"
+        ]
+      },
+      {
+        "default": "12px",
+        "selectors": [
+          ".a2ui-surface .a2ui-modal dialog"
         ]
       }
     ]
@@ -2532,6 +2676,12 @@
         "selectors": [
           "packages/chat-theme/src/primitives.css"
         ]
+      },
+      {
+        "default": "0.875rem",
+        "selectors": [
+          ".a2ui-surface .a2ui-control-label, .a2ui-surface .a2ui-label"
+        ]
       }
     ]
   },
@@ -2553,6 +2703,902 @@
         "default": "120ms",
         "selectors": [
           "packages/chat-theme/src/primitives.css"
+        ]
+      }
+    ]
+  },
+  "--agent-ui-a2ui-label-font-weight": {
+    "property": "font-weight",
+    "usages": [
+      {
+        "default": "500",
+        "selectors": [
+          ".a2ui-surface .a2ui-control-label, .a2ui-surface .a2ui-label"
+        ]
+      }
+    ]
+  },
+  "--agent-ui-a2ui-description-font-size": {
+    "property": "font-size",
+    "usages": [
+      {
+        "default": "0.8125rem",
+        "selectors": [
+          ".a2ui-surface :is(.a2ui-field small, .a2ui-item p, .a2ui-attachment small)"
+        ]
+      }
+    ]
+  },
+  "--agent-ui-a2ui-group-gap": {
+    "property": "gap",
+    "usages": [
+      {
+        "default": "8px",
+        "selectors": [
+          ".a2ui-surface :is( .a2ui-buttongroup, .a2ui-togglegroup, .a2ui-pagination, .a2ui-datatable nav, .a2ui-carousel > div:last-child, .a2ui-inputgroup )"
+        ]
+      }
+    ]
+  },
+  "--agent-ui-a2ui-button-group-gap": {
+    "property": "gap",
+    "usages": [
+      {
+        "default": "0",
+        "selectors": [
+          ".a2ui-surface .a2ui-buttongroup"
+        ]
+      }
+    ]
+  },
+  "--agent-ui-a2ui-selection-background": {
+    "property": "background",
+    "usages": [
+      {
+        "default": "var(--color-primary, #18181b)",
+        "selectors": [
+          ".a2ui-surface :is(.a2ui-toggle, .a2ui-togglegroup button)[aria-pressed=\"true\"], .a2ui-surface .a2ui-pagination [aria-current=\"page\"]"
+        ]
+      },
+      {
+        "default": "var(--color-primary, #18181b)",
+        "selectors": [
+          ".a2ui-surface .a2ui-calendar-body [data-selected=\"true\"]"
+        ]
+      },
+      {
+        "default": "var(--color-primary, #18181b)",
+        "selectors": [
+          ".a2ui-surface .a2ui-select [role=\"option\"][aria-selected=\"true\"]"
+        ]
+      }
+    ]
+  },
+  "--agent-ui-a2ui-selection-foreground": {
+    "property": "color",
+    "usages": [
+      {
+        "default": "var(--color-on-primary, #fff)",
+        "selectors": [
+          ".a2ui-surface :is(.a2ui-toggle, .a2ui-togglegroup button)[aria-pressed=\"true\"], .a2ui-surface .a2ui-pagination [aria-current=\"page\"]"
+        ]
+      },
+      {
+        "default": "var(--color-on-primary, #fff)",
+        "selectors": [
+          ".a2ui-surface .a2ui-calendar-body [data-selected=\"true\"]"
+        ]
+      },
+      {
+        "default": "var(--color-on-primary, #fff)",
+        "selectors": [
+          ".a2ui-surface .a2ui-select [role=\"option\"][aria-selected=\"true\"]"
+        ]
+      }
+    ]
+  },
+  "--agent-ui-a2ui-kbd-padding": {
+    "property": "padding",
+    "usages": [
+      {
+        "default": "2px 6px",
+        "selectors": [
+          ".a2ui-surface .a2ui-kbd"
+        ]
+      }
+    ]
+  },
+  "--agent-ui-a2ui-kbd-border": {
+    "property": "border",
+    "usages": [
+      {
+        "default": "1px solid var(--color-card-border, #e5e5e5)",
+        "selectors": [
+          ".a2ui-surface .a2ui-kbd"
+        ]
+      }
+    ]
+  },
+  "--agent-ui-a2ui-kbd-radius": {
+    "property": "border-radius",
+    "usages": [
+      {
+        "default": "4px",
+        "selectors": [
+          ".a2ui-surface .a2ui-kbd"
+        ]
+      }
+    ]
+  },
+  "--agent-ui-a2ui-kbd-shadow": {
+    "property": "box-shadow",
+    "usages": [
+      {
+        "default": "0 1px 1px rgb(0 0 0 / 0.08)",
+        "selectors": [
+          ".a2ui-surface .a2ui-kbd"
+        ]
+      }
+    ]
+  },
+  "--agent-ui-a2ui-kbd-font": {
+    "property": "font",
+    "usages": [
+      {
+        "default": "12px ui-monospace, monospace",
+        "selectors": [
+          ".a2ui-surface .a2ui-kbd"
+        ]
+      }
+    ]
+  },
+  "--agent-ui-a2ui-kbd-background": {
+    "property": "background",
+    "usages": [
+      {
+        "default": "var(--color-surface-container-low, #f7f3f2)",
+        "selectors": [
+          ".a2ui-surface .a2ui-kbd"
+        ]
+      }
+    ]
+  },
+  "--agent-ui-a2ui-marker-background": {
+    "property": "background",
+    "usages": [
+      {
+        "default": "var(--color-warning-container, #f4e8c8)",
+        "selectors": [
+          ".a2ui-surface .a2ui-marker"
+        ]
+      }
+    ]
+  },
+  "--agent-ui-a2ui-marker-foreground": {
+    "property": "color",
+    "usages": [
+      {
+        "default": "var(--color-on-warning-container, #3f2f0b)",
+        "selectors": [
+          ".a2ui-surface .a2ui-marker"
+        ]
+      }
+    ]
+  },
+  "--agent-ui-a2ui-marker-padding": {
+    "property": "padding",
+    "usages": [
+      {
+        "default": "0 3px",
+        "selectors": [
+          ".a2ui-surface .a2ui-marker"
+        ]
+      }
+    ]
+  },
+  "--agent-ui-a2ui-marker-radius": {
+    "property": "border-radius",
+    "usages": [
+      {
+        "default": "3px",
+        "selectors": [
+          ".a2ui-surface .a2ui-marker"
+        ]
+      }
+    ]
+  },
+  "--agent-ui-a2ui-navigation-gap": {
+    "property": "gap",
+    "usages": [
+      {
+        "default": "12px",
+        "selectors": [
+          ".a2ui-surface :is(.a2ui-breadcrumb, .a2ui-navigationmenu) ol"
+        ]
+      },
+      {
+        "default": "12px",
+        "selectors": [
+          ".a2ui-surface .a2ui-breadcrumb li:not(:last-child)::after"
+        ]
+      }
+    ]
+  },
+  "--agent-ui-a2ui-navigation-link-color": {
+    "property": "color",
+    "usages": [
+      {
+        "default": "var(--color-accent, #2f5f9f)",
+        "selectors": [
+          ".a2ui-surface :is(.a2ui-breadcrumb, .a2ui-navigationmenu) a"
+        ]
+      }
+    ]
+  },
+  "--agent-ui-a2ui-link-underline-offset": {
+    "property": "text-underline-offset",
+    "usages": [
+      {
+        "default": "3px",
+        "selectors": [
+          ".a2ui-surface :is(.a2ui-breadcrumb, .a2ui-navigationmenu) a"
+        ]
+      }
+    ]
+  },
+  "--agent-ui-a2ui-inputgroup-padding": {
+    "property": "padding",
+    "usages": [
+      {
+        "default": "0 10px",
+        "selectors": [
+          ".a2ui-surface .a2ui-inputgroup"
+        ]
+      },
+      {
+        "default": "0 10px",
+        "selectors": [
+          ".a2ui-surface .a2ui-inputgroup > :is(.a2ui-inputgroup-prefix, .a2ui-inputgroup-suffix)"
+        ]
+      }
+    ]
+  },
+  "--agent-ui-a2ui-inputgroup-border": {
+    "property": "border",
+    "usages": [
+      {
+        "default": "1px solid var(--color-card-border, #e5e5e5)",
+        "selectors": [
+          ".a2ui-surface .a2ui-inputgroup"
+        ]
+      },
+      {
+        "default": "1px solid var(--color-card-border, #e5e5e5)",
+        "selectors": [
+          ".a2ui-surface .a2ui-inputgroup > :is(.a2ui-inputgroup-prefix, .a2ui-inputgroup-suffix)"
+        ]
+      }
+    ]
+  },
+  "--agent-ui-a2ui-otp-font": {
+    "property": "font-family",
+    "usages": [
+      {
+        "default": "ui-monospace, monospace",
+        "selectors": [
+          ".a2ui-surface .a2ui-inputotp input"
+        ]
+      }
+    ]
+  },
+  "--agent-ui-a2ui-otp-letter-spacing": {
+    "property": "letter-spacing",
+    "usages": [
+      {
+        "default": "0.7em",
+        "selectors": [
+          ".a2ui-surface .a2ui-inputotp input"
+        ]
+      }
+    ]
+  },
+  "--agent-ui-a2ui-otp-width": {
+    "property": "width",
+    "usages": [
+      {
+        "default": "100%",
+        "selectors": [
+          ".a2ui-surface .a2ui-inputotp input"
+        ]
+      }
+    ]
+  },
+  "--agent-ui-a2ui-scroll-height": {
+    "property": "max-height",
+    "usages": [
+      {
+        "default": "var(--a2ui-scroll-height, 160px)",
+        "selectors": [
+          ".a2ui-surface :is(.a2ui-scrollarea, .a2ui-messagescroller)"
+        ]
+      }
+    ]
+  },
+  "--agent-ui-a2ui-scroll-padding": {
+    "property": "padding",
+    "usages": [
+      {
+        "default": "8px",
+        "selectors": [
+          ".a2ui-surface :is(.a2ui-scrollarea, .a2ui-messagescroller)"
+        ]
+      }
+    ]
+  },
+  "--agent-ui-a2ui-bubble-padding": {
+    "property": "padding",
+    "usages": [
+      {
+        "default": "10px 14px",
+        "selectors": [
+          ".a2ui-surface :is(.a2ui-bubble, .a2ui-message)"
+        ]
+      }
+    ]
+  },
+  "--agent-ui-a2ui-bubble-radius": {
+    "property": "border-radius",
+    "usages": [
+      {
+        "default": "12px",
+        "selectors": [
+          ".a2ui-surface :is(.a2ui-bubble, .a2ui-message)"
+        ]
+      }
+    ]
+  },
+  "--agent-ui-a2ui-bubble-background": {
+    "property": "background",
+    "usages": [
+      {
+        "default": "var(--color-surface-container, #f1edec)",
+        "selectors": [
+          ".a2ui-surface :is(.a2ui-bubble, .a2ui-message)"
+        ]
+      }
+    ]
+  },
+  "--agent-ui-a2ui-bubble-foreground": {
+    "property": "color",
+    "usages": [
+      {
+        "default": "var(--color-on-surface, #1c1b1b)",
+        "selectors": [
+          ".a2ui-surface :is(.a2ui-bubble, .a2ui-message)"
+        ]
+      }
+    ]
+  },
+  "--agent-ui-a2ui-bubble-max-width": {
+    "property": "max-width",
+    "usages": [
+      {
+        "default": "85%",
+        "selectors": [
+          ".a2ui-surface .a2ui-bubble[data-align=\"end\"], .a2ui-surface .a2ui-message[data-role=\"user\"]"
+        ]
+      }
+    ]
+  },
+  "--agent-ui-a2ui-attachment-padding": {
+    "property": "padding",
+    "usages": [
+      {
+        "default": "12px",
+        "selectors": [
+          ".a2ui-surface .a2ui-attachment"
+        ]
+      }
+    ]
+  },
+  "--agent-ui-a2ui-attachment-border": {
+    "property": "border",
+    "usages": [
+      {
+        "default": "1px solid var(--color-card-border, #e5e5e5)",
+        "selectors": [
+          ".a2ui-surface .a2ui-attachment"
+        ]
+      }
+    ]
+  },
+  "--agent-ui-a2ui-disclosure-border": {
+    "property": "border-bottom",
+    "usages": [
+      {
+        "default": "1px solid var(--color-card-border, #e5e5e5)",
+        "selectors": [
+          ".a2ui-surface .a2ui-collapsible"
+        ]
+      }
+    ]
+  },
+  "--agent-ui-a2ui-disclosure-padding": {
+    "property": "padding",
+    "usages": [
+      {
+        "default": "10px 0",
+        "selectors": [
+          ".a2ui-surface .a2ui-collapsible summary"
+        ]
+      }
+    ]
+  },
+  "--agent-ui-a2ui-accordion-trigger-padding": {
+    "property": "padding",
+    "usages": [
+      {
+        "default": "12px 0",
+        "selectors": [
+          ".a2ui-surface .a2ui-accordion h3 > button"
+        ]
+      }
+    ]
+  },
+  "--agent-ui-a2ui-accordion-content-padding": {
+    "property": "padding-block-end",
+    "usages": [
+      {
+        "default": "12px",
+        "selectors": [
+          ".a2ui-surface .a2ui-accordion [role=\"region\"]"
+        ]
+      }
+    ]
+  },
+  "--agent-ui-a2ui-popup-padding": {
+    "property": "padding",
+    "usages": [
+      {
+        "default": "12px",
+        "selectors": [
+          ".a2ui-surface .a2ui-popup"
+        ]
+      }
+    ]
+  },
+  "--agent-ui-a2ui-popup-max-width": {
+    "property": "max-width",
+    "usages": [
+      {
+        "default": "min(360px, calc(100vw - 32px))",
+        "selectors": [
+          ".a2ui-surface .a2ui-popup"
+        ]
+      }
+    ]
+  },
+  "--agent-ui-a2ui-popup-max-height": {
+    "property": "max-height",
+    "usages": [
+      {
+        "default": "70vh",
+        "selectors": [
+          ".a2ui-surface .a2ui-popup"
+        ]
+      }
+    ]
+  },
+  "--agent-ui-a2ui-popup-foreground": {
+    "property": "color",
+    "usages": [
+      {
+        "default": "var(--color-on-surface, #1c1b1b)",
+        "selectors": [
+          ".a2ui-surface .a2ui-popup"
+        ]
+      },
+      {
+        "default": "var(--color-on-surface, #1c1b1b)",
+        "selectors": [
+          ".a2ui-surface :is(.a2ui-drawer, .a2ui-sheet, .a2ui-alertdialog) dialog"
+        ]
+      }
+    ]
+  },
+  "--agent-ui-a2ui-popup-background": {
+    "property": "background",
+    "usages": [
+      {
+        "default": "var(--color-elevated-surface, #fff)",
+        "selectors": [
+          ".a2ui-surface .a2ui-popup"
+        ]
+      },
+      {
+        "default": "var(--color-elevated-surface, #fff)",
+        "selectors": [
+          ".a2ui-surface :is(.a2ui-drawer, .a2ui-sheet, .a2ui-alertdialog) dialog"
+        ]
+      }
+    ]
+  },
+  "--agent-ui-a2ui-popup-border": {
+    "property": "border",
+    "usages": [
+      {
+        "default": "1px solid var(--color-card-border, #e5e5e5)",
+        "selectors": [
+          ".a2ui-surface .a2ui-popup"
+        ]
+      },
+      {
+        "default": "1px solid var(--color-card-border, #e5e5e5)",
+        "selectors": [
+          ".a2ui-surface :is(.a2ui-drawer, .a2ui-sheet, .a2ui-alertdialog) dialog"
+        ]
+      }
+    ]
+  },
+  "--agent-ui-a2ui-popup-radius": {
+    "property": "border-radius",
+    "usages": [
+      {
+        "default": "var(--agent-ui-panel-radius, 10px)",
+        "selectors": [
+          ".a2ui-surface .a2ui-popup"
+        ]
+      }
+    ]
+  },
+  "--agent-ui-a2ui-popup-shadow": {
+    "property": "box-shadow",
+    "usages": [
+      {
+        "default": "0 8px 24px rgb(0 0 0 / 0.12)",
+        "selectors": [
+          ".a2ui-surface .a2ui-popup"
+        ]
+      }
+    ]
+  },
+  "--agent-ui-a2ui-menu-gap": {
+    "property": "gap",
+    "usages": [
+      {
+        "default": "4px",
+        "selectors": [
+          ".a2ui-surface .a2ui-popup[role=\"menu\"]:popover-open"
+        ]
+      }
+    ]
+  },
+  "--agent-ui-a2ui-tooltip-font-size": {
+    "property": "font-size",
+    "usages": [
+      {
+        "default": "0.8125rem",
+        "selectors": [
+          ".a2ui-surface .a2ui-tooltip .a2ui-popup"
+        ]
+      }
+    ]
+  },
+  "--agent-ui-a2ui-listbox-padding": {
+    "property": "padding",
+    "usages": [
+      {
+        "default": "4px",
+        "selectors": [
+          ".a2ui-surface :is(.a2ui-combobox, .a2ui-command) [role=\"listbox\"]"
+        ]
+      }
+    ]
+  },
+  "--agent-ui-a2ui-listbox-gap": {
+    "property": "gap",
+    "usages": [
+      {
+        "default": "2px",
+        "selectors": [
+          ".a2ui-surface :is(.a2ui-combobox, .a2ui-command) [role=\"listbox\"]"
+        ]
+      }
+    ]
+  },
+  "--agent-ui-a2ui-listbox-border": {
+    "property": "border",
+    "usages": [
+      {
+        "default": "1px solid var(--color-card-border, #e5e5e5)",
+        "selectors": [
+          ".a2ui-surface :is(.a2ui-combobox, .a2ui-command) [role=\"listbox\"]"
+        ]
+      }
+    ]
+  },
+  "--agent-ui-a2ui-listbox-max-height": {
+    "property": "max-height",
+    "usages": [
+      {
+        "default": "240px",
+        "selectors": [
+          ".a2ui-surface :is(.a2ui-combobox, .a2ui-command) [role=\"listbox\"]"
+        ]
+      }
+    ]
+  },
+  "--agent-ui-a2ui-option-padding": {
+    "property": "padding",
+    "usages": [
+      {
+        "default": "8px 10px",
+        "selectors": [
+          ".a2ui-surface :is(.a2ui-combobox, .a2ui-command) [role=\"option\"]"
+        ]
+      }
+    ]
+  },
+  "--agent-ui-a2ui-option-radius": {
+    "property": "border-radius",
+    "usages": [
+      {
+        "default": "4px",
+        "selectors": [
+          ".a2ui-surface :is(.a2ui-combobox, .a2ui-command) [role=\"option\"]"
+        ]
+      }
+    ]
+  },
+  "--agent-ui-a2ui-option-active-background": {
+    "property": "background",
+    "usages": [
+      {
+        "default": "var(--color-hover-surface, #f2f2f7)",
+        "selectors": [
+          ".a2ui-surface :is(.a2ui-combobox, .a2ui-command) [role=\"option\"]:is([data-active=\"true\"], [aria-selected=\"true\"])"
+        ]
+      }
+    ]
+  },
+  "--agent-ui-a2ui-calendar-width": {
+    "property": "width",
+    "usages": [
+      {
+        "default": "280px",
+        "selectors": [
+          ".a2ui-surface .a2ui-calendar-body"
+        ]
+      }
+    ]
+  },
+  "--agent-ui-a2ui-calendar-heading-gap": {
+    "property": "margin-block-end",
+    "usages": [
+      {
+        "default": "8px",
+        "selectors": [
+          ".a2ui-surface .a2ui-calendar-heading"
+        ]
+      }
+    ]
+  },
+  "--agent-ui-a2ui-calendar-font-size": {
+    "property": "font-size",
+    "usages": [
+      {
+        "default": "0.8125rem",
+        "selectors": [
+          ".a2ui-surface .a2ui-calendar-body :is(th, td)"
+        ]
+      }
+    ]
+  },
+  "--agent-ui-a2ui-calendar-day-height": {
+    "property": "min-height",
+    "usages": [
+      {
+        "default": "32px",
+        "selectors": [
+          ".a2ui-surface .a2ui-calendar-body td .a2ui-button"
+        ]
+      }
+    ]
+  },
+  "--agent-ui-a2ui-calendar-outside-opacity": {
+    "property": "opacity",
+    "usages": [
+      {
+        "default": "0.45",
+        "selectors": [
+          ".a2ui-surface .a2ui-calendar-body [data-outside=\"true\"]"
+        ]
+      }
+    ]
+  },
+  "--agent-ui-a2ui-dialog-max-height": {
+    "property": "max-height",
+    "usages": [
+      {
+        "default": "90vh",
+        "selectors": [
+          ".a2ui-surface :is(.a2ui-drawer, .a2ui-sheet, .a2ui-alertdialog) dialog"
+        ]
+      }
+    ]
+  },
+  "--agent-ui-a2ui-dialog-max-width": {
+    "property": "max-width",
+    "usages": [
+      {
+        "default": "calc(100vw - 32px)",
+        "selectors": [
+          ".a2ui-surface :is(.a2ui-drawer, .a2ui-sheet, .a2ui-alertdialog) dialog"
+        ]
+      }
+    ]
+  },
+  "--agent-ui-a2ui-sheet-width": {
+    "property": "width",
+    "usages": [
+      {
+        "default": "360px",
+        "selectors": [
+          ".a2ui-surface :is(.a2ui-drawer, .a2ui-sheet) dialog"
+        ]
+      }
+    ]
+  },
+  "--agent-ui-a2ui-dialog-scrim": {
+    "property": "background",
+    "usages": [
+      {
+        "default": "var(--color-backdrop-scrim, rgb(15 23 42 / 0.24))",
+        "selectors": [
+          ".a2ui-surface :is(.a2ui-drawer, .a2ui-sheet, .a2ui-alertdialog) dialog::backdrop"
+        ]
+      }
+    ]
+  },
+  "--agent-ui-a2ui-resize-handle-width": {
+    "property": "grid-template-columns",
+    "usages": [
+      {
+        "default": "8px",
+        "selectors": [
+          ".a2ui-surface .a2ui-resizable"
+        ]
+      }
+    ]
+  },
+  "--agent-ui-a2ui-resize-border": {
+    "property": "border",
+    "usages": [
+      {
+        "default": "1px solid var(--color-card-border, #e5e5e5)",
+        "selectors": [
+          ".a2ui-surface .a2ui-resizable"
+        ]
+      }
+    ]
+  },
+  "--agent-ui-a2ui-resize-min-height": {
+    "property": "min-height",
+    "usages": [
+      {
+        "default": "120px",
+        "selectors": [
+          ".a2ui-surface .a2ui-resizable"
+        ]
+      }
+    ]
+  },
+  "--agent-ui-a2ui-resize-panel-padding": {
+    "property": "padding",
+    "usages": [
+      {
+        "default": "12px",
+        "selectors": [
+          ".a2ui-surface .a2ui-resizable > div:not([role=\"separator\"])"
+        ]
+      }
+    ]
+  },
+  "--agent-ui-a2ui-resize-handle-background": {
+    "property": "background",
+    "usages": [
+      {
+        "default": "var(--color-surface-container, #f1edec)",
+        "selectors": [
+          ".a2ui-surface .a2ui-resizable [role=\"separator\"]"
+        ]
+      }
+    ]
+  },
+  "--agent-ui-a2ui-toast-padding": {
+    "property": "padding",
+    "usages": [
+      {
+        "default": "16px",
+        "selectors": [
+          ".a2ui-surface .a2ui-toast"
+        ]
+      }
+    ]
+  },
+  "--agent-ui-a2ui-toast-border": {
+    "property": "border",
+    "usages": [
+      {
+        "default": "1px solid var(--color-card-border, #e5e5e5)",
+        "selectors": [
+          ".a2ui-surface .a2ui-toast"
+        ]
+      }
+    ]
+  },
+  "--agent-ui-a2ui-toast-background": {
+    "property": "background",
+    "usages": [
+      {
+        "default": "var(--color-elevated-surface, #fff)",
+        "selectors": [
+          ".a2ui-surface .a2ui-toast"
+        ]
+      }
+    ]
+  },
+  "--agent-ui-a2ui-toast-shadow": {
+    "property": "box-shadow",
+    "usages": [
+      {
+        "default": "0 4px 16px rgb(0 0 0 / 0.08)",
+        "selectors": [
+          ".a2ui-surface .a2ui-toast"
+        ]
+      }
+    ]
+  },
+  "--agent-ui-a2ui-inputgroup-addon-background": {
+    "property": "background",
+    "usages": [
+      {
+        "default": "var(--color-surface-container, #f4f4f5)",
+        "selectors": [
+          ".a2ui-surface .a2ui-inputgroup > :is(.a2ui-inputgroup-prefix, .a2ui-inputgroup-suffix)"
+        ]
+      }
+    ]
+  },
+  "--agent-ui-a2ui-modal-close-gap": {
+    "property": "margin-block-end",
+    "usages": [
+      {
+        "default": "12px",
+        "selectors": [
+          ".a2ui-surface .a2ui-modal dialog > .a2ui-modal-close"
+        ]
+      }
+    ]
+  },
+  "--agent-ui-a2ui-select-popup-width": {
+    "property": "width",
+    "usages": [
+      {
+        "default": "var(--a2ui-select-trigger-width, auto)",
+        "selectors": [
+          ".a2ui-surface .a2ui-select .a2ui-popup"
+        ]
+      }
+    ]
+  },
+  "--agent-ui-a2ui-select-popup-max-width": {
+    "property": "max-width",
+    "usages": [
+      {
+        "default": "calc(100vw - 16px)",
+        "selectors": [
+          ".a2ui-surface .a2ui-select .a2ui-popup"
         ]
       }
     ]

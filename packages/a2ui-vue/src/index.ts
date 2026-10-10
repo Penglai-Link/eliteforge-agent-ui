@@ -47,6 +47,14 @@ export const A2UISurface = defineComponent({
         (tag, attrs, children) => {
           const svgAttrs: Record<string, string> = {
             onKeyDown: "onKeydown",
+            onContextMenu: "onContextmenu",
+            onMouseDown: "onMousedown",
+            onMouseEnter: "onMouseenter",
+            onMouseLeave: "onMouseleave",
+            onPointerDown: "onPointerdown",
+            onPointerMove: "onPointermove",
+            onPointerUp: "onPointerup",
+            autoFocus: "autofocus",
             strokeWidth: "stroke-width",
             textAnchor: "text-anchor",
             fontSize: "font-size",

@@ -1,6 +1,10 @@
 import { renderInteraction } from "./interaction-components";
 import agentCatalogSchema from "./schemas/agent_catalog.json";
-import { renderCommon, componentReferences } from "./common-components";
+import {
+  renderCommon,
+  componentReferences,
+  type ViewState,
+} from "./common-components";
 import addFormats from "ajv-formats";
 import Ajv2020 from "ajv/dist/2020.js";
 import envelope from "./schemas/server_to_client.json";
@@ -18,7 +22,7 @@ export interface Surface {
   sendDataModel: boolean;
   components: Record<string, Component>;
   dataModel: any;
-  viewState?: Record<string, { tab?: number; open?: boolean }>;
+  viewState?: Record<string, ViewState>;
 }
 export interface Snapshot {
   version: typeof VERSION;
@@ -262,11 +266,7 @@ export class A2UIClient {
   getViewState(surfaceId: string, key: string) {
     return this.surface(surfaceId).viewState?.[key] ?? {};
   }
-  setViewState(
-    surfaceId: string,
-    key: string,
-    value: { tab?: number; open?: boolean }
-  ) {
+  setViewState(surfaceId: string, key: string, value: ViewState) {
     safe(value);
     validateViewState({ [key]: value });
     const next = this.exportSnapshot();
@@ -299,6 +299,18 @@ export class A2UIClient {
     if (
       !c ||
       ![
+        "Textarea",
+        "InputOTP",
+        "Combobox",
+        "Command",
+        "Calendar",
+        "DatePicker",
+        "Toggle",
+        "ToggleGroup",
+        "Pagination",
+        "DropdownMenu",
+        "ContextMenu",
+        "Menubar",
         "TextField",
         "CheckBox",
         "ChoicePicker",
@@ -314,6 +326,84 @@ export class A2UIClient {
       typeof c.value.path !== "string"
     )
       throw new Error("Input is not bound");
+    if (
+      c.disabled &&
+      [
+        "Textarea",
+        "InputOTP",
+        "Combobox",
+        "Command",
+        "Calendar",
+        "DatePicker",
+        "Toggle",
+        "ToggleGroup",
+        "Pagination",
+        "DropdownMenu",
+        "ContextMenu",
+        "Menubar",
+      ].includes(c.component)
+    )
+      throw new Error("Input disabled");
+    if (
+      [
+        "Textarea",
+        "InputOTP",
+        "Combobox",
+        "Command",
+        "Calendar",
+        "DatePicker",
+        "DropdownMenu",
+        "ContextMenu",
+        "Menubar",
+      ].includes(c.component) &&
+      typeof value !== "string"
+    )
+      throw new Error("Invalid input value");
+    if (
+      c.component === "InputOTP" &&
+      (!/^\d*$/.test(value) || value.length > (c.length ?? 6))
+    )
+      throw new Error("Invalid OTP");
+    if (c.component === "Toggle" && typeof value !== "boolean")
+      throw new Error("Invalid toggle");
+    if (
+      c.component === "Pagination" &&
+      (!Number.isInteger(value) || value < 1 || value > c.totalPages)
+    )
+      throw new Error("Invalid page");
+    if (["Calendar", "DatePicker"].includes(c.component) && value !== "") {
+      if (
+        !/^\d{4}-\d{2}-\d{2}$/.test(value) ||
+        Number.isNaN(Date.parse(value)) ||
+        new Date(value).toISOString().slice(0, 10) !== value ||
+        (c.min && value < c.min) ||
+        (c.max && value > c.max)
+      )
+        throw new Error("Invalid date");
+    }
+    if (
+      [
+        "Combobox",
+        "Command",
+        "DropdownMenu",
+        "ContextMenu",
+        "Menubar",
+      ].includes(c.component) &&
+      !c.options.some((o: any) => o.value === value && !o.disabled)
+    )
+      throw new Error("Invalid option");
+    if (
+      c.component === "ToggleGroup" &&
+      (!Array.isArray(value) ||
+        new Set(value).size !== value.length ||
+        (!c.multiple && value.length > 1) ||
+        value.some(
+          (v: any) =>
+            typeof v !== "string" ||
+            !c.options.some((o: any) => o.value === v && !o.disabled)
+        ))
+    )
+      throw new Error("Invalid selection");
     if (
       (["TextField", "DateTimeInput", "Select"].includes(c.component) &&
         typeof value !== "string") ||
@@ -377,7 +467,15 @@ export class A2UIClient {
       event = c?.action?.event;
     if (
       !c ||
-      !["Button", "QuestionCard", "ApprovalCard"].includes(c.component) ||
+      ![
+        "Button",
+        "QuestionCard",
+        "ApprovalCard",
+        "AlertDialog",
+        "DropdownMenu",
+        "ContextMenu",
+        "Menubar",
+      ].includes(c.component) ||
       !event
     )
       throw new Error("No server action");
@@ -682,7 +780,7 @@ export function renderSurface<T>(
         );
       case "TextField":
         return element("label", props, [
-          label,
+          element("span", { class: "a2ui-control-label" }, [label]),
           element(
             c.variant === "longText" ? "textarea" : "input",
             {
@@ -811,10 +909,37 @@ function validateViewState(state: unknown): void {
   for (const [key, value] of Object.entries(state as Record<string, any>)) {
     if (
       !object(value) ||
-      Object.keys(value).some((k) => !["tab", "open"].includes(k)) ||
+      Object.keys(value).some(
+        (k) =>
+          ![
+            "tab",
+            "open",
+            "query",
+            "month",
+            "size",
+            "sort",
+            "desc",
+            "expanded",
+          ].includes(k)
+      ) ||
       (value.tab !== undefined &&
         (!Number.isInteger(value.tab) || value.tab < 0)) ||
-      (value.open !== undefined && typeof value.open !== "boolean")
+      (value.open !== undefined && typeof value.open !== "boolean") ||
+      (value.query !== undefined && typeof value.query !== "string") ||
+      (value.month !== undefined &&
+        (typeof value.month !== "string" ||
+          !/^\d{4}-\d{2}-01$/.test(value.month) ||
+          Number.isNaN(Date.parse(value.month)))) ||
+      (value.size !== undefined &&
+        (typeof value.size !== "number" ||
+          !Number.isFinite(value.size) ||
+          value.size < 10 ||
+          value.size > 90)) ||
+      (value.sort !== undefined && typeof value.sort !== "string") ||
+      (value.desc !== undefined && typeof value.desc !== "boolean") ||
+      (value.expanded !== undefined &&
+        (!Array.isArray(value.expanded) ||
+          value.expanded.some((v: any) => typeof v !== "string")))
     )
       throw new Error("Invalid view state");
     const tuple = JSON.parse(key);

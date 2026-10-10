@@ -4,12 +4,14 @@ import { A2UISurface } from "./src/index";
 import {
   createProfileDemo,
   initializeComponentGallery,
+  initializeShadcnDemo,
   initializeAtomicDemo,
   initializeCommonDemo,
   initializeStatisticsDemo,
 } from "@eliteforge/agent-ui-a2ui-core/demo";
 const gallery = initializeComponentGallery();
 const demo = createProfileDemo();
+initializeShadcnDemo(demo.client);
 const onStatisticsAction = initializeStatisticsDemo(demo.client);
 const onAtomicAction = initializeAtomicDemo(demo.client);
 const onCommonAction = initializeCommonDemo(demo.client);
@@ -25,7 +27,11 @@ createApp({
         "section",
         { id: "atomic-gallery", "aria-labelledby": "gallery-heading" },
         [
-          h("h2", { id: "gallery-heading" }, "原子组件 · 39 个"),
+          h(
+            "h2",
+            { id: "gallery-heading" },
+            `原子组件 · ${gallery.entries.length} 个`
+          ),
           h(
             "p",
             {},
@@ -63,6 +69,8 @@ createApp({
         surfaceId: "statistics",
         onAction: onStatisticsAction,
       }),
+      h("h2", {}, "多项折叠、表单与数据表"),
+      h(A2UISurface, { client: demo.client, surfaceId: "shadcn" }),
       h("button", { onClick: () => demo.next() }, "接收下一条消息"),
       h(A2UISurface, {
         client: demo.client,
