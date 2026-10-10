@@ -61,10 +61,14 @@ export function historyMessages(page: SessionHistory, labels?: ChatUserInputLabe
   page.records.interactions.forEach((i) => { const group = interactionsByRun.get(i.runId) ?? []; group.push(i); interactionsByRun.set(i.runId, group); });
   const messages: ChatMessage[] = page.records.messages.map((message) => {
     const step = message.stepId ? steps.get(message.stepId) ?? null : null;
+    const text = historyText(message.content);
+    // Some failed attempts store the run diagnostic as assistant text as well.
+    // Render that through the error view once, preserving the source record.
+    const isRunDiagnostic = message.role === "Assistant" && text === runs.get(message.runId)?.error;
     return {
       id: message.id, messageId: message.id, sessionId: page.sessionId, runId: message.runId,
       role: message.role === "User" ? "USER" : "ASSISTANT", channel: "history", actor: message.role === "User" ? "User" : "Assistant",
-      content: historyText(message.content), inputTokens: step?.usage?.inputTokens, outputTokens: step?.usage?.outputTokens,
+      content: isRunDiagnostic ? "" : text, inputTokens: step?.usage?.inputTokens, outputTokens: step?.usage?.outputTokens,
       totalTokens: step?.usage ? step.usage.inputTokens + step.usage.outputTokens : null,
       createdAt: new Date(message.createdAtMs).toISOString(), history: { message, step, tools: tools.get(message.id) ?? [], run: runs.get(message.runId) ?? null, interactions: lastMessageByRun.get(message.runId) === message.id ? interactionsByRun.get(message.runId) ?? [] : [] },
     };

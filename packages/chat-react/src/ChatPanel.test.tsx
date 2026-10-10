@@ -744,3 +744,19 @@ describe("ChatPanel submit controls", () => {
     expect(onRemoveQueuedMessage).toHaveBeenCalledWith("QUEUE-2");
   });
 });
+
+it.each([true, false])("collapses provider diagnostics and hides internal step counters after history restore (replay=%s)", (replay) => {
+  const raw = 'operation result is unknown: model stream failed before completion: ' + JSON.stringify({type:"response.failed",response:{error:{code:"InvalidParameter",message:"Please check the schema definition for tool: a2ui_expand."}}});
+  const message = { id:"assistant", messageId:"assistant", sessionId:"SESSION-1", runId:"RUN-1", role:"ASSISTANT", actor:"Assistant", channel:"history", content:"", createdAt:new Date().toISOString(), history: {
+    message:{id:"assistant",runId:"RUN-1",stepId:"step",role:"Assistant",content:[],structured:null,status:"Interrupted",createdAtMs:1},
+    step:{id:"step",runId:"RUN-1",nodeInvocationId:null,sequence:1,attempt:1,name:"main",model:null,status:"Interrupted",usage:null,startedAtMs:1,finishedAtMs:2},
+    tools:[],interactions:[],run:{id:"RUN-1",sessionId:"SESSION-1",parentRunId:null,rootRunId:"RUN-1",status:"Failed",startedAtMs:1,finishedAtMs:2,error:raw},
+  }} satisfies ChatMessage;
+  const { container } = renderPanel({ messages:[{...message,id:"user",messageId:"user",role:"USER",content:"请会诊",history:{...message.history,message:{...message.history.message,role:"User"}}},message], protocolEvents:replay ? [{type:"RUN_STARTED",runId:"RUN-1",threadId:"SESSION-1",timestamp:1},{type:"RUN_ERROR",runId:"RUN-1",threadId:"SESSION-1",timestamp:2,message:raw}] : [] });
+  expect(screen.queryByText(/Step 1/)).toBeNull();
+  expect(screen.queryByText(/Attempt 1/)).toBeNull();
+  expect(screen.getByText("The model service rejected the parameter schema for tool a2ui_expand.")).toBeTruthy();
+  const diagnostics = screen.getByText(raw);
+  expect(diagnostics.closest("details")?.open).toBe(false);
+  expect(container.querySelectorAll("details pre")).toHaveLength(1);
+});

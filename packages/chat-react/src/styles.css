@@ -1803,3 +1803,9 @@
 }
 
 .ef-chat__button:hover:disabled, .ef-chat-window__control:hover:disabled { filter: none; }
+
+.ef-chat__error-details pre {
+  max-width: 100%;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}

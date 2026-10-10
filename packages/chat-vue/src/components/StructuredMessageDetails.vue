@@ -1,11 +1,12 @@
 <script setup lang="ts">
 import { computed } from "vue";
-import { defaultHistoryLabels, historyToolResult, historyBlockUrl, type ChatHistoryLabels, type ChatMessage, type ToolWorkCard } from "@eliteforge/agent-ui-chat-core";
+import { chatErrorPresentation, defaultHistoryLabels, historyToolResult, historyBlockUrl, type ChatHistoryLabels, type ChatMessage, type ToolWorkCard } from "@eliteforge/agent-ui-chat-core";
 import ReasoningCard from "./ReasoningCard.vue";
 import ToolCard from "./ToolCard.vue";
 const props = defineProps<{ message: ChatMessage; labels?: ChatHistoryLabels }>();
 const labels = computed(() => props.labels ?? defaultHistoryLabels);
 const view = computed(() => props.message.history);
+const error = computed(() => chatErrorPresentation(view.value?.run?.error ?? "", labels.value.statuses.Failed));
 const reasoning = computed(() => view.value?.message.content.filter((b) => b.type === "Reasoning").map((b) => "text" in b ? b.text : "").join("") ?? "");
 const tools = computed(() => view.value?.tools.map((tool) => ({ tool, card: {
   id: tool.id, runId: tool.runId, toolCallId: tool.id, toolName: tool.toolName, args: tool.arguments,
@@ -15,7 +16,6 @@ const tools = computed(() => view.value?.tools.map((tool) => ({ tool, card: {
 </script>
 <template>
   <section v-if="view" class="ef-chat__history-details" :data-history-message-id="message.messageId">
-    <small v-if="view.step">{{ labels.step }} {{ view.step.sequence }} · {{ labels.attempt }} {{ view.step.attempt }} · {{ labels.statuses[view.message.status] }}</small>
     <ReasoningCard v-if="reasoning" :card="{ id: `${message.messageId}:reasoning`, runId: message.runId ?? '', content: reasoning, summary: reasoning, ended: view.message.status !== 'Running', firstMillis: view.message.createdAtMs, endMillis: view.step?.finishedAtMs ?? null, toolCards: [] }" />
     <template v-for="(block, index) in view.message.content" :key="index">
       <pre v-if="block.type === 'Json'">{{ JSON.stringify(block.value, null, 2) }}</pre>
@@ -34,6 +34,14 @@ const tools = computed(() => view.value?.tools.map((tool) => ({ tool, card: {
       <summary>{{ interaction.prompt.filter((b) => b.type === 'Text').map((b) => 'text' in b ? b.text : '').join('') }} · {{ labels.statuses.Completed }}</summary>
       <pre>{{ JSON.stringify(interaction.response, null, 2) }}</pre>
     </details>
-    <p v-if="view.run?.error" role="status">{{ view.run.error }}</p>
+    <div v-if="message.role === 'ASSISTANT' && view.run?.error" role="status">{{ error.summary }}<details v-if="error.details" class="ef-chat__error-details"><summary>{{ /[\u3400-\u9fff]/.test(labels.statuses.Failed) ? "错误详情" : "Error details" }}</summary><pre>{{ error.details }}</pre></details></div>
   </section>
 </template>
+
+<style scoped>
+.ef-chat__error-details pre {
+  max-width: 100%;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+</style>

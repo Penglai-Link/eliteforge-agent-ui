@@ -21,6 +21,8 @@ import {
   X,
 } from "lucide-react";
 import {
+  chatErrorPresentation,
+  historyEventRunId,
   aguiEventRunId,
   isAguiCancellationEvent,
   isAguiExecutionTerminalEvent,
@@ -979,6 +981,12 @@ function UserInputWorkCard({
   );
 }
 
+function RunErrorDetails({ raw, fallback }: { raw: string; fallback: string }) {
+  const error = chatErrorPresentation(raw, fallback);
+  return <><div className="ef-chat__run-notice-detail">{error.summary}</div>
+    {error.details ? <details className="ef-chat__error-details"><summary>{/[\u3400-\u9fff]/.test(fallback) ? "错误详情" : "Error details"}</summary><pre>{error.details}</pre></details> : null}</>;
+}
+
 function AguiRunStatus({ notices, labels }: { notices: AguiRunNotice[]; labels: ChatWorkRailLabels }) {
   const copy = { ...defaultWorkRailLabels.notices, ...labels.notices };
   return notices.map((notice) => {
@@ -1032,7 +1040,7 @@ function AguiRunStatus({ notices, labels }: { notices: AguiRunNotice[]; labels: 
         <Icon size={16} aria-hidden="true" className={pending ? "animate-spin" : undefined} />
         <div className="ef-chat__run-notice-content">
           <div className="ef-chat__run-notice-title">{title}</div>
-          {detail ? <div className="ef-chat__run-notice-detail">{detail}</div> : null}
+          {detail ? <RunErrorDetails raw={detail} fallback={labels.failed ?? "Run failed"} /> : null}
           {hint ? <div className="ef-chat__run-notice-detail">{hint}</div> : null}
         </div>
       </div>
@@ -1040,12 +1048,11 @@ function AguiRunStatus({ notices, labels }: { notices: AguiRunNotice[]; labels: 
   });
 }
 
-function StructuredMessageDetails({ message, labels, historyLabels = defaultHistoryLabels }: { message: ChatMessage; labels?: ChatWorkRailLabels; historyLabels?: ChatHistoryLabels }) {
+function StructuredMessageDetails({ message, labels, hasRunError = false, historyLabels = defaultHistoryLabels }: { hasRunError?: boolean; message: ChatMessage; labels?: ChatWorkRailLabels; historyLabels?: ChatHistoryLabels }) {
   const view = message.history;
   if (!view) return null;
   const reasoning = view.message.content.filter((b) => b.type === "Reasoning").map((b) => "text" in b ? b.text : "").join("");
   return <section className="ef-chat__history-details" data-history-message-id={message.messageId}>
-    {view.step ? <small>{historyLabels.step} {view.step.sequence} · {historyLabels.attempt} {view.step.attempt} · {historyLabels.statuses[view.message.status]}</small> : null}
     {reasoning ? <ReasoningCard labels={labels} card={{ id: `${message.messageId}:reasoning`, runId: message.runId ?? "", content: reasoning, summary: reasoning,
       ended: view.message.status !== "Running", firstMillis: view.message.createdAtMs, endMillis: view.step?.finishedAtMs ?? null, toolCards: [] }} /> : null}
     {view.message.content.filter((b) => b.type !== "Text" && b.type !== "Reasoning").map((block, index) => <div key={index}>
@@ -1062,7 +1069,7 @@ function StructuredMessageDetails({ message, labels, historyLabels = defaultHist
       <summary>{interaction.prompt.filter((b) => b.type === "Text").map((b) => "text" in b ? b.text : "").join("")} · {historyLabels.statuses.Completed}</summary>
       <pre>{JSON.stringify(interaction.response, null, 2)}</pre>
     </details>)}
-    {view.run?.error ? <p role="status">{view.run.error}</p> : null}
+    {message.role === "ASSISTANT" && view.run?.error && !hasRunError ? <RunErrorDetails raw={view.run.error} fallback={labels?.failed ?? historyLabels.statuses.Failed} /> : null}
   </section>;
 }
 
@@ -1458,6 +1465,18 @@ export function ChatPanel({
     )),
     [messages, streamingAssistantMessageCode],
   );
+  const lastHistoryErrorByRun = useMemo(() => new Map(transcriptMessages
+    .filter(message => message.role === "ASSISTANT" && message.history?.run?.error)
+    .map(message => [message.runId, message.messageId])), [transcriptMessages]);
+  const displayedErrorRuns = useMemo(() => {
+    const runs = new Set<string>();
+    if (showAgui) for (const event of [...(protocolEvents ?? []), ...(liveAguiEvents ?? [])]) {
+      if (event.type !== "RUN_ERROR" || isAguiPresentationFailureEvent(event)) continue;
+      if (event.runId) runs.add(event.runId);
+      runs.add(historyEventRunId(event));
+    }
+    return runs;
+  }, [showAgui, protocolEvents, liveAguiEvents]);
   const presentation = useMemo(
     () =>
       buildTranscriptPresentation({
@@ -1636,7 +1655,7 @@ export function ChatPanel({
                     >
                       {(messagesByTurnId.get(turn.id) ?? []).map((message) => (
                         <Fragment key={message.messageId}>
-                          <StructuredMessageDetails message={message} labels={workRailLabels} historyLabels={historyLabels} />
+                          <StructuredMessageDetails message={message} labels={workRailLabels} historyLabels={historyLabels} hasRunError={displayedErrorRuns.has(message.runId ?? "") || lastHistoryErrorByRun.get(message.runId) !== message.messageId} />
                           {message.role === "USER" ? (
                             <div className="ef-chat__user-message-group">
                               <ChatAttachments

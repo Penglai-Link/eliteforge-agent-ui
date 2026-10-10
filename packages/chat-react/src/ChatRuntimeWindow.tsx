@@ -1,5 +1,6 @@
 import { ChatA2uiSession, AGENT_CATALOG_ID, type ChatA2uiActionHandler as ActionHandler } from "@eliteforge/agent-ui-chat-core";
 import {
+  chatErrorPresentation,
   AssistantReplyQueue,
   buildTranscriptPresentation,
   belongsToNewChatTurn,
@@ -1262,7 +1263,7 @@ export function ChatRuntimeWindow({
         if (!sourceSubmission && submittedAttachments.length) {
           setPendingAttachments((current) => [...submittedAttachments, ...current]);
         }
-        const errorMessage = error instanceof Error ? error.message : "Chat send failed";
+        const errorMessage = chatErrorPresentation(error instanceof Error ? error.message : "Chat send failed", config.workRailLabels?.failed).summary;
         const runId = activeRunCodeRef.current;
         const knownNativeFailure = Boolean(runId && currentLiveAguiFailedRunCodesRef.current.has(runId));
         if (aguiEnabled && runId && !knownNativeFailure) {
@@ -1273,7 +1274,7 @@ export function ChatRuntimeWindow({
           }]);
           setLiveAguiAnchorMessageCodes((current) => ({ ...current, [runId]: optimisticUserCode }));
         }
-        if (!aguiEnabled || !knownNativeFailure || errorDisplay === "external") {
+        if (!aguiEnabled || !knownNativeFailure) {
           setSubmissionError(errorMessage);
           onError(errorMessage, "Chat send failed");
         }

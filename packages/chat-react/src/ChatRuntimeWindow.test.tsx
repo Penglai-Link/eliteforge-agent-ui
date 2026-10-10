@@ -174,8 +174,7 @@ describe("ChatRuntimeWindow", () => {
     fireEvent.change(input, { target: { value: "Inspect context" } });
     fireEvent.keyDown(input, { key: "Enter" });
     await waitFor(() => expect(screen.getByRole("alert").textContent).toContain("Model is unavailable"));
-    if (errorDisplay === "external") expect(onError).toHaveBeenCalledExactlyOnceWith("Model is unavailable", "Chat send failed");
-    else expect(onError).not.toHaveBeenCalled();
+    expect(onError).not.toHaveBeenCalled();
     expect(screen.getByText(/^Run failed ·/)).toBeTruthy();
     expect(screen.getAllByRole("article")).toHaveLength(1);
   });
