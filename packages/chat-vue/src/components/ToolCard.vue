@@ -8,6 +8,7 @@ import {
 } from "lucide-vue-next";
 import {
   formatJsonBlockValue,
+  interactionToolSummary,
   toolSummaryLabel,
   type ToolWorkCard,
 } from "@eliteforge/agent-ui-chat-core";
@@ -28,6 +29,7 @@ const expanded = ref(false);
 const parametersExpanded = ref(false);
 const logRef = ref<HTMLDivElement | null>(null);
 
+const interactionInfo = computed(() => interactionToolSummary(props.card.toolName, props.card.args));
 const complete = computed(() => props.card.ended || Boolean(props.card.result));
 const running = computed(() => props.card.started && !complete.value);
 const hasParameters = computed(() => hasToolParameterPayload(props.card.args));
@@ -154,6 +156,8 @@ function hasToolParameterPayload(value: unknown): boolean {
       "
     >
       <div class="ef-chat__tool-sections">
+        <p v-if="interactionInfo !== null">{{ interactionInfo.join(" · ") || toolLabel }}</p>
+        <template v-else>
         <section v-if="hasParameters">
           <div
             class="ef-chat__tool-section-header"
@@ -222,6 +226,7 @@ function hasToolParameterPayload(value: unknown): boolean {
             <p v-else style="margin: 0">Waiting for tool activity...</p>
           </div>
         </section>
+        </template>
       </div>
     </div>
   </div>

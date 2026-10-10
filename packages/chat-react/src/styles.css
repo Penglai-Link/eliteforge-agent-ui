@@ -1876,3 +1876,17 @@
 }
 .ef-chat__a2ui .a2ui-questioncard button:disabled,
 .ef-chat__a2ui .a2ui-approvalcard button:disabled { opacity: .4; cursor: default; }
+
+.ef-chat__interaction-summary {
+  display: grid;
+  gap: 8px;
+  margin: 12px 0;
+}
+.ef-chat__interaction-summary > div {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
+  gap: 12px;
+  overflow-wrap: anywhere;
+}
+.ef-chat__interaction-summary dt { opacity: 0.7; }
+.ef-chat__interaction-summary dd { margin: 0; white-space: pre-wrap; }

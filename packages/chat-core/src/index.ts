@@ -18,3 +18,5 @@ export * from "./a2ui";
 export * from "./toolResults";
 
 export * from "./errorPresentation";
+
+export * from "./interactionSummary";

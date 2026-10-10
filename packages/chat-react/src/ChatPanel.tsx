@@ -1,3 +1,4 @@
+import { interactionSummary, interactionSummaryTitle, interactionToolSummary } from "@eliteforge/agent-ui-chat-core";
 import { ToolResultView } from "./ToolResultView";
 import { ChatA2UI } from "./ChatA2UI";
 import type { ChatA2uiActionHandler as ActionHandler, ChatA2uiSession } from "@eliteforge/agent-ui-chat-core";
@@ -619,6 +620,7 @@ function ToolCard({
 }) {
   const complete = card.ended || Boolean(card.result);
   const running = card.started && !complete;
+  const interactionInfo = interactionToolSummary(card.toolName, card.args);
   const hasParameters = hasToolParameterPayload(card.args);
   const parametersText = hasParameters ? formatJsonBlockValue(card.args) : "";
   const resultText = card.result ? formatJsonBlockValue(card.result) : "";
@@ -721,6 +723,7 @@ function ToolCard({
           )}
         >
           <div className="ef-chat__tool-sections">
+            {interactionInfo !== null ? <p>{interactionInfo.join(" · ") || toolName}</p> : <>
             {hasParameters ? (
               <section>
                 <div
@@ -805,6 +808,7 @@ function ToolCard({
                 </div>
               </section>
             )}
+            </>}
           </div>
         </div>
       ) : null}
@@ -1059,14 +1063,13 @@ function StructuredMessageDetails({ message, labels, hasRunError = false, histor
     </div>)}
     {view.message.structured != null ? <pre>{JSON.stringify(view.message.structured, null, 2)}</pre> : null}
     {view.tools.map((tool) => <div key={tool.id} data-tool-invocation-id={tool.id}>
-      <small>{historyLabels.statuses[tool.status]}{tool.startedAtMs !== null && tool.finishedAtMs !== null ? ` · ${tool.finishedAtMs - tool.startedAtMs} ms` : ""}</small>
       <ToolCard labels={labels} statusLabel={historyLabels.statuses[tool.status]} card={{ id: tool.id, runId: tool.runId, toolCallId: tool.id, toolName: tool.toolName, args: tool.arguments,
         result: historyToolResult(tool), logs: [], parentReasoningId: null, firstMillis: tool.startedAtMs ?? view.message.createdAtMs,
         started: tool.status === "Running", ended: ["Completed", "Failed"].includes(tool.status) }} />
     </div>)}
     {view.interactions.filter((i) => i.response != null).map((interaction) => <details key={interaction.id} data-history-interaction-id={interaction.id}>
-      <summary>{interaction.prompt.filter((b) => b.type === "Text").map((b) => "text" in b ? b.text : "").join("")} · {historyLabels.statuses.Completed}</summary>
-      <pre>{JSON.stringify(interaction.response, null, 2)}</pre>
+      <summary>{interactionSummaryTitle(interaction)} · {historyLabels.statuses.Completed}</summary>
+      <dl className="ef-chat__interaction-summary">{interactionSummary(interaction).map((row, index) => <div key={index}><dt>{row.label}</dt><dd>{row.value}</dd></div>)}</dl>
     </details>)}
     {message.role === "ASSISTANT" && view.run?.error && !hasRunError ? <RunErrorDetails raw={view.run.error} fallback={labels?.failed ?? historyLabels.statuses.Failed} /> : null}
   </section>;

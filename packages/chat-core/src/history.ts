@@ -50,15 +50,34 @@ export function historyEventRunId(event: { runId?: string | null; metadata?: unk
   const nativeId = metadata?.framework?.runId ?? metadata?.nativeRunId;
   return typeof nativeId === "string" ? nativeId : event.runId ?? "";
 }
-/** Linear projection of structured records; no AG-UI replay or checkpoint parsing. */
+/** Projection of structured records; no AG-UI replay or checkpoint parsing. */
 export function historyMessages(page: SessionHistory, labels?: ChatUserInputLabels): ChatMessage[] {
   const steps = new Map(page.records.steps.map((s) => [s.id, s]));
   const runs = new Map(page.runs.map((r) => [r.id, r]));
   const tools = new Map<string, HistoryToolInvocation[]>();
   page.records.toolInvocations.forEach((t) => { const group = tools.get(t.messageId) ?? []; group.push(t); tools.set(t.messageId, group); });
-  const lastMessageByRun = new Map(page.records.messages.map((m) => [m.runId, m.id]));
-  const interactionsByRun = new Map<string, HistoryInteraction[]>();
-  page.records.interactions.forEach((i) => { const group = interactionsByRun.get(i.runId) ?? []; group.push(i); interactionsByRun.set(i.runId, group); });
+  const interactionTools = new Map(page.records.interactions.map(i => [i.id,
+    page.records.toolInvocations.find(t => t.runId === i.runId && (t.id === i.id || t.id === i.invocationId))
+      ?? page.records.toolInvocations.find(t => {
+        // ask_user creates its own interaction identity; the generated question
+        // IDs in its structured result bind it without guessing from tool order.
+        const questions = i.presentation?.questions;
+        let output = t.structured as { frameworkInteractionId?: string; questions?: { id?: string }[] } | null;
+        if (!output) {
+          try { output = JSON.parse(historyText(t.content)); } catch { /* Ordinary text output. */ }
+        }
+        if (t.runId === i.runId && output?.frameworkInteractionId === i.id) return true;
+        return t.runId === i.runId && Array.isArray(questions) && questions.length > 0
+          && output?.questions?.length === questions.length
+          && questions.every((q, index) => (q as {id?: string}).id === output.questions![index]?.id);
+      })]));
+  const interactionsByMessage = new Map<string, HistoryInteraction[]>();
+  page.records.interactions.forEach(i => {
+    const messageId = interactionTools.get(i.id)?.messageId;
+    if (!messageId) return;
+    const group = interactionsByMessage.get(messageId) ?? [];
+    group.push(i); interactionsByMessage.set(messageId, group);
+  });
   const messages: ChatMessage[] = page.records.messages.map((message) => {
     const step = message.stepId ? steps.get(message.stepId) ?? null : null;
     const text = historyText(message.content);
@@ -70,7 +89,7 @@ export function historyMessages(page: SessionHistory, labels?: ChatUserInputLabe
       role: message.role === "User" ? "USER" : "ASSISTANT", channel: "history", actor: message.role === "User" ? "User" : "Assistant",
       content: isRunDiagnostic ? "" : text, inputTokens: step?.usage?.inputTokens, outputTokens: step?.usage?.outputTokens,
       totalTokens: step?.usage ? step.usage.inputTokens + step.usage.outputTokens : null,
-      createdAt: new Date(message.createdAtMs).toISOString(), history: { message, step, tools: tools.get(message.id) ?? [], run: runs.get(message.runId) ?? null, interactions: lastMessageByRun.get(message.runId) === message.id ? interactionsByRun.get(message.runId) ?? [] : [] },
+      createdAt: new Date(message.createdAtMs).toISOString(), history: { message, step, tools: tools.get(message.id) ?? [], run: runs.get(message.runId) ?? null, interactions: interactionsByMessage.get(message.id) ?? [] },
     };
   });
   // Resolved native interactions remain visible after a refresh. Their answers
@@ -94,13 +113,18 @@ export function historyMessages(page: SessionHistory, labels?: ChatUserInputLabe
     if (!request.a2uiInteraction && request.nativeInteraction?.reason === "approval_required") {
       (envelopes[2] as any).updateDataModel.value.answer = value;
     }
-    const run = page.runs.find(r => r.id === interaction.runId);
+    const run = runs.get(interaction.runId);
+    const tool = interactionTools.get(interaction.id);
+    const anchor = page.records.messages.find(m => m.id === tool?.messageId);
+    // A2UI input IDs are trusted tool invocation IDs; approval carries
+    // its invocation explicitly. Place the surface at creation, not run completion.
+    const requestedAt = tool?.startedAtMs ?? anchor?.createdAtMs ?? run?.startedAtMs ?? 0;
     messages.push({ id:`interaction:${interaction.id}`,messageId:`interaction:${interaction.id}`,sessionId:page.sessionId,
       runId:interaction.runId,role:"ASSISTANT",actor:"Assistant",channel:"history",content:"",
-      createdAt:new Date(run?.finishedAtMs ?? run?.startedAtMs ?? 0).toISOString(),
+      createdAt:new Date(requestedAt).toISOString(),
       a2ui:{messages:envelopes,surfaceIds:[request.a2uiInteraction?.surfaceId ?? `interaction:${interaction.id}`]} });
   }
-  return messages;
+  return messages.sort((a, b) => Date.parse(a.createdAt) - Date.parse(b.createdAt));
 }
 
 export function historyUserInputRequests(page: SessionHistory, labels?: Partial<ChatUserInputLabels>): ChatUserInputRequest[] {

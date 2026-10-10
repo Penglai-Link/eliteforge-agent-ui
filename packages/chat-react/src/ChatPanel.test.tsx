@@ -760,3 +760,19 @@ it.each([true, false])("collapses provider diagnostics and hides internal step c
   expect(diagnostics.closest("details")?.open).toBe(false);
   expect(container.querySelectorAll("details pre")).toHaveLength(1);
 });
+
+
+it("shows readable historical answers and interaction tool details without duplicate timings or JSON", () => {
+  const interaction:any = {id:"question",prompt:[{type:"Text",text:"请确认需求"}],presentation:{questions:[{id:"uuid",question:"需求方向",options:[{id:"consult",label:"发起会诊"}]}]},response:{answers:{uuid:{option_id:"consult"}}}};
+  const tool:any = {id:"tool",callId:"call",toolName:"chat_ask_user",arguments:{questions:[{question:"需求方向"}]},status:"Completed",content:[],structured:{kind:"ask_user",questions:[{id:"uuid"}]},startedAtMs:100,finishedAtMs:155};
+  renderPanel({messages:[{id:"u",messageId:"u",sessionId:"SESSION-1",role:"USER",actor:"User",channel:"history",content:"测试",createdAt:"2026-10-09T23:59:00Z"} as any,{id:"m",messageId:"m",sessionId:"SESSION-1",role:"ASSISTANT",actor:"Assistant",channel:"history",content:"",createdAt:"2026-10-10T00:00:00Z",history:{message:{id:"m",role:"Assistant",content:[],structured:null},tools:[tool],interactions:[interaction],step:null,run:null}} as any]});
+  expect(screen.queryByText(/55 ms/)).toBeNull();
+  fireEvent.click(screen.getByRole("button",{name:/chat_ask_user/}));
+  expect(screen.queryByText("Parameters")).toBeNull();
+  expect(screen.queryByText(/"kind"/)).toBeNull();
+  const details=document.querySelector("[data-history-interaction-id=question]")!;
+  expect(details.querySelector("pre")).toBeNull();
+  expect(details.textContent).toContain("需求方向");
+  expect(details.textContent).toContain("发起会诊");
+  expect(details.textContent).not.toContain("uuid");
+});

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { interactionSummary, interactionSummaryTitle } from "@eliteforge/agent-ui-chat-core";
 import { computed } from "vue";
 import { chatErrorPresentation, defaultHistoryLabels, historyToolResult, historyBlockUrl, type ChatHistoryLabels, type ChatMessage, type ToolWorkCard } from "@eliteforge/agent-ui-chat-core";
 import ReasoningCard from "./ReasoningCard.vue";
@@ -27,12 +28,11 @@ const tools = computed(() => view.value?.tools.map((tool) => ({ tool, card: {
     </template>
     <pre v-if="view.message.structured != null">{{ JSON.stringify(view.message.structured, null, 2) }}</pre>
     <div v-for="item in tools" :key="item.tool.id" :data-tool-invocation-id="item.tool.id">
-      <small>{{ labels.statuses[item.tool.status] }}</small>
       <ToolCard :card="item.card" :status-label="labels.statuses[item.tool.status]" />
     </div>
     <details v-for="interaction in view.interactions.filter((i) => i.response != null)" :key="interaction.id" :data-history-interaction-id="interaction.id">
-      <summary>{{ interaction.prompt.filter((b) => b.type === 'Text').map((b) => 'text' in b ? b.text : '').join('') }} · {{ labels.statuses.Completed }}</summary>
-      <pre>{{ JSON.stringify(interaction.response, null, 2) }}</pre>
+      <summary>{{ interactionSummaryTitle(interaction) }} · {{ labels.statuses.Completed }}</summary>
+      <dl class="ef-chat__interaction-summary"><div v-for="(row, index) in interactionSummary(interaction)" :key="index"><dt>{{ row.label }}</dt><dd>{{ row.value }}</dd></div></dl>
     </details>
     <div v-if="message.role === 'ASSISTANT' && view.run?.error" role="status">{{ error.summary }}<details v-if="error.details" class="ef-chat__error-details"><summary>{{ /[\u3400-\u9fff]/.test(labels.statuses.Failed) ? "错误详情" : "Error details" }}</summary><pre>{{ error.details }}</pre></details></div>
   </section>
