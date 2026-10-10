@@ -1110,9 +1110,9 @@
     "property": "gap",
     "usages": [
       {
-        "default": ".75rem",
+        "default": "0.75rem",
         "selectors": [
-          ".a2ui-questioncard, .a2ui-approvalcard"
+          ".a2ui-approvalcard"
         ]
       }
     ]
@@ -1123,13 +1123,19 @@
       {
         "default": "1rem",
         "selectors": [
-          ".a2ui-questioncard, .a2ui-approvalcard"
+          ".a2ui-approvalcard"
         ]
       },
       {
-        "default": ".4rem .7rem",
+        "default": "0.4rem 0.7rem",
         "selectors": [
-          ".a2ui-questioncard button, .a2ui-approvalcard button"
+          ".a2ui-approvalcard button"
+        ]
+      },
+      {
+        "default": "0.75rem",
+        "selectors": [
+          ".a2ui-surface .a2ui-questioncard"
         ]
       }
     ]
@@ -1140,7 +1146,13 @@
       {
         "default": "1px solid var(--ef-border, #ddd)",
         "selectors": [
-          ".a2ui-questioncard, .a2ui-approvalcard"
+          ".a2ui-approvalcard"
+        ]
+      },
+      {
+        "default": "1px solid var(--a2ui-border, #ddd)",
+        "selectors": [
+          ".a2ui-surface .a2ui-questioncard"
         ]
       }
     ]
@@ -1149,9 +1161,15 @@
     "property": "border-radius",
     "usages": [
       {
-        "default": ".75rem",
+        "default": "0.75rem",
         "selectors": [
-          ".a2ui-questioncard, .a2ui-approvalcard"
+          ".a2ui-approvalcard"
+        ]
+      },
+      {
+        "default": "var(--_agent-ui-panel-radius)",
+        "selectors": [
+          ".a2ui-surface .a2ui-questioncard"
         ]
       }
     ]
@@ -1160,10 +1178,13 @@
     "property": "gap",
     "usages": [
       {
-        "default": ".5rem",
+        "default": "0.5rem",
         "selectors": [
-          ".a2ui-questioncard fieldset",
-          ".a2ui-questioncard label"
+          ".a2ui-surface .a2ui-questioncard",
+          ".a2ui-questioncard .a2ui-question-header",
+          ".a2ui-questioncard .a2ui-question-option",
+          ".a2ui-questioncard .a2ui-question-actions",
+          ".a2ui-questioncard .a2ui-question-other"
         ]
       }
     ]
@@ -1172,9 +1193,9 @@
     "property": "opacity",
     "usages": [
       {
-        "default": ".7",
+        "default": "1",
         "selectors": [
-          ".a2ui-questioncard small"
+          ".a2ui-questioncard .a2ui-question-content small"
         ]
       }
     ]
@@ -1183,9 +1204,9 @@
     "property": "margin-inline-end",
     "usages": [
       {
-        "default": ".5rem",
+        "default": "0.5rem",
         "selectors": [
-          ".a2ui-questioncard button, .a2ui-approvalcard button"
+          ".a2ui-approvalcard button"
         ]
       }
     ]
@@ -1194,9 +1215,9 @@
     "property": "min-height",
     "usages": [
       {
-        "default": "4rem",
+        "default": "1.75rem",
         "selectors": [
-          ".a2ui-questioncard textarea"
+          ".a2ui-questioncard .a2ui-question-answer"
         ]
       }
     ]
@@ -1284,6 +1305,9 @@
       {
         "default": "8px",
         "selectors": [
+          ".a2ui-surface .a2ui-select",
+          ".a2ui-surface .a2ui-inputgroup",
+          ".a2ui-surface :is( .a2ui-field, .a2ui-textarea, .a2ui-inputotp, .a2ui-item, .a2ui-sidebar, .a2ui-attachment, .a2ui-command, .a2ui-combobox )",
           ".a2ui-surface\n  :is(\n    .a2ui-textfield,\n    .a2ui-numberfield,\n    .a2ui-select,\n    .a2ui-datetimeinput,\n    .a2ui-slider\n  )"
         ]
       },
@@ -1976,7 +2000,8 @@
       {
         "default": "var(--color-on-surface, #1c1b1b)",
         "selectors": [
-          "A2UI color fallback"
+          "A2UI color fallback",
+          ".a2ui-questioncard .a2ui-question-answer"
         ]
       }
     ]
@@ -2020,7 +2045,8 @@
       {
         "default": "var(--color-elevated-surface, #fff)",
         "selectors": [
-          "A2UI color fallback"
+          "A2UI color fallback",
+          ".a2ui-surface .a2ui-questioncard"
         ]
       }
     ]
@@ -2043,6 +2069,12 @@
         "default": "var(--color-primary, #000)",
         "selectors": [
           "A2UI color fallback"
+        ]
+      },
+      {
+        "default": "var(--color-primary, #2563eb)",
+        "selectors": [
+          ".a2ui-questioncard .a2ui-question-option:focus-within, .a2ui-questioncard button:focus-visible"
         ]
       }
     ]
@@ -2202,6 +2234,8 @@
       {
         "default": "var(--color-on-surface-variant, #626267)",
         "selectors": [
+          ".a2ui-surface .a2ui-inputgroup > :is(.a2ui-inputgroup-prefix, .a2ui-inputgroup-suffix)",
+          ".a2ui-surface .a2ui-breadcrumb li:not(:last-child)::after",
           ".a2ui-surface :is(.a2ui-field small, .a2ui-item p, .a2ui-attachment small)"
         ]
       },
@@ -2247,6 +2281,8 @@
       {
         "default": "var(--color-error, #ba1a1a)",
         "selectors": [
+          ".a2ui-surface .a2ui-toast[data-variant=\"error\"]",
+          ".a2ui-surface .a2ui-field [role=\"alert\"]",
           "A2UI color fallback"
         ]
       },
@@ -2326,6 +2362,11 @@
       {
         "default": "6px",
         "selectors": [
+          ".a2ui-surface .a2ui-inputgroup:not(:has(.a2ui-inputgroup-suffix)) input",
+          ".a2ui-surface .a2ui-inputgroup:not(:has(.a2ui-inputgroup-prefix)) input",
+          ".a2ui-surface .a2ui-inputgroup > .a2ui-inputgroup-suffix",
+          ".a2ui-surface .a2ui-inputgroup > .a2ui-inputgroup-prefix",
+          ".a2ui-surface :is(.a2ui-combobox, .a2ui-command) [role=\"listbox\"]",
           ".a2ui-surface .a2ui-inputgroup"
         ]
       },
@@ -2373,6 +2414,7 @@
       {
         "default": "14px",
         "selectors": [
+          ".a2ui-surface .a2ui-carousel",
           ".a2ui-surface .a2ui-messagescroller"
         ]
       },
@@ -2419,6 +2461,9 @@
       {
         "default": "10px",
         "selectors": [
+          ".a2ui-surface .a2ui-toast",
+          ".a2ui-surface :is(.a2ui-drawer, .a2ui-sheet, .a2ui-alertdialog) dialog",
+          ".a2ui-surface .a2ui-popup",
           ".a2ui-surface .a2ui-attachment"
         ]
       },
@@ -2674,6 +2719,7 @@
       {
         "default": "0.875rem",
         "selectors": [
+          ".a2ui-surface .a2ui-control-label, .a2ui-surface .a2ui-label",
           "packages/chat-theme/src/primitives.css"
         ]
       },
@@ -2757,6 +2803,8 @@
       {
         "default": "var(--color-primary, #18181b)",
         "selectors": [
+          ".a2ui-surface .a2ui-select [role=\"option\"][aria-selected=\"true\"]",
+          ".a2ui-surface .a2ui-calendar-body [data-selected=\"true\"]",
           ".a2ui-surface :is(.a2ui-toggle, .a2ui-togglegroup button)[aria-pressed=\"true\"], .a2ui-surface .a2ui-pagination [aria-current=\"page\"]"
         ]
       },
@@ -2780,6 +2828,8 @@
       {
         "default": "var(--color-on-primary, #fff)",
         "selectors": [
+          ".a2ui-surface .a2ui-select [role=\"option\"][aria-selected=\"true\"]",
+          ".a2ui-surface .a2ui-calendar-body [data-selected=\"true\"]",
           ".a2ui-surface :is(.a2ui-toggle, .a2ui-togglegroup button)[aria-pressed=\"true\"], .a2ui-surface .a2ui-pagination [aria-current=\"page\"]"
         ]
       },
@@ -2913,6 +2963,7 @@
       {
         "default": "12px",
         "selectors": [
+          ".a2ui-surface .a2ui-breadcrumb li:not(:last-child)::after",
           ".a2ui-surface :is(.a2ui-breadcrumb, .a2ui-navigationmenu) ol"
         ]
       },
@@ -2952,6 +3003,7 @@
       {
         "default": "0 10px",
         "selectors": [
+          ".a2ui-surface .a2ui-inputgroup > :is(.a2ui-inputgroup-prefix, .a2ui-inputgroup-suffix)",
           ".a2ui-surface .a2ui-inputgroup"
         ]
       },
@@ -2969,6 +3021,7 @@
       {
         "default": "1px solid var(--color-card-border, #e5e5e5)",
         "selectors": [
+          ".a2ui-surface .a2ui-inputgroup > :is(.a2ui-inputgroup-prefix, .a2ui-inputgroup-suffix)",
           ".a2ui-surface .a2ui-inputgroup"
         ]
       },
@@ -3195,6 +3248,7 @@
       {
         "default": "var(--color-on-surface, #1c1b1b)",
         "selectors": [
+          ".a2ui-surface :is(.a2ui-drawer, .a2ui-sheet, .a2ui-alertdialog) dialog",
           ".a2ui-surface .a2ui-popup"
         ]
       },
@@ -3212,6 +3266,7 @@
       {
         "default": "var(--color-elevated-surface, #fff)",
         "selectors": [
+          ".a2ui-surface :is(.a2ui-drawer, .a2ui-sheet, .a2ui-alertdialog) dialog",
           ".a2ui-surface .a2ui-popup"
         ]
       },
@@ -3229,6 +3284,7 @@
       {
         "default": "1px solid var(--color-card-border, #e5e5e5)",
         "selectors": [
+          ".a2ui-surface :is(.a2ui-drawer, .a2ui-sheet, .a2ui-alertdialog) dialog",
           ".a2ui-surface .a2ui-popup"
         ]
       },
@@ -3599,6 +3655,364 @@
         "default": "calc(100vw - 16px)",
         "selectors": [
           ".a2ui-surface .a2ui-select .a2ui-popup"
+        ]
+      }
+    ]
+  },
+  "--agent-ui-a2ui-questioncard-padding": {
+    "property": "padding",
+    "usages": [
+      {
+        "default": "var(--agent-ui-a2ui-interaction-card-padding, 0.75rem)",
+        "selectors": [
+          ".a2ui-surface .a2ui-questioncard"
+        ]
+      }
+    ]
+  },
+  "--agent-ui-a2ui-questioncard-background": {
+    "property": "background",
+    "usages": [
+      {
+        "default": "var(--agent-ui-a2ui-color-elevated-surface, var(--color-elevated-surface, #fff))",
+        "selectors": [
+          ".a2ui-surface .a2ui-questioncard"
+        ]
+      }
+    ]
+  },
+  "--agent-ui-a2ui-questioncard-intro-font-size": {
+    "property": "font-size",
+    "usages": [
+      {
+        "default": "0.8125rem",
+        "selectors": [
+          ".a2ui-questioncard .a2ui-question-intro"
+        ]
+      }
+    ]
+  },
+  "--agent-ui-a2ui-questioncard-text-line-height": {
+    "property": "line-height",
+    "usages": [
+      {
+        "default": "1.5",
+        "selectors": [
+          ".a2ui-questioncard .a2ui-question-intro",
+          ".a2ui-questioncard .a2ui-question-title",
+          ".a2ui-questioncard .a2ui-question-answer"
+        ]
+      }
+    ]
+  },
+  "--agent-ui-a2ui-questioncard-title-font-size": {
+    "property": "font-size",
+    "usages": [
+      {
+        "default": "0.8125rem",
+        "selectors": [
+          ".a2ui-questioncard .a2ui-question-title"
+        ]
+      }
+    ]
+  },
+  "--agent-ui-a2ui-questioncard-title-font-weight": {
+    "property": "font-weight",
+    "usages": [
+      {
+        "default": "600",
+        "selectors": [
+          ".a2ui-questioncard .a2ui-question-title"
+        ]
+      }
+    ]
+  },
+  "--agent-ui-a2ui-questioncard-navigation-gap": {
+    "property": "gap",
+    "usages": [
+      {
+        "default": "0.125rem",
+        "selectors": [
+          ".a2ui-questioncard .a2ui-question-navigation"
+        ]
+      }
+    ]
+  },
+  "--agent-ui-a2ui-questioncard-navigation-font-size": {
+    "property": "font-size",
+    "usages": [
+      {
+        "default": "0.6875rem",
+        "selectors": [
+          ".a2ui-questioncard .a2ui-question-navigation"
+        ]
+      }
+    ]
+  },
+  "--agent-ui-a2ui-questioncard-navigation-size": {
+    "property": "width",
+    "usages": [
+      {
+        "default": "1.5rem",
+        "selectors": [
+          ".a2ui-questioncard .a2ui-question-nav-button"
+        ]
+      }
+    ]
+  },
+  "--agent-ui-a2ui-questioncard-icon-size": {
+    "property": "width",
+    "usages": [
+      {
+        "default": "15px",
+        "selectors": [
+          ".a2ui-questioncard .a2ui-interaction-icon"
+        ]
+      }
+    ]
+  },
+  "--agent-ui-a2ui-questioncard-options-gap": {
+    "property": "gap",
+    "usages": [
+      {
+        "default": "0.125rem",
+        "selectors": [
+          ".a2ui-questioncard .a2ui-question-options"
+        ]
+      }
+    ]
+  },
+  "--agent-ui-a2ui-questioncard-option-padding": {
+    "property": "padding",
+    "usages": [
+      {
+        "default": "0.5rem 0.5625rem",
+        "selectors": [
+          ".a2ui-questioncard .a2ui-question-option"
+        ]
+      }
+    ]
+  },
+  "--agent-ui-a2ui-questioncard-option-border": {
+    "property": "border",
+    "usages": [
+      {
+        "default": "1px solid transparent",
+        "selectors": [
+          ".a2ui-questioncard .a2ui-question-option"
+        ]
+      }
+    ]
+  },
+  "--agent-ui-a2ui-questioncard-hover-background": {
+    "property": "background",
+    "usages": [
+      {
+        "default": "color-mix(in srgb, currentColor 5%, transparent)",
+        "selectors": [
+          ".a2ui-questioncard .a2ui-question-option:hover, .a2ui-questioncard button:hover:not(:disabled)"
+        ]
+      }
+    ]
+  },
+  "--agent-ui-a2ui-questioncard-selected-border-color": {
+    "property": "border-color",
+    "usages": [
+      {
+        "default": "var(--a2ui-border, #ddd)",
+        "selectors": [
+          ".a2ui-questioncard .a2ui-question-option[data-selected=\"true\"]"
+        ]
+      }
+    ]
+  },
+  "--agent-ui-a2ui-questioncard-selected-background": {
+    "property": "background",
+    "usages": [
+      {
+        "default": "color-mix(in srgb, currentColor 6%, transparent)",
+        "selectors": [
+          ".a2ui-questioncard .a2ui-question-option[data-selected=\"true\"]"
+        ]
+      }
+    ]
+  },
+  "--agent-ui-a2ui-control-focus-outline": {
+    "property": "outline",
+    "usages": [
+      {
+        "default": "2px solid var(--agent-ui-a2ui-color-primary, var(--color-primary, #2563eb))",
+        "selectors": [
+          ".a2ui-questioncard .a2ui-question-option:focus-within, .a2ui-questioncard button:focus-visible"
+        ]
+      }
+    ]
+  },
+  "--agent-ui-a2ui-control-focus-outline-offset": {
+    "property": "outline-offset",
+    "usages": [
+      {
+        "default": "2px",
+        "selectors": [
+          ".a2ui-questioncard .a2ui-question-option:focus-within, .a2ui-questioncard button:focus-visible"
+        ]
+      }
+    ]
+  },
+  "--agent-ui-a2ui-questioncard-content-gap": {
+    "property": "gap",
+    "usages": [
+      {
+        "default": "0.1rem",
+        "selectors": [
+          ".a2ui-questioncard .a2ui-question-content"
+        ]
+      }
+    ]
+  },
+  "--agent-ui-a2ui-questioncard-option-font-size": {
+    "property": "font-size",
+    "usages": [
+      {
+        "default": "0.875rem",
+        "selectors": [
+          ".a2ui-questioncard .a2ui-question-content strong"
+        ]
+      }
+    ]
+  },
+  "--agent-ui-a2ui-questioncard-option-font-weight": {
+    "property": "font-weight",
+    "usages": [
+      {
+        "default": "500",
+        "selectors": [
+          ".a2ui-questioncard .a2ui-question-content strong"
+        ]
+      }
+    ]
+  },
+  "--agent-ui-a2ui-questioncard-option-line-height": {
+    "property": "line-height",
+    "usages": [
+      {
+        "default": "1.4",
+        "selectors": [
+          ".a2ui-questioncard .a2ui-question-content strong",
+          ".a2ui-questioncard .a2ui-question-content small"
+        ]
+      }
+    ]
+  },
+  "--agent-ui-a2ui-questioncard-description-font-size": {
+    "property": "font-size",
+    "usages": [
+      {
+        "default": "0.75rem",
+        "selectors": [
+          ".a2ui-questioncard .a2ui-question-content small",
+          ".a2ui-questioncard .a2ui-question-answer",
+          ".a2ui-questioncard :is(.a2ui-question-confirm, .a2ui-question-skip)",
+          ".a2ui-questioncard .a2ui-interaction-status"
+        ]
+      }
+    ]
+  },
+  "--agent-ui-a2ui-questioncard-actions-border": {
+    "property": "border-block-start",
+    "usages": [
+      {
+        "default": "1px solid var(--a2ui-border, #ddd)",
+        "selectors": [
+          ".a2ui-questioncard .a2ui-question-actions"
+        ]
+      }
+    ]
+  },
+  "--agent-ui-a2ui-questioncard-answer-max-height": {
+    "property": "max-height",
+    "usages": [
+      {
+        "default": "7rem",
+        "selectors": [
+          ".a2ui-questioncard .a2ui-question-answer"
+        ]
+      }
+    ]
+  },
+  "--agent-ui-a2ui-questioncard-answer-padding": {
+    "property": "padding",
+    "usages": [
+      {
+        "default": "0.35rem 0",
+        "selectors": [
+          ".a2ui-questioncard .a2ui-question-answer"
+        ]
+      }
+    ]
+  },
+  "--agent-ui-a2ui-questioncard-answer-border": {
+    "property": "border",
+    "usages": [
+      {
+        "default": "0",
+        "selectors": [
+          ".a2ui-questioncard .a2ui-question-answer"
+        ]
+      }
+    ]
+  },
+  "--agent-ui-a2ui-questioncard-action-border": {
+    "property": "border",
+    "usages": [
+      {
+        "default": "1px solid var(--a2ui-border, #ddd)",
+        "selectors": [
+          ".a2ui-questioncard :is(.a2ui-question-confirm, .a2ui-question-skip)"
+        ]
+      }
+    ]
+  },
+  "--agent-ui-a2ui-questioncard-action-padding": {
+    "property": "padding",
+    "usages": [
+      {
+        "default": "0.3rem 0.6rem",
+        "selectors": [
+          ".a2ui-questioncard :is(.a2ui-question-confirm, .a2ui-question-skip)"
+        ]
+      }
+    ]
+  },
+  "--agent-ui-a2ui-questioncard-confirm-background": {
+    "property": "border-color",
+    "usages": [
+      {
+        "default": "var(--color-on-surface, #18181b)",
+        "selectors": [
+          ".a2ui-questioncard .a2ui-question-confirm, .a2ui-questioncard .a2ui-question-confirm:hover:not(:disabled)"
+        ]
+      }
+    ]
+  },
+  "--agent-ui-a2ui-questioncard-confirm-foreground": {
+    "property": "color",
+    "usages": [
+      {
+        "default": "var(--color-surface, #fff)",
+        "selectors": [
+          ".a2ui-questioncard .a2ui-question-confirm, .a2ui-questioncard .a2ui-question-confirm:hover:not(:disabled)"
+        ]
+      }
+    ]
+  },
+  "--agent-ui-a2ui-questioncard-disabled-opacity": {
+    "property": "opacity",
+    "usages": [
+      {
+        "default": "0.5",
+        "selectors": [
+          ".a2ui-questioncard button:disabled, .a2ui-questioncard[data-status]:not([data-status=\"Pending\"]) .a2ui-question-option"
         ]
       }
     ]

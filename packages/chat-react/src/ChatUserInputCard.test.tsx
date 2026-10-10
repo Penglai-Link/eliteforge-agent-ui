@@ -49,7 +49,7 @@ describe("ChatUserInputCard", () => {
     fireEvent.click(screen.getByRole("button", { name: "Next" }));
 
     expect(screen.getByText("Question 2 of 2")).toBeTruthy();
-    expect(screen.getByRole("group", {name:"What is the scope?"}).querySelector("legend")?.textContent).toBe("What is the scope?");
+    expect(screen.getByRole("group", {name:"What is the scope?"})).toBeTruthy();
     expect((screen.getByRole("button", { name: "Back" }) as HTMLButtonElement).disabled).toBe(false);
 
     fireEvent.click(screen.getByRole("button", { name: "Back" }));

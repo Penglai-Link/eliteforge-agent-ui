@@ -6,6 +6,12 @@ React / Vue 共用同一套变量。将变量设置在 `.a2ui-surface` 或其祖
 
 不同状态可有不同回退值，同一公开变量覆盖所有列出的用途。0、100%、布局方向、SVG 数据坐标等结构值不作为主题变量。
 
+## AskUser 组合卡片
+
+`QuestionCard` 由客户端固定组合，原生问答与 Agent Catalog 共用样式。卡片内边距默认 `0.75rem`；选项标题和说明保持左对齐；底部输入默认单行高度，可输入多行内容。Agent 只提供语义内容，宿主通过 `--agent-ui-a2ui-questioncard-*` 变量调整外观。
+
+根挂点为 `data-theme-part="a2ui-questioncard"`。子区域挂点使用 `a2ui-question-` 前缀：`intro`、`header`、`title`、`navigation`、`nav-button`、`options`、`option`、`index`、`radio`、`content`、`arrow`、`actions`、`other`、`answer`、`confirm`、`skip`。选项用 `data-selected="true"` 表示选中，根节点的 `data-status` 表示生命周期状态。
+
 ## 示例
 
 ```css
@@ -95,8 +101,8 @@ React / Vue 共用同一套变量。将变量设置在 `.a2ui-surface` 或其祖
 | `--agent-ui-a2ui-color-accent` | `var(--color-accent, #2f5f9f)` | `A2UI color fallback` |
 | `--agent-ui-a2ui-color-accent-container` | `var(--color-accent-container, #dbe7f7)` | `A2UI color fallback` |
 | `--agent-ui-a2ui-color-card-border` | `var(--color-card-border, #e5e5e5)` | `A2UI color fallback` |
-| `--agent-ui-a2ui-color-elevated-surface` | `var(--color-elevated-surface, #fff)` | `A2UI color fallback` |
-| `--agent-ui-a2ui-color-error` | `var(--color-error, #ba1a1a)` | `A2UI color fallback; .a2ui-surface .a2ui-field [role="alert"]; .a2ui-surface .a2ui-toast[data-variant="error"]` |
+| `--agent-ui-a2ui-color-elevated-surface` | `var(--color-elevated-surface, #fff)` | `A2UI color fallback; .a2ui-surface .a2ui-questioncard` |
+| `--agent-ui-a2ui-color-error` | `var(--color-error, #ba1a1a)` | `.a2ui-surface .a2ui-toast[data-variant="error"]; .a2ui-surface .a2ui-field [role="alert"]; A2UI color fallback` |
 | `--agent-ui-a2ui-color-error-container` | `var(--color-error-container, #ffdad6)` | `A2UI color fallback` |
 | `--agent-ui-a2ui-color-focus-ring` | `var(--color-focus-ring, #2f5f9f)` | `A2UI color fallback` |
 | `--agent-ui-a2ui-color-hover-surface` | `var(--color-hover-surface, #f2f2f7)` | `A2UI color fallback` |
@@ -104,12 +110,12 @@ React / Vue 共用同一套变量。将变量设置在 `.a2ui-surface` 或其祖
 | `--agent-ui-a2ui-color-on-error-container` | `var(--color-on-error-container, #93000a)` | `A2UI color fallback` |
 | `--agent-ui-a2ui-color-on-primary` | `var(--color-on-primary, #fff)` | `A2UI color fallback` |
 | `--agent-ui-a2ui-color-on-success-container` | `var(--color-on-success-container, #253927)` | `A2UI color fallback` |
-| `--agent-ui-a2ui-color-on-surface` | `var(--color-on-surface, #1c1b1b)` | `A2UI color fallback` |
-| `--agent-ui-a2ui-color-on-surface-variant` | `var(--color-on-surface-variant, #444) / var(--color-on-surface-variant, #626267)` | `A2UI color fallback; .a2ui-surface :is(.a2ui-field small, .a2ui-item p, .a2ui-attachment small); .a2ui-surface .a2ui-breadcrumb li:not(:last-child)::after; .a2ui-surface .a2ui-inputgroup > :is(.a2ui-inputgroup-prefix, .a2ui-inputgroup-suffix)` |
+| `--agent-ui-a2ui-color-on-surface` | `var(--color-on-surface, #1c1b1b)` | `A2UI color fallback; .a2ui-questioncard .a2ui-question-answer` |
+| `--agent-ui-a2ui-color-on-surface-variant` | `var(--color-on-surface-variant, #444) / var(--color-on-surface-variant, #626267)` | `A2UI color fallback; .a2ui-surface .a2ui-inputgroup > :is(.a2ui-inputgroup-prefix, .a2ui-inputgroup-suffix); .a2ui-surface .a2ui-breadcrumb li:not(:last-child)::after; .a2ui-surface :is(.a2ui-field small, .a2ui-item p, .a2ui-attachment small)` |
 | `--agent-ui-a2ui-color-on-warning-container` | `var(--color-on-warning-container, #3f2f0b)` | `A2UI color fallback` |
 | `--agent-ui-a2ui-color-outline` | `var(--color-outline, #747878)` | `A2UI color fallback` |
 | `--agent-ui-a2ui-color-outline-variant` | `var(--color-outline-variant, #c4c7c7)` | `A2UI color fallback` |
-| `--agent-ui-a2ui-color-primary` | `var(--color-primary, #000)` | `A2UI color fallback` |
+| `--agent-ui-a2ui-color-primary` | `var(--color-primary, #000) / var(--color-primary, #2563eb)` | `A2UI color fallback; .a2ui-questioncard .a2ui-question-option:focus-within, .a2ui-questioncard button:focus-visible` |
 | `--agent-ui-a2ui-color-success` | `var(--color-success, #28744c) / var(--color-success, #4f6f52)` | `A2UI color fallback; .a2ui-surface .a2ui-toast[data-variant="success"]` |
 | `--agent-ui-a2ui-color-success-container` | `var(--color-success-container, #e4efe5)` | `A2UI color fallback` |
 | `--agent-ui-a2ui-color-surface-container` | `var(--color-surface-container, #f1edec)` | `A2UI color fallback` |
@@ -118,9 +124,10 @@ React / Vue 共用同一套变量。将变量设置在 `.a2ui-surface` 或其祖
 | `--agent-ui-a2ui-color-surface-container-lowest` | `var(--color-surface-container-lowest, #fff)` | `A2UI color fallback` |
 | `--agent-ui-a2ui-color-warning-container` | `var(--color-warning-container, #f4e8c8)` | `A2UI color fallback` |
 | `--agent-ui-a2ui-control-border` | `1px solid var(--color-outline-variant, #c4c7c7)` | `.a2ui-surface input:not([type="checkbox"]):not([type="radio"]), .a2ui-surface textarea` |
+| `--agent-ui-a2ui-control-focus-outline` | `2px solid var(--agent-ui-a2ui-color-primary, var(--color-primary, #2563eb))` | `.a2ui-questioncard .a2ui-question-option:focus-within, .a2ui-questioncard button:focus-visible` |
+| `--agent-ui-a2ui-control-focus-outline-offset` | `2px` | `.a2ui-questioncard .a2ui-question-option:focus-within, .a2ui-questioncard button:focus-visible` |
 | `--agent-ui-a2ui-control-min-height` | `5rem` | `.a2ui-surface textarea` |
-| `--agent-ui-a2ui-control-outline` | `2px solid
-    color-mix(in srgb, var(--color-focus-ring, #2f5f9f) 35%, transparent)` | `.a2ui-surface :is(input, textarea, select):focus-visible` |
+| `--agent-ui-a2ui-control-outline` | `2px solid color-mix(in srgb, var(--color-focus-ring, #2f5f9f) 35%, transparent)` | `.a2ui-surface :is(input, textarea, select):focus-visible` |
 | `--agent-ui-a2ui-control-outline-offset` | `2px` | `.a2ui-surface :is(input, textarea, select):focus-visible` |
 | `--agent-ui-a2ui-control-padding` | `4px var(--_agent-ui-control-padding)` | `.a2ui-surface input:not([type="checkbox"]):not([type="radio"]), .a2ui-surface textarea` |
 | `--agent-ui-a2ui-control-padding-block` | `See source fallback` | `packages/a2ui-core/defaults.css` |
@@ -140,7 +147,7 @@ React / Vue 共用同一套变量。将变量设置在 `.a2ui-surface` 或其祖
 | `--agent-ui-a2ui-divider-width` | `1px` | `.a2ui-divider[aria-orientation="vertical"]` |
 | `--agent-ui-a2ui-emptystate-padding` | `32px 16px` | `.a2ui-emptystate` |
 | `--agent-ui-a2ui-field-font-weight` | `500` | `.a2ui-surface :is( .a2ui-textfield, .a2ui-numberfield, .a2ui-select, .a2ui-datetimeinput, .a2ui-slider )` |
-| `--agent-ui-a2ui-field-gap` | `8px` | `.a2ui-surface :is( .a2ui-textfield, .a2ui-numberfield, .a2ui-select, .a2ui-datetimeinput, .a2ui-slider ); .a2ui-surface :is( .a2ui-field, .a2ui-textarea, .a2ui-inputotp, .a2ui-item, .a2ui-sidebar, .a2ui-attachment, .a2ui-command, .a2ui-combobox ); .a2ui-surface .a2ui-inputgroup; .a2ui-surface .a2ui-select` |
+| `--agent-ui-a2ui-field-gap` | `8px` | `.a2ui-surface .a2ui-select; .a2ui-surface .a2ui-inputgroup; .a2ui-surface :is( .a2ui-field, .a2ui-textarea, .a2ui-inputotp, .a2ui-item, .a2ui-sidebar, .a2ui-attachment, .a2ui-command, .a2ui-combobox ); .a2ui-surface :is( .a2ui-textfield, .a2ui-numberfield, .a2ui-select, .a2ui-datetimeinput, .a2ui-slider )` |
 | `--agent-ui-a2ui-group-gap` | `8px` | `.a2ui-surface :is( .a2ui-buttongroup, .a2ui-togglegroup, .a2ui-pagination, .a2ui-datatable nav, .a2ui-carousel > div:last-child, .a2ui-inputgroup )` |
 | `--agent-ui-a2ui-heading-1-font-size` | `1.5rem` | `.a2ui-surface h1` |
 | `--agent-ui-a2ui-heading-2-font-size` | `1.125rem` | `.a2ui-surface h2` |
@@ -160,13 +167,13 @@ React / Vue 共用同一套变量。将变量设置在 `.a2ui-surface` 或其祖
 | `--agent-ui-a2ui-image-mediumfeature-max-width` | `320px` | `.a2ui-image[data-variant="mediumFeature"]` |
 | `--agent-ui-a2ui-image-smallfeature-max-width` | `160px` | `.a2ui-image[data-variant="smallFeature"]` |
 | `--agent-ui-a2ui-inputgroup-addon-background` | `var(--color-surface-container, #f4f4f5)` | `.a2ui-surface .a2ui-inputgroup > :is(.a2ui-inputgroup-prefix, .a2ui-inputgroup-suffix)` |
-| `--agent-ui-a2ui-inputgroup-border` | `1px solid var(--color-card-border, #e5e5e5)` | `.a2ui-surface .a2ui-inputgroup; .a2ui-surface .a2ui-inputgroup > :is(.a2ui-inputgroup-prefix, .a2ui-inputgroup-suffix)` |
-| `--agent-ui-a2ui-inputgroup-padding` | `0 10px` | `.a2ui-surface .a2ui-inputgroup; .a2ui-surface .a2ui-inputgroup > :is(.a2ui-inputgroup-prefix, .a2ui-inputgroup-suffix)` |
-| `--agent-ui-a2ui-interaction-card-border` | `1px solid var(--ef-border, #ddd)` | `.a2ui-questioncard, .a2ui-approvalcard` |
-| `--agent-ui-a2ui-interaction-card-border-radius` | `.75rem` | `.a2ui-questioncard, .a2ui-approvalcard` |
-| `--agent-ui-a2ui-interaction-card-gap` | `.75rem` | `.a2ui-questioncard, .a2ui-approvalcard` |
-| `--agent-ui-a2ui-interaction-card-margin-inline-end` | `.5rem` | `.a2ui-questioncard button, .a2ui-approvalcard button` |
-| `--agent-ui-a2ui-interaction-card-padding` | `1rem / .4rem .7rem` | `.a2ui-questioncard, .a2ui-approvalcard; .a2ui-questioncard button, .a2ui-approvalcard button` |
+| `--agent-ui-a2ui-inputgroup-border` | `1px solid var(--color-card-border, #e5e5e5)` | `.a2ui-surface .a2ui-inputgroup > :is(.a2ui-inputgroup-prefix, .a2ui-inputgroup-suffix); .a2ui-surface .a2ui-inputgroup` |
+| `--agent-ui-a2ui-inputgroup-padding` | `0 10px` | `.a2ui-surface .a2ui-inputgroup > :is(.a2ui-inputgroup-prefix, .a2ui-inputgroup-suffix); .a2ui-surface .a2ui-inputgroup` |
+| `--agent-ui-a2ui-interaction-card-border` | `1px solid var(--ef-border, #ddd) / 1px solid var(--a2ui-border, #ddd)` | `.a2ui-approvalcard; .a2ui-surface .a2ui-questioncard` |
+| `--agent-ui-a2ui-interaction-card-border-radius` | `0.75rem / var(--_agent-ui-panel-radius)` | `.a2ui-approvalcard; .a2ui-surface .a2ui-questioncard` |
+| `--agent-ui-a2ui-interaction-card-gap` | `0.75rem` | `.a2ui-approvalcard` |
+| `--agent-ui-a2ui-interaction-card-margin-inline-end` | `0.5rem` | `.a2ui-approvalcard button` |
+| `--agent-ui-a2ui-interaction-card-padding` | `1rem / 0.4rem 0.7rem / 0.75rem` | `.a2ui-approvalcard; .a2ui-approvalcard button; .a2ui-surface .a2ui-questioncard` |
 | `--agent-ui-a2ui-kbd-background` | `var(--color-surface-container-low, #f7f3f2)` | `.a2ui-surface .a2ui-kbd` |
 | `--agent-ui-a2ui-kbd-border` | `1px solid var(--color-card-border, #e5e5e5)` | `.a2ui-surface .a2ui-kbd` |
 | `--agent-ui-a2ui-kbd-font` | `12px ui-monospace, monospace` | `.a2ui-surface .a2ui-kbd` |
@@ -202,7 +209,7 @@ React / Vue 共用同一套变量。将变量设置在 `.a2ui-surface` 或其祖
 | `--agent-ui-a2ui-modal-close-padding` | `4px 8px` | `.a2ui-surface .a2ui-modal dialog > button` |
 | `--agent-ui-a2ui-modal-max-height` | `85vh` | `.a2ui-modal dialog` |
 | `--agent-ui-a2ui-modal-width` | `min(560px, calc(100% - 32px))` | `.a2ui-modal dialog` |
-| `--agent-ui-a2ui-navigation-gap` | `12px` | `.a2ui-surface :is(.a2ui-breadcrumb, .a2ui-navigationmenu) ol; .a2ui-surface .a2ui-breadcrumb li:not(:last-child)::after` |
+| `--agent-ui-a2ui-navigation-gap` | `12px` | `.a2ui-surface .a2ui-breadcrumb li:not(:last-child)::after; .a2ui-surface :is(.a2ui-breadcrumb, .a2ui-navigationmenu) ol` |
 | `--agent-ui-a2ui-navigation-link-color` | `var(--color-accent, #2f5f9f)` | `.a2ui-surface :is(.a2ui-breadcrumb, .a2ui-navigationmenu) a` |
 | `--agent-ui-a2ui-option-active-background` | `var(--color-hover-surface, #f2f2f7)` | `.a2ui-surface :is(.a2ui-combobox, .a2ui-command) [role="option"]:is([data-active="true"], [aria-selected="true"])` |
 | `--agent-ui-a2ui-option-padding` | `8px 10px` | `.a2ui-surface :is(.a2ui-combobox, .a2ui-command) [role="option"]` |
@@ -210,9 +217,9 @@ React / Vue 共用同一套变量。将变量设置在 `.a2ui-surface` 或其祖
 | `--agent-ui-a2ui-otp-font` | `ui-monospace, monospace` | `.a2ui-surface .a2ui-inputotp input` |
 | `--agent-ui-a2ui-otp-letter-spacing` | `0.7em` | `.a2ui-surface .a2ui-inputotp input` |
 | `--agent-ui-a2ui-otp-width` | `100%` | `.a2ui-surface .a2ui-inputotp input` |
-| `--agent-ui-a2ui-popup-background` | `var(--color-elevated-surface, #fff)` | `.a2ui-surface .a2ui-popup; .a2ui-surface :is(.a2ui-drawer, .a2ui-sheet, .a2ui-alertdialog) dialog` |
-| `--agent-ui-a2ui-popup-border` | `1px solid var(--color-card-border, #e5e5e5)` | `.a2ui-surface .a2ui-popup; .a2ui-surface :is(.a2ui-drawer, .a2ui-sheet, .a2ui-alertdialog) dialog` |
-| `--agent-ui-a2ui-popup-foreground` | `var(--color-on-surface, #1c1b1b)` | `.a2ui-surface .a2ui-popup; .a2ui-surface :is(.a2ui-drawer, .a2ui-sheet, .a2ui-alertdialog) dialog` |
+| `--agent-ui-a2ui-popup-background` | `var(--color-elevated-surface, #fff)` | `.a2ui-surface :is(.a2ui-drawer, .a2ui-sheet, .a2ui-alertdialog) dialog; .a2ui-surface .a2ui-popup` |
+| `--agent-ui-a2ui-popup-border` | `1px solid var(--color-card-border, #e5e5e5)` | `.a2ui-surface :is(.a2ui-drawer, .a2ui-sheet, .a2ui-alertdialog) dialog; .a2ui-surface .a2ui-popup` |
+| `--agent-ui-a2ui-popup-foreground` | `var(--color-on-surface, #1c1b1b)` | `.a2ui-surface :is(.a2ui-drawer, .a2ui-sheet, .a2ui-alertdialog) dialog; .a2ui-surface .a2ui-popup` |
 | `--agent-ui-a2ui-popup-max-height` | `70vh` | `.a2ui-surface .a2ui-popup` |
 | `--agent-ui-a2ui-popup-max-width` | `min(360px, calc(100vw - 32px))` | `.a2ui-surface .a2ui-popup` |
 | `--agent-ui-a2ui-popup-padding` | `12px` | `.a2ui-surface .a2ui-popup` |
@@ -221,9 +228,39 @@ React / Vue 共用同一套变量。将变量设置在 `.a2ui-surface` 或其祖
 | `--agent-ui-a2ui-progress-border-radius` | `99px` | `.a2ui-surface .a2ui-progress progress; .a2ui-surface .a2ui-progress progress::-webkit-progress-value; .a2ui-surface .a2ui-progress progress::-moz-progress-bar` |
 | `--agent-ui-a2ui-progress-gap` | `6px` | `.a2ui-progress` |
 | `--agent-ui-a2ui-progress-height` | `7px` | `.a2ui-surface .a2ui-progress progress` |
-| `--agent-ui-a2ui-questioncard-gap` | `.5rem` | `.a2ui-questioncard fieldset; .a2ui-questioncard label` |
-| `--agent-ui-a2ui-questioncard-min-height` | `4rem` | `.a2ui-questioncard textarea` |
-| `--agent-ui-a2ui-questioncard-unit-opacity` | `.7` | `.a2ui-questioncard small` |
+| `--agent-ui-a2ui-questioncard-action-border` | `1px solid var(--a2ui-border, #ddd)` | `.a2ui-questioncard :is(.a2ui-question-confirm, .a2ui-question-skip)` |
+| `--agent-ui-a2ui-questioncard-action-padding` | `0.3rem 0.6rem` | `.a2ui-questioncard :is(.a2ui-question-confirm, .a2ui-question-skip)` |
+| `--agent-ui-a2ui-questioncard-actions-border` | `1px solid var(--a2ui-border, #ddd)` | `.a2ui-questioncard .a2ui-question-actions` |
+| `--agent-ui-a2ui-questioncard-answer-border` | `0` | `.a2ui-questioncard .a2ui-question-answer` |
+| `--agent-ui-a2ui-questioncard-answer-max-height` | `7rem` | `.a2ui-questioncard .a2ui-question-answer` |
+| `--agent-ui-a2ui-questioncard-answer-padding` | `0.35rem 0` | `.a2ui-questioncard .a2ui-question-answer` |
+| `--agent-ui-a2ui-questioncard-background` | `var(--agent-ui-a2ui-color-elevated-surface, var(--color-elevated-surface, #fff))` | `.a2ui-surface .a2ui-questioncard` |
+| `--agent-ui-a2ui-questioncard-confirm-background` | `var(--color-on-surface, #18181b)` | `.a2ui-questioncard .a2ui-question-confirm, .a2ui-questioncard .a2ui-question-confirm:hover:not(:disabled)` |
+| `--agent-ui-a2ui-questioncard-confirm-foreground` | `var(--color-surface, #fff)` | `.a2ui-questioncard .a2ui-question-confirm, .a2ui-questioncard .a2ui-question-confirm:hover:not(:disabled)` |
+| `--agent-ui-a2ui-questioncard-content-gap` | `0.1rem` | `.a2ui-questioncard .a2ui-question-content` |
+| `--agent-ui-a2ui-questioncard-description-font-size` | `0.75rem` | `.a2ui-questioncard .a2ui-question-content small; .a2ui-questioncard .a2ui-question-answer; .a2ui-questioncard :is(.a2ui-question-confirm, .a2ui-question-skip); .a2ui-questioncard .a2ui-interaction-status` |
+| `--agent-ui-a2ui-questioncard-disabled-opacity` | `0.5` | `.a2ui-questioncard button:disabled, .a2ui-questioncard[data-status]:not([data-status="Pending"]) .a2ui-question-option` |
+| `--agent-ui-a2ui-questioncard-gap` | `0.5rem` | `.a2ui-surface .a2ui-questioncard; .a2ui-questioncard .a2ui-question-header; .a2ui-questioncard .a2ui-question-option; .a2ui-questioncard .a2ui-question-actions; .a2ui-questioncard .a2ui-question-other` |
+| `--agent-ui-a2ui-questioncard-hover-background` | `color-mix(in srgb, currentColor 5%, transparent)` | `.a2ui-questioncard .a2ui-question-option:hover, .a2ui-questioncard button:hover:not(:disabled)` |
+| `--agent-ui-a2ui-questioncard-icon-size` | `15px` | `.a2ui-questioncard .a2ui-interaction-icon` |
+| `--agent-ui-a2ui-questioncard-intro-font-size` | `0.8125rem` | `.a2ui-questioncard .a2ui-question-intro` |
+| `--agent-ui-a2ui-questioncard-min-height` | `1.75rem` | `.a2ui-questioncard .a2ui-question-answer` |
+| `--agent-ui-a2ui-questioncard-navigation-font-size` | `0.6875rem` | `.a2ui-questioncard .a2ui-question-navigation` |
+| `--agent-ui-a2ui-questioncard-navigation-gap` | `0.125rem` | `.a2ui-questioncard .a2ui-question-navigation` |
+| `--agent-ui-a2ui-questioncard-navigation-size` | `1.5rem` | `.a2ui-questioncard .a2ui-question-nav-button` |
+| `--agent-ui-a2ui-questioncard-option-border` | `1px solid transparent` | `.a2ui-questioncard .a2ui-question-option` |
+| `--agent-ui-a2ui-questioncard-option-font-size` | `0.875rem` | `.a2ui-questioncard .a2ui-question-content strong` |
+| `--agent-ui-a2ui-questioncard-option-font-weight` | `500` | `.a2ui-questioncard .a2ui-question-content strong` |
+| `--agent-ui-a2ui-questioncard-option-line-height` | `1.4` | `.a2ui-questioncard .a2ui-question-content strong; .a2ui-questioncard .a2ui-question-content small` |
+| `--agent-ui-a2ui-questioncard-option-padding` | `0.5rem 0.5625rem` | `.a2ui-questioncard .a2ui-question-option` |
+| `--agent-ui-a2ui-questioncard-options-gap` | `0.125rem` | `.a2ui-questioncard .a2ui-question-options` |
+| `--agent-ui-a2ui-questioncard-padding` | `var(--agent-ui-a2ui-interaction-card-padding, 0.75rem)` | `.a2ui-surface .a2ui-questioncard` |
+| `--agent-ui-a2ui-questioncard-selected-background` | `color-mix(in srgb, currentColor 6%, transparent)` | `.a2ui-questioncard .a2ui-question-option[data-selected="true"]` |
+| `--agent-ui-a2ui-questioncard-selected-border-color` | `var(--a2ui-border, #ddd)` | `.a2ui-questioncard .a2ui-question-option[data-selected="true"]` |
+| `--agent-ui-a2ui-questioncard-text-line-height` | `1.5` | `.a2ui-questioncard .a2ui-question-intro; .a2ui-questioncard .a2ui-question-title; .a2ui-questioncard .a2ui-question-answer` |
+| `--agent-ui-a2ui-questioncard-title-font-size` | `0.8125rem` | `.a2ui-questioncard .a2ui-question-title` |
+| `--agent-ui-a2ui-questioncard-title-font-weight` | `600` | `.a2ui-questioncard .a2ui-question-title` |
+| `--agent-ui-a2ui-questioncard-unit-opacity` | `1` | `.a2ui-questioncard .a2ui-question-content small` |
 | `--agent-ui-a2ui-resize-border` | `1px solid var(--color-card-border, #e5e5e5)` | `.a2ui-surface .a2ui-resizable` |
 | `--agent-ui-a2ui-resize-handle-background` | `var(--color-surface-container, #f1edec)` | `.a2ui-surface .a2ui-resizable [role="separator"]` |
 | `--agent-ui-a2ui-resize-handle-width` | `8px` | `.a2ui-surface .a2ui-resizable` |
@@ -234,8 +271,8 @@ React / Vue 共用同一套变量。将变量设置在 `.a2ui-surface` 或其祖
 | `--agent-ui-a2ui-select-border` | `1px solid var(--color-outline-variant, #ccc)` | `.a2ui-select select` |
 | `--agent-ui-a2ui-select-gap` | `6px` | `.a2ui-numberfield, .a2ui-select` |
 | `--agent-ui-a2ui-select-padding` | `4px var(--_agent-ui-control-padding)` | `.a2ui-select select` |
-| `--agent-ui-a2ui-selection-background` | `var(--color-primary, #18181b)` | `.a2ui-surface :is(.a2ui-toggle, .a2ui-togglegroup button)[aria-pressed="true"], .a2ui-surface .a2ui-pagination [aria-current="page"]; .a2ui-surface .a2ui-calendar-body [data-selected="true"]; .a2ui-surface .a2ui-select [role="option"][aria-selected="true"]` |
-| `--agent-ui-a2ui-selection-foreground` | `var(--color-on-primary, #fff)` | `.a2ui-surface :is(.a2ui-toggle, .a2ui-togglegroup button)[aria-pressed="true"], .a2ui-surface .a2ui-pagination [aria-current="page"]; .a2ui-surface .a2ui-calendar-body [data-selected="true"]; .a2ui-surface .a2ui-select [role="option"][aria-selected="true"]` |
+| `--agent-ui-a2ui-selection-background` | `var(--color-primary, #18181b)` | `.a2ui-surface .a2ui-select [role="option"][aria-selected="true"]; .a2ui-surface .a2ui-calendar-body [data-selected="true"]; .a2ui-surface :is(.a2ui-toggle, .a2ui-togglegroup button)[aria-pressed="true"], .a2ui-surface .a2ui-pagination [aria-current="page"]` |
+| `--agent-ui-a2ui-selection-foreground` | `var(--color-on-primary, #fff)` | `.a2ui-surface .a2ui-select [role="option"][aria-selected="true"]; .a2ui-surface .a2ui-calendar-body [data-selected="true"]; .a2ui-surface :is(.a2ui-toggle, .a2ui-togglegroup button)[aria-pressed="true"], .a2ui-surface .a2ui-pagination [aria-current="page"]` |
 | `--agent-ui-a2ui-sheet-width` | `360px` | `.a2ui-surface :is(.a2ui-drawer, .a2ui-sheet) dialog` |
 | `--agent-ui-a2ui-skeleton-animation` | `a2ui-pulse 1.5s ease-in-out infinite` | `.a2ui-skeleton > div` |
 | `--agent-ui-a2ui-skeleton-border-radius` | `6px` | `.a2ui-skeleton > div` |
@@ -307,14 +344,14 @@ React / Vue 共用同一套变量。将变量设置在 `.a2ui-surface` 或其祖
 | `--agent-ui-a2ui-toast-shadow` | `0 4px 16px rgb(0 0 0 / 0.08)` | `.a2ui-surface .a2ui-toast` |
 | `--agent-ui-a2ui-tooltip-font-size` | `0.8125rem` | `.a2ui-surface .a2ui-tooltip .a2ui-popup` |
 | `--agent-ui-a2ui-trend-font-size` | `0.8125rem` | `.a2ui-surface .a2ui-trend` |
-| `--agent-ui-control-font-size` | `0.875rem` | `packages/chat-theme/src/primitives.css; .a2ui-surface .a2ui-control-label, .a2ui-surface .a2ui-label` |
+| `--agent-ui-control-font-size` | `0.875rem` | `.a2ui-surface .a2ui-control-label, .a2ui-surface .a2ui-label; packages/chat-theme/src/primitives.css` |
 | `--agent-ui-control-height` | `2rem` | `packages/chat-theme/src/primitives.css` |
 | `--agent-ui-control-padding` | `0.625rem` | `packages/chat-theme/src/primitives.css` |
-| `--agent-ui-control-radius` | `4px / 6px` | `packages/chat-theme/src/primitives.css; .a2ui-surface .a2ui-inputgroup; .a2ui-surface :is(.a2ui-combobox, .a2ui-command) [role="listbox"]; .a2ui-surface .a2ui-inputgroup > .a2ui-inputgroup-prefix; .a2ui-surface .a2ui-inputgroup > .a2ui-inputgroup-suffix; .a2ui-surface .a2ui-inputgroup:not(:has(.a2ui-inputgroup-prefix)) input; .a2ui-surface .a2ui-inputgroup:not(:has(.a2ui-inputgroup-suffix)) input` |
+| `--agent-ui-control-radius` | `4px / 6px` | `packages/chat-theme/src/primitives.css; .a2ui-surface .a2ui-inputgroup:not(:has(.a2ui-inputgroup-suffix)) input; .a2ui-surface .a2ui-inputgroup:not(:has(.a2ui-inputgroup-prefix)) input; .a2ui-surface .a2ui-inputgroup > .a2ui-inputgroup-suffix; .a2ui-surface .a2ui-inputgroup > .a2ui-inputgroup-prefix; .a2ui-surface :is(.a2ui-combobox, .a2ui-command) [role="listbox"]; .a2ui-surface .a2ui-inputgroup` |
 | `--agent-ui-font` | `var(--agent-ui-skin-font, var(--font-sans, Inter, sans-serif))` | `packages/chat-theme/src/primitives.css` |
-| `--agent-ui-gap` | `0.75rem / 14px` | `packages/chat-theme/src/primitives.css; .a2ui-surface .a2ui-messagescroller; .a2ui-surface .a2ui-carousel` |
+| `--agent-ui-gap` | `0.75rem / 14px` | `packages/chat-theme/src/primitives.css; .a2ui-surface .a2ui-carousel; .a2ui-surface .a2ui-messagescroller` |
 | `--agent-ui-panel-padding` | `1rem / 20px / 24px` | `packages/chat-theme/src/primitives.css; .a2ui-surface :is(.a2ui-drawer, .a2ui-sheet, .a2ui-alertdialog) dialog; .a2ui-surface .a2ui-modal dialog` |
-| `--agent-ui-panel-radius` | `8px / 10px / 12px` | `packages/chat-theme/src/primitives.css; .a2ui-surface .a2ui-attachment; .a2ui-surface .a2ui-popup; .a2ui-surface :is(.a2ui-drawer, .a2ui-sheet, .a2ui-alertdialog) dialog; .a2ui-surface .a2ui-toast; .a2ui-surface .a2ui-modal dialog` |
+| `--agent-ui-panel-radius` | `8px / 10px / 12px` | `packages/chat-theme/src/primitives.css; .a2ui-surface .a2ui-toast; .a2ui-surface :is(.a2ui-drawer, .a2ui-sheet, .a2ui-alertdialog) dialog; .a2ui-surface .a2ui-popup; .a2ui-surface .a2ui-attachment; .a2ui-surface .a2ui-modal dialog` |
 | `--agent-ui-skin-font` | `var(--font-sans, Inter, sans-serif)` | `packages/chat-theme/src/primitives.css` |
 | `--agent-ui-system-font-size` | `See source fallback` | `packages/a2ui-core/components.css` |
 | `--agent-ui-transition-duration` | `120ms` | `packages/chat-theme/src/primitives.css` |
