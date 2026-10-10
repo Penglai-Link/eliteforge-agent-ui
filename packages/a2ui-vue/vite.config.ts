@@ -17,6 +17,7 @@ export default defineConfig({
     },
     rollupOptions: {
       external: [
+          "@eliteforge/agent-ui-motion-vue",
         "react",
         "react/jsx-runtime",
         "vue",

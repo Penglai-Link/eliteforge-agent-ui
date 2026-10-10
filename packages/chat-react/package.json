@@ -33,7 +33,8 @@
     "react-markdown": "^10.1.0",
     "remark-gfm": "^4.0.1",
     "@eliteforge/agent-ui-a2ui-react": "0.1.0",
-    "@eliteforge/agent-ui-a2ui-core": "0.1.0"
+    "@eliteforge/agent-ui-a2ui-core": "0.1.0",
+    "@eliteforge/agent-ui-motion-react": "0.1.0"
   },
   "peerDependencies": {
     "react": "^19.2.5",

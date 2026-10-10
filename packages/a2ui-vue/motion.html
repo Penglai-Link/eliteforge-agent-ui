@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <meta charset="UTF-8" /><meta
+    name="viewport"
+    content="width=device-width, initial-scale=1"
+  />
+  <link rel="icon" href="data:," />
+  <title>统一动效 · Vue</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 32px 20px;
+      background: var(--color-background, #fafafa);
+      color: var(--color-on-surface, #202020);
+      font: 14px/1.5 system-ui;
+    }
+    main {
+      max-width: 760px;
+      margin: auto;
+    }
+    h1 {
+      font-size: 24px;
+    }
+    .motion-controls {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 16px;
+      margin: 24px 0;
+    }
+    label {
+      display: grid;
+      gap: 4px;
+    }
+    input,
+    select,
+    button {
+      font: inherit;
+      padding: 6px 10px;
+    }
+    button {
+      cursor: pointer;
+    }
+    .motion-sample {
+      padding: 20px;
+      margin: 20px 0;
+      border: 1px solid var(--color-card-border, #ddd);
+      border-radius: 8px;
+    }
+  </style>
+  <div id="app"></div>
+  <script type="module" src="/motion-demo.ts"></script>
+</html>

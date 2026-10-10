@@ -157,6 +157,8 @@ export function renderCommon(
             "div",
             {
               role: "tabpanel",
+              "data-agent-motion": "fade",
+              "data-agent-motion-key": selected,
               id: `${prefix}-panel-${selected}`,
               "aria-labelledby": `${prefix}-tab-${selected}`,
               tabIndex: 0,
@@ -284,6 +286,8 @@ export function renderCommon(
                     role: "region",
                     "aria-labelledby": prefix + "-trigger",
                     hidden: !open,
+                    "data-agent-motion": "enter",
+                    "data-agent-motion-key": String(open),
                   },
                   [render(item.child)]
                 ),
@@ -312,7 +316,7 @@ export function renderCommon(
                 setView({ open });
             },
           },
-          [h("summary", {}, [text(resolve(c.title))]), ...children]
+          [h("summary", {}, [text(resolve(c.title))]), h("div", { "data-agent-motion": "enter", "data-agent-motion-key": String(view.open ?? c.defaultOpen ?? false), "data-agent-motion-disabled": !(view.open ?? c.defaultOpen ?? false) }, children)]
         )
       );
     case "NumberField":

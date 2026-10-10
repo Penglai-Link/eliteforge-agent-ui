@@ -543,7 +543,7 @@ export function renderShadcn(
                 update({ open: e.currentTarget.open });
             },
           },
-          [h("summary", {}, [label]), ...children]
+          [h("summary", {}, [label]), h("div", { "data-agent-motion": "enter", "data-agent-motion-key": String(view.open ?? c.defaultOpen ?? false), "data-agent-motion-disabled": !(view.open ?? c.defaultOpen ?? false) }, children)]
         )
       );
     case "Calendar":

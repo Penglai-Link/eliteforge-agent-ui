@@ -12,6 +12,9 @@ packages/
 ├── chat-react/   # React 聊天运行时、面板和悬浮窗口
 ├── chat-vue/     # Vue 3 对应组件
 ├── chat-theme/   # 可复用、可覆盖的聊天主题
+├── motion-core/  # 共用动效配置、主题变量和播放策略
+├── motion-react/ # React Provider、效果接口和默认实现
+├── motion-vue/   # Vue 对应接口与实现
 └── terminal/     # xterm 终端、命令块、AI 交互和传输接口
 ```
 
@@ -34,13 +37,17 @@ npm run dev --workspace @eliteforge/agent-ui-terminal
 
 React/Vue 演示使用 chat-core 的模拟 adapter，可创建会话、发送消息并查看 AG-UI 活动；terminal 演示使用内存中的模拟 Shell 和 AI transport，不会访问外部服务。详细接入步骤见[接入指南](docs/integration-guide.md)，各组件 README 提供对应 API 说明。
 
+## 统一动效
+
+Chat 和 A2UI 共用 `MotionProvider`、`AgentMotion` 和 `MotionConfig`，支持主题变量、系统减弱动画偏好、宿主动效开关及效果适配。接入与 Bits 适配约定见 [统一动效接入](docs/motion.md)。
+
 ## 开发技能
 
 - [eliteforge-agent-ui-theme](skills/eliteforge-agent-ui-theme/SKILL.md)：维护聊天组件的主题令牌、挂点和 React/Vue 样式一致性。
 
 ## 发布
 
-五个包使用 `@eliteforge/agent-ui-*` 命名空间，包级 `publishConfig` 指向内部 npm registry。发布前需要配置 npm 凭据；当前仅准备发布配置，不执行发布。
+各包使用 `@eliteforge/agent-ui-*` 命名空间，包级 `publishConfig` 指向内部 npm registry。发布前需要配置 npm 凭据；当前仅准备发布配置，不执行发布。
 
 ## 独立 A2UI 客户端
 

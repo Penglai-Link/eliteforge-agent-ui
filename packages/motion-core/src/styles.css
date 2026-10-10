@@ -1,0 +1,11 @@
+/* Scoped policy: never reset host animations outside a MotionProvider. */
+[data-agent-motion-policy="off"] *,
+[data-agent-motion-policy="off"] *::before,
+[data-agent-motion-policy="off"] *::after,
+[data-agent-motion-policy="reduced"] *,
+[data-agent-motion-policy="reduced"] *::before,
+[data-agent-motion-policy="reduced"] *::after {
+  animation: none !important;
+  transition-duration: 0s !important;
+  scroll-behavior: auto !important;
+}

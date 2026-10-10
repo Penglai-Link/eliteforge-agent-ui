@@ -943,7 +943,7 @@
     "property": "animation",
     "usages": [
       {
-        "default": "a2ui-spin 1s linear infinite",
+        "default": "a2ui-spin var(--agent-ui-motion-spin-duration, 1s) linear infinite",
         "selectors": [
           ".a2ui-spinner-ring"
         ]
@@ -987,7 +987,7 @@
     "property": "animation",
     "usages": [
       {
-        "default": "a2ui-pulse 1.5s ease-in-out infinite",
+        "default": "a2ui-pulse var(--agent-ui-motion-pulse-duration, 1.5s) var(--agent-ui-motion-pulse-easing, ease-in-out) infinite",
         "selectors": [
           ".a2ui-skeleton > div"
         ]
@@ -4001,6 +4001,204 @@
         "default": "0.5",
         "selectors": [
           ".a2ui-questioncard button:disabled, .a2ui-questioncard[data-status]:not([data-status=\"Pending\"]) .a2ui-question-option"
+        ]
+      }
+    ]
+  },
+  "--agent-ui-motion-duration": {
+    "property": "motion",
+    "usages": [
+      {
+        "default": "180ms",
+        "selectors": [
+          "[data-agent-motion] / MotionProvider"
+        ]
+      }
+    ]
+  },
+  "--agent-ui-motion-delay": {
+    "property": "motion",
+    "usages": [
+      {
+        "default": "0ms",
+        "selectors": [
+          "[data-agent-motion] / MotionProvider"
+        ]
+      }
+    ]
+  },
+  "--agent-ui-motion-distance": {
+    "property": "motion",
+    "usages": [
+      {
+        "default": "8px",
+        "selectors": [
+          "[data-agent-motion] / MotionProvider"
+        ]
+      }
+    ]
+  },
+  "--agent-ui-motion-intensity": {
+    "property": "motion",
+    "usages": [
+      {
+        "default": "1",
+        "selectors": [
+          "[data-agent-motion] / MotionProvider"
+        ]
+      }
+    ]
+  },
+  "--agent-ui-motion-easing": {
+    "property": "motion",
+    "usages": [
+      {
+        "default": "ease-out",
+        "selectors": [
+          "[data-agent-motion] / MotionProvider"
+        ]
+      }
+    ]
+  },
+  "--agent-ui-motion-transition-duration": {
+    "property": "motion",
+    "usages": [
+      {
+        "default": "var(--agent-ui-transition-duration, 120ms)",
+        "selectors": [
+          "[data-agent-motion] / MotionProvider"
+        ]
+      }
+    ]
+  },
+  "--agent-ui-motion-spin-duration": {
+    "property": "motion",
+    "usages": [
+      {
+        "default": "1s",
+        "selectors": [
+          "[data-agent-motion] / MotionProvider"
+        ]
+      }
+    ]
+  },
+  "--agent-ui-motion-pulse-duration": {
+    "property": "motion",
+    "usages": [
+      {
+        "default": "A2UI 1.5s; Chat 1.6s",
+        "selectors": [
+          "[data-agent-motion] / MotionProvider"
+        ]
+      }
+    ]
+  },
+  "--agent-ui-motion-pulse-easing": {
+    "property": "motion",
+    "usages": [
+      {
+        "default": "ease-in-out",
+        "selectors": [
+          "[data-agent-motion] / MotionProvider"
+        ]
+      }
+    ]
+  },
+  "--agent-ui-motion-enter-duration": {
+    "property": "motion",
+    "usages": [
+      {
+        "default": "var(--agent-ui-motion-duration, 180ms)",
+        "selectors": [
+          "[data-agent-motion] / MotionProvider"
+        ]
+      }
+    ]
+  },
+  "--agent-ui-motion-enter-delay": {
+    "property": "motion",
+    "usages": [
+      {
+        "default": "var(--agent-ui-motion-delay, 0ms)",
+        "selectors": [
+          "[data-agent-motion] / MotionProvider"
+        ]
+      }
+    ]
+  },
+  "--agent-ui-motion-enter-distance": {
+    "property": "motion",
+    "usages": [
+      {
+        "default": "var(--agent-ui-motion-distance, 8px)",
+        "selectors": [
+          "[data-agent-motion] / MotionProvider"
+        ]
+      }
+    ]
+  },
+  "--agent-ui-motion-enter-intensity": {
+    "property": "motion",
+    "usages": [
+      {
+        "default": "var(--agent-ui-motion-intensity, 1)",
+        "selectors": [
+          "[data-agent-motion] / MotionProvider"
+        ]
+      }
+    ]
+  },
+  "--agent-ui-motion-enter-easing": {
+    "property": "motion",
+    "usages": [
+      {
+        "default": "var(--agent-ui-motion-easing, ease-out)",
+        "selectors": [
+          "[data-agent-motion] / MotionProvider"
+        ]
+      }
+    ]
+  },
+  "--agent-ui-motion-fade-duration": {
+    "property": "motion",
+    "usages": [
+      {
+        "default": "var(--agent-ui-motion-duration, 180ms)",
+        "selectors": [
+          "[data-agent-motion] / MotionProvider"
+        ]
+      }
+    ]
+  },
+  "--agent-ui-motion-fade-delay": {
+    "property": "motion",
+    "usages": [
+      {
+        "default": "var(--agent-ui-motion-delay, 0ms)",
+        "selectors": [
+          "[data-agent-motion] / MotionProvider"
+        ]
+      }
+    ]
+  },
+  "--agent-ui-motion-fade-intensity": {
+    "property": "motion",
+    "usages": [
+      {
+        "default": "var(--agent-ui-motion-intensity, 1)",
+        "selectors": [
+          "[data-agent-motion] / MotionProvider"
+        ]
+      }
+    ]
+  },
+  "--agent-ui-motion-fade-easing": {
+    "property": "motion",
+    "usages": [
+      {
+        "default": "var(--agent-ui-motion-easing, ease-out)",
+        "selectors": [
+          "[data-agent-motion] / MotionProvider"
         ]
       }
     ]

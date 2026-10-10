@@ -12,6 +12,10 @@ React / Vue 共用同一套变量。将变量设置在 `.a2ui-surface` 或其祖
 
 根挂点为 `data-theme-part="a2ui-questioncard"`。子区域挂点使用 `a2ui-question-` 前缀：`intro`、`header`、`title`、`navigation`、`nav-button`、`options`、`option`、`index`、`radio`、`content`、`arrow`、`actions`、`other`、`answer`、`confirm`、`skip`。选项用 `data-selected="true"` 表示选中，根节点的 `data-status` 表示生命周期状态。
 
+## 共用动效
+
+出现动画、加载周期和控件过渡共用 `--agent-ui-motion-*` 变量，完整配置见 [统一动效接入](motion.md)。原有 Spinner / Skeleton 动画变量仍可覆盖整体动画。
+
 ## 示例
 
 ```css
@@ -29,6 +33,24 @@ React / Vue 共用同一套变量。将变量设置在 `.a2ui-surface` 或其祖
 
 | 变量 | 默认回退 | 作用 |
 | --- | --- | --- |
+| `--agent-ui-motion-duration` | `180ms` | 出现效果时长 |
+| `--agent-ui-motion-delay` | `0ms` | 出现效果延迟 |
+| `--agent-ui-motion-distance` | `8px` | enter 垂直位移 |
+| `--agent-ui-motion-intensity` | `1` | 位移强度 |
+| `--agent-ui-motion-easing` | `ease-out` | 出现效果缓动 |
+| `--agent-ui-motion-transition-duration` | `var(--agent-ui-transition-duration, 120ms)` | 共用控件过渡时长 |
+| `--agent-ui-motion-spin-duration` | `1s` | A2UI Spinner 周期 |
+| `--agent-ui-motion-pulse-duration` | `A2UI 1.5s; Chat 1.6s` | 加载脉冲周期 |
+| `--agent-ui-motion-pulse-easing` | `ease-in-out` | 加载脉冲缓动 |
+| `--agent-ui-motion-enter-duration` | `var(--agent-ui-motion-duration, 180ms)` | enter 专用出现效果时长 |
+| `--agent-ui-motion-enter-delay` | `var(--agent-ui-motion-delay, 0ms)` | enter 专用出现效果延迟 |
+| `--agent-ui-motion-enter-distance` | `var(--agent-ui-motion-distance, 8px)` | enter 专用enter 垂直位移 |
+| `--agent-ui-motion-enter-intensity` | `var(--agent-ui-motion-intensity, 1)` | enter 专用位移强度 |
+| `--agent-ui-motion-enter-easing` | `var(--agent-ui-motion-easing, ease-out)` | enter 专用出现效果缓动 |
+| `--agent-ui-motion-fade-duration` | `var(--agent-ui-motion-duration, 180ms)` | fade 专用出现效果时长 |
+| `--agent-ui-motion-fade-delay` | `var(--agent-ui-motion-delay, 0ms)` | fade 专用出现效果延迟 |
+| `--agent-ui-motion-fade-intensity` | `var(--agent-ui-motion-intensity, 1)` | fade 专用位移强度 |
+| `--agent-ui-motion-fade-easing` | `var(--agent-ui-motion-easing, ease-out)` | fade 专用出现效果缓动 |
 | `--agent-ui-a2ui-accordion-border` | `1px solid var(--color-outline-variant, #ccc)` | `.a2ui-accordion` |
 | `--agent-ui-a2ui-accordion-box-shadow` | `0 1px 2px rgb(0 0 0 / 0.025)` | `.a2ui-surface :is(.a2ui-card, .a2ui-accordion)` |
 | `--agent-ui-a2ui-accordion-content-padding` | `12px` | `.a2ui-surface .a2ui-accordion [role="region"]` |
@@ -273,7 +295,7 @@ React / Vue 共用同一套变量。将变量设置在 `.a2ui-surface` 或其祖
 | `--agent-ui-a2ui-selection-background` | `var(--color-primary, #18181b)` | `.a2ui-surface .a2ui-select [role="option"][aria-selected="true"]; .a2ui-surface .a2ui-calendar-body [data-selected="true"]; .a2ui-surface :is(.a2ui-toggle, .a2ui-togglegroup button)[aria-pressed="true"], .a2ui-surface .a2ui-pagination [aria-current="page"]` |
 | `--agent-ui-a2ui-selection-foreground` | `var(--color-on-primary, #fff)` | `.a2ui-surface .a2ui-select [role="option"][aria-selected="true"]; .a2ui-surface .a2ui-calendar-body [data-selected="true"]; .a2ui-surface :is(.a2ui-toggle, .a2ui-togglegroup button)[aria-pressed="true"], .a2ui-surface .a2ui-pagination [aria-current="page"]` |
 | `--agent-ui-a2ui-sheet-width` | `360px` | `.a2ui-surface :is(.a2ui-drawer, .a2ui-sheet) dialog` |
-| `--agent-ui-a2ui-skeleton-animation` | `a2ui-pulse 1.5s ease-in-out infinite` | `.a2ui-skeleton > div` |
+| `--agent-ui-a2ui-skeleton-animation` | `a2ui-pulse var(--agent-ui-motion-pulse-duration, 1.5s) var(--agent-ui-motion-pulse-easing, ease-in-out) infinite` | `.a2ui-skeleton > div` |
 | `--agent-ui-a2ui-skeleton-border-radius` | `6px` | `.a2ui-skeleton > div` |
 | `--agent-ui-a2ui-skeleton-gap` | `10px` | `.a2ui-skeleton` |
 | `--agent-ui-a2ui-skeleton-height` | `16px` | `.a2ui-skeleton > div` |
@@ -291,7 +313,7 @@ React / Vue 共用同一套变量。将变量设置在 `.a2ui-surface` 或其祖
 | `--agent-ui-a2ui-sparkline-max-height` | `90px` | `.a2ui-sparkline svg` |
 | `--agent-ui-a2ui-sparkline-point-radius` | `2.5` | `packages/a2ui-core/src/statistics-components.ts` |
 | `--agent-ui-a2ui-spinner-gap` | `8px` | `.a2ui-spinner` |
-| `--agent-ui-a2ui-spinner-ring-animation` | `a2ui-spin 1s linear infinite` | `.a2ui-spinner-ring` |
+| `--agent-ui-a2ui-spinner-ring-animation` | `a2ui-spin var(--agent-ui-motion-spin-duration, 1s) linear infinite` | `.a2ui-spinner-ring` |
 | `--agent-ui-a2ui-spinner-ring-border` | `2px solid var(--color-outline-variant, #ccc)` | `.a2ui-spinner-ring` |
 | `--agent-ui-a2ui-spinner-ring-border-radius` | `50%` | `.a2ui-spinner-ring` |
 | `--agent-ui-a2ui-spinner-ring-height` | `20px` | `.a2ui-spinner-ring` |

@@ -9,7 +9,7 @@
   --_agent-ui-control-padding: var(--agent-ui-control-padding, 0.625rem);
   --_agent-ui-gap: var(--agent-ui-gap, 0.75rem);
   --_agent-ui-panel-padding: var(--agent-ui-panel-padding, 1rem);
-  --_agent-ui-duration: var(--agent-ui-transition-duration, 120ms);
+  --_agent-ui-duration: var(--agent-ui-motion-transition-duration, var(--agent-ui-transition-duration, 120ms));
   font-family: var(--_agent-ui-font);
 }
 :where(.ef-chat, .ef-chat-window, .a2ui-surface),

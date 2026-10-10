@@ -20,7 +20,7 @@ export function renderInteraction(ctx: RenderContext, h: Element, props: Record<
     const intro = String(resolve(c.intro) ?? "");
     if (c.component === "ApprovalCard") {
         const decision = resolve(c.value);
-        return { handled: true, node: h("section", { ...props, "aria-label": label("ariaLabel", "Approval"), "data-status": expired ? "Expired" : status }, [
+        return { handled: true, node: h("section", { ...props, "data-agent-motion": "enter", "data-agent-motion-key": JSON.stringify([surfaceId, c.id, scope]), "data-agent-motion-disabled": disabled, "aria-label": label("ariaLabel", "Approval"), "data-status": expired ? "Expired" : status }, [
                 intro ? h("p", {}, [intro]) : null,
                 c.details ? h("pre", {}, [JSON.stringify(c.details, null, 2)]) : null,
                 h("div", { role: "group", "aria-label": label("ariaLabel", "Approval") }, [
@@ -74,8 +74,8 @@ export function renderInteraction(ctx: RenderContext, h: Element, props: Record<
     const other = (event: any) => update({ questionId: q.questionId, answerKind: "Other", optionId: null, otherText: event.target.value });
     const showConfirm = !disabled && complete(answer) && (questions.length === 1 || answer?.answerKind === "Other");
     const progress = label("progress." + (index + 1), "Question " + (index + 1) + " of " + questions.length);
-    return { handled: true, node: h("section", { ...props, ref: (element: HTMLElement | null) => { region = element; }, "aria-label": label("ariaLabel", "Assistant questions"), "data-status": expired ? "Expired" : status }, [
-            h("fieldset", { ...part("options"), "aria-label": q.question }, [
+    return { handled: true, node: h("section", { ...props, "data-agent-motion": "enter", "data-agent-motion-key": JSON.stringify([surfaceId, c.id, scope]), "data-agent-motion-disabled": disabled, ref: (element: HTMLElement | null) => { region = element; }, "aria-label": label("ariaLabel", "Assistant questions"), "data-status": expired ? "Expired" : status }, [
+            h("fieldset", { ...part("options"), "data-agent-motion": "fade", "data-agent-motion-key": q.questionId, "data-agent-motion-disabled": disabled, "aria-label": q.question }, [
                 h("legend", { ...part("header"), tabIndex: -1 }, [
                     h("span", part("title"), [q.question]),
                     h("span", { ...part("navigation"), role: "navigation", "aria-label": progress }, [

@@ -38,6 +38,24 @@ const request: ChatUserInputRequest = {
 };
 
 describe("ChatUserInputCard", () => {
+  it("uses shared motion without replaying or replacing form nodes on answer updates", () => {
+    const cancel = vi.fn();
+    const animate = vi.fn(() => ({ cancel }));
+    Object.defineProperty(HTMLElement.prototype, "animate", { value: animate, configurable: true });
+    try {
+      const result = render(<ChatUserInputCard onSubmit={vi.fn()} request={request} />);
+      const fieldset = result.container.querySelector('[data-agent-motion="fade"]');
+      expect(result.container.querySelector('[data-agent-motion="enter"]')).toBeTruthy();
+      expect(animate).toHaveBeenCalledTimes(2);
+      fireEvent.click(screen.getByRole("radio", { name: /Option one/ }));
+      expect(animate).toHaveBeenCalledTimes(2);
+      expect(result.container.querySelector('[data-agent-motion="fade"]')).toBe(fieldset);
+      fireEvent.click(screen.getByRole("button", { name: "Next" }));
+      expect(animate).toHaveBeenCalledTimes(3);
+      expect(result.container.querySelector('[data-agent-motion="fade"]')).toBe(fieldset);
+    } finally { delete (HTMLElement.prototype as any).animate; }
+  });
+
   it("asks one question at a time and preserves answers when going back", () => {
     const onSubmit = vi.fn();
     render(<ChatUserInputCard onSubmit={onSubmit} request={request} />);

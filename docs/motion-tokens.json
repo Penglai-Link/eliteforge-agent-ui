@@ -1,0 +1,74 @@
+{
+  "--agent-ui-motion-duration": {
+    "default": "180ms",
+    "purpose": "出现效果时长"
+  },
+  "--agent-ui-motion-delay": {
+    "default": "0ms",
+    "purpose": "出现效果延迟"
+  },
+  "--agent-ui-motion-distance": {
+    "default": "8px",
+    "purpose": "enter 垂直位移"
+  },
+  "--agent-ui-motion-intensity": {
+    "default": "1",
+    "purpose": "位移强度"
+  },
+  "--agent-ui-motion-easing": {
+    "default": "ease-out",
+    "purpose": "出现效果缓动"
+  },
+  "--agent-ui-motion-transition-duration": {
+    "default": "var(--agent-ui-transition-duration, 120ms)",
+    "purpose": "共用控件过渡时长"
+  },
+  "--agent-ui-motion-spin-duration": {
+    "default": "1s",
+    "purpose": "A2UI Spinner 周期"
+  },
+  "--agent-ui-motion-pulse-duration": {
+    "default": "A2UI 1.5s; Chat 1.6s",
+    "purpose": "加载脉冲周期"
+  },
+  "--agent-ui-motion-pulse-easing": {
+    "default": "ease-in-out",
+    "purpose": "加载脉冲缓动"
+  },
+  "--agent-ui-motion-enter-duration": {
+    "default": "var(--agent-ui-motion-duration, 180ms)",
+    "purpose": "enter 专用出现效果时长"
+  },
+  "--agent-ui-motion-enter-delay": {
+    "default": "var(--agent-ui-motion-delay, 0ms)",
+    "purpose": "enter 专用出现效果延迟"
+  },
+  "--agent-ui-motion-enter-distance": {
+    "default": "var(--agent-ui-motion-distance, 8px)",
+    "purpose": "enter 专用enter 垂直位移"
+  },
+  "--agent-ui-motion-enter-intensity": {
+    "default": "var(--agent-ui-motion-intensity, 1)",
+    "purpose": "enter 专用位移强度"
+  },
+  "--agent-ui-motion-enter-easing": {
+    "default": "var(--agent-ui-motion-easing, ease-out)",
+    "purpose": "enter 专用出现效果缓动"
+  },
+  "--agent-ui-motion-fade-duration": {
+    "default": "var(--agent-ui-motion-duration, 180ms)",
+    "purpose": "fade 专用出现效果时长"
+  },
+  "--agent-ui-motion-fade-delay": {
+    "default": "var(--agent-ui-motion-delay, 0ms)",
+    "purpose": "fade 专用出现效果延迟"
+  },
+  "--agent-ui-motion-fade-intensity": {
+    "default": "var(--agent-ui-motion-intensity, 1)",
+    "purpose": "fade 专用位移强度"
+  },
+  "--agent-ui-motion-fade-easing": {
+    "default": "var(--agent-ui-motion-easing, ease-out)",
+    "purpose": "fade 专用出现效果缓动"
+  }
+}

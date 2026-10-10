@@ -512,7 +512,7 @@
   border-radius: var(--agent-ui-a2ui-spinner-ring-border-radius, 50%);
   animation: var(
     --agent-ui-a2ui-spinner-ring-animation,
-    a2ui-spin 1s linear infinite
+    a2ui-spin var(--agent-ui-motion-spin-duration, 1s) linear infinite
   );
 }
 .a2ui-skeleton {
@@ -529,7 +529,7 @@
   );
   animation: var(
     --agent-ui-a2ui-skeleton-animation,
-    a2ui-pulse 1.5s ease-in-out infinite
+    a2ui-pulse var(--agent-ui-motion-pulse-duration, 1.5s) var(--agent-ui-motion-pulse-easing, ease-in-out) infinite
   );
 }
 .a2ui-emptystate {

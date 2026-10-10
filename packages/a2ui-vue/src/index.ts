@@ -1,3 +1,4 @@
+import { AgentMotion } from "@eliteforge/agent-ui-motion-vue";
 import {
   defineComponent,
   h,
@@ -61,6 +62,15 @@ export const A2UISurface = defineComponent({
             strokeLinecap: "stroke-linecap",
             strokeLinejoin: "stroke-linejoin",
           };
+          if (attrs["data-agent-motion"]) {
+            const { ref, ...motionAttrs } = attrs;
+            return h(AgentMotion, {
+              ...motionAttrs, as: tag, preset: attrs["data-agent-motion"],
+              replayKey: attrs["data-agent-motion-key"],
+              disabled: Boolean(attrs["data-agent-motion-disabled"]) || Boolean(attrs.hidden),
+              elementRef: ref,
+            }, { default: () => children });
+          }
           return h(
             tag,
             Object.fromEntries(
@@ -78,3 +88,6 @@ export const A2UISurface = defineComponent({
     };
   },
 });
+
+export { MotionProvider, AgentMotion, useMotion } from "@eliteforge/agent-ui-motion-vue";
+export type { MotionConfig, MotionEffects, MotionPreset, ResolvedMotion } from "@eliteforge/agent-ui-motion-vue";

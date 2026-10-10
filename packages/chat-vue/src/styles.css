@@ -875,7 +875,7 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  animation: ef-chat-pulse 1.6s ease-in-out infinite;
+  animation: ef-chat-pulse var(--agent-ui-motion-pulse-duration, 1.6s) var(--agent-ui-motion-pulse-easing, ease-in-out) infinite;
 }
 
 .ef-chat__rail-current-subtext {
@@ -988,7 +988,7 @@
 }
 
 .ef-chat__rail-entry-summary--pending {
-  animation: ef-chat-pulse 1.6s ease-in-out infinite;
+  animation: ef-chat-pulse var(--agent-ui-motion-pulse-duration, 1.6s) var(--agent-ui-motion-pulse-easing, ease-in-out) infinite;
 }
 
 .ef-chat__rail-entry-chevron,
