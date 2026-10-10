@@ -1460,3 +1460,70 @@
   .ef-chat__user-input-question,
   .ef-chat__rail-current-text { animation: none; }
 }
+
+/* Chat uses a quiet transcript; only controls need a visible boundary. */
+.ef-chat__tool-row--standalone {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  padding: 3px 0;
+}
+.ef-chat__tool-badge--standalone { background: transparent; }
+.ef-chat__tool-status { background: transparent; border-radius: 0; padding: 0; font-weight: 400; }
+.ef-chat__user-input-card {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  padding: 0.75rem 0;
+}
+.ef-chat__a2ui { margin-top: 12px; font-size: 0.875rem; }
+.ef-chat__a2ui .a2ui-surface { font-size: inherit; line-height: 1.6; }
+.ef-chat__a2ui .a2ui-card {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  padding: 8px 0;
+}
+.ef-chat__a2ui .a2ui-card .a2ui-card { padding: 0; }
+.ef-chat__a2ui .a2ui-column { gap: 12px; }
+.ef-chat__a2ui .a2ui-button { background: transparent; }
+.ef-chat__a2ui .a2ui-button[data-variant="primary"] {
+  background: var(--color-on-surface, #202020);
+  color: var(--color-surface, #fff);
+}
+
+.ef-chat__a2ui .a2ui-questioncard,
+.ef-chat__a2ui .a2ui-approvalcard {
+  padding: 12px 0;
+  border: 0;
+  border-radius: 0;
+  gap: 16px;
+}
+.ef-chat__a2ui .a2ui-questioncard label {
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr);
+  align-items: start;
+  gap: 4px 8px;
+  padding: 6px 0;
+  cursor: pointer;
+}
+.ef-chat__a2ui .a2ui-questioncard label input { margin-top: 4px; }
+.ef-chat__a2ui .a2ui-questioncard label small { grid-column: 2; font-size: 0.8125rem; }
+.ef-chat__a2ui .a2ui-questioncard textarea { box-sizing: border-box; min-height: 64px; }
+
+.ef-chat__a2ui .a2ui-questioncard > p { margin: 0; }
+.ef-chat__a2ui .a2ui-questioncard label:has(textarea) { display: flex; flex-direction: column; gap: 8px; }
+.ef-chat__a2ui .a2ui-questioncard button,
+.ef-chat__a2ui .a2ui-approvalcard button {
+  font: inherit;
+  border: 1px solid var(--agent-ui-chat-border, #ddd);
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  padding: 6px 12px;
+  cursor: pointer;
+}
+.ef-chat__a2ui .a2ui-questioncard button:disabled,
+.ef-chat__a2ui .a2ui-approvalcard button:disabled { opacity: .4; cursor: default; }

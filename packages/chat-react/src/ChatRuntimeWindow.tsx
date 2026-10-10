@@ -1355,6 +1355,16 @@ export function ChatRuntimeWindow({
 
   async function handleAnswerUserInput(answers: ChatUserInputAnswer[]) {
     if (!session || !userInputRequest || !activeAdapter.answerUserInputRequestStream) return;
+    const submittedRequest = userInputRequest;
+    const submittedSessionId = session.sessionId;
+    const markAnswered = () => {
+      if (activeSessionCodeRef.current !== submittedSessionId) return;
+      if (submittedRequest.nativeInteraction) answeredNativeInteractionsRef.current.add(submittedRequest.requestId);
+      setUserInputAnswerPending(false);
+      setUserInputRequest(current => current?.requestId === submittedRequest.requestId ? null : current);
+      setUserInputRequests(current => current.map(request => request.requestId === submittedRequest.requestId
+        ? { ...request, answers, status: "Answered" as const } : request));
+    };
     const continuationAnchorMessageCode = [...messages]
       .reverse()
       .find((message) => message.role === "ASSISTANT")?.messageId ?? "";
@@ -1372,6 +1382,12 @@ export function ChatRuntimeWindow({
         {...nativeUserInputAnswer(userInputRequest, answers), ...(activeAdapter.loadA2uiState ? {clientCapabilities: {userInputRequests:true,a2ui:{version:"v0.9.1" as const,catalogIds:[AGENT_CATALOG_ID]}}, a2uiMetadata:a2uiSession.metadata(session.metadata?.agentId as string | undefined ?? "main-agent")} : {})},
         {
           onAguiEvent: (event) => {
+            if (activeSessionCodeRef.current !== submittedSessionId) return;
+            // A resumed run starts only after the backend accepts the answer.
+            if (event.type === "RUN_STARTED") {
+              markAnswered();
+              if (event.runId) { activeRunCodeRef.current = event.runId; setActiveRunCode(event.runId); }
+            }
             receiveA2ui(event);
             if (!aguiEnabled) return;
             setLiveAguiEvents((current) => [...current, event]);
@@ -1384,7 +1400,8 @@ export function ChatRuntimeWindow({
           },
         },
       );
-      if (userInputRequest.nativeInteraction) answeredNativeInteractionsRef.current.add(userInputRequest.requestId);
+      if (activeSessionCodeRef.current !== submittedSessionId) return;
+      markAnswered();
       presentationEpoch = acknowledgeCompletedTurn(result.session.sessionId, result.run.runId);
       setMessages((current) => mergeChatMessagesChronologically(current, result.messages));
       setSession(result.session);
@@ -1401,6 +1418,9 @@ export function ChatRuntimeWindow({
     } catch (error) {
       onError(error instanceof Error ? error.message : "Chat answer failed", "Chat answer failed");
     } finally {
+        if (activeSessionCodeRef.current !== submittedSessionId) return;
+        activeRunCodeRef.current = "";
+        setActiveRunCode("");
         setSendingState(false);
         setUserInputAnswerPending(false);
         setLiveAguiPending(false);

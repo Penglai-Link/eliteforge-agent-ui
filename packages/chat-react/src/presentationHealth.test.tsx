@@ -54,6 +54,7 @@ it("renders real native progress while argument END does not mark execution comp
  const events=[{type:"RUN_STARTED" as const,runId:"RUN",threadId:"SESSION",timestamp:time,metadata},{type:"TOOL_CALL_START" as const,runId:"RUN",threadId:"SESSION",toolCallId:"TOOL",toolCallName:"progress",timestamp:time,metadata},{type:"TOOL_CALL_END" as const,runId:"RUN",threadId:"SESSION",toolCallId:"TOOL",timestamp:time,metadata},{type:"ACTIVITY_SNAPSHOT" as const,runId:"RUN",threadId:"SESSION",messageId:"ACTIVITY",activityType:"tron.tool.progress",timestamp:time,content:{toolCallId:"TOOL",toolName:"progress",line:"live native progress"},metadata}];
  const rendered=render(<ChatPanel {...props} protocolEvents={events}/>);
  fireEvent.click(screen.getByRole("button",{name:"Executing"}));
+ fireEvent.click(screen.getByRole("button", {name:/Running progress/}));
  expect(screen.getByText("Running progress")).toBeTruthy();expect(screen.getByText("live native progress")).toBeTruthy();expect(screen.queryByText("Completed progress")).toBeNull();
  rendered.rerender(<ChatPanel {...props} protocolEvents={[...events,{type:"TOOL_CALL_RESULT",runId:"RUN",threadId:"SESSION",toolCallId:"TOOL",content:"actual result",timestamp:time+1,metadata}]}/>);
  expect(screen.getByText("Completed progress")).toBeTruthy();expect(screen.queryByText("Running progress")).toBeNull();

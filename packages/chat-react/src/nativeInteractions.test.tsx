@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import type { ChatAdapter, ChatAguiStreamEvent, ChatSession } from "@eliteforge/agent-ui-chat-core";
 import { ChatRuntimeWindow } from "./ChatRuntimeWindow";
@@ -22,4 +22,19 @@ it.each([true,false])("answers a replayed native approval as raw %s even when th
   await waitFor(()=>expect(answerRequest).toHaveBeenCalledWith(expect.objectContaining({sessionId:"SESSION"}),"SDK-APPROVAL",expect.anything(),expect.anything()));
   await waitFor(()=>expect(screen.queryByRole("button",{name:"Approve"})).toBeNull());
   expect(adapter.streamMessage).not.toHaveBeenCalled();
+});
+
+it("settles the answered approval while the resumed stream is still running", async () => {
+  const session: ChatSession = { id: 1, sessionId: "SESSION", title: "Approval", status: "ACTIVE", createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() };
+  const protocol: ChatAguiStreamEvent[] = [{type:"RUN_STARTED",runId:"RUN",threadId:"SESSION",timestamp:Date.now()-1000}, {type:"RUN_FINISHED",runId:"RUN",threadId:"SESSION",timestamp:Date.now()-999,outcome:{type:"interrupt",interrupts:[{id:"APPROVAL",reason:"approval_required",message:"Allow?",responseSchema:{type:"boolean"}}]}}];
+  let observer: Parameters<NonNullable<ChatAdapter["answerUserInputRequestStream"]>>[3] | undefined;
+  let finish!: (value: any) => void;
+  const answer = vi.fn((_s, _id, _input, handlers) => { observer = handlers; return new Promise<any>(resolve => { finish = resolve; }); });
+  const adapter: ChatAdapter = { capabilities: {supportsStreaming:true,supportsAgui:true,supportsProtocolReplay:true,supportsActiveRun:true,supportsUserInputRequests:true}, createSession:vi.fn(),deleteSession:vi.fn(),streamMessage:vi.fn(),loadMessages:vi.fn().mockResolvedValue([{id:1,messageId:"USER",sessionId:"SESSION",role:"USER",actor:"User",channel:"MAIN_AGENT",content:"Please perform the operation",createdAt:session.createdAt}]),loadAguiEvents:vi.fn().mockResolvedValue([]),getActiveRun:vi.fn().mockResolvedValue({sessionId:"SESSION",activeRun:null}),loadProtocolEvents:vi.fn().mockResolvedValue(protocol),loadUserInputRequests:vi.fn().mockResolvedValue([]),answerUserInputRequestStream:answer };
+  render(<ChatRuntimeWindow adapter={adapter} config={{floating:false}} initialSession={session} onError={vi.fn()}/>);
+  fireEvent.click(await screen.findByRole("button", {name:"Approve"}));
+  await waitFor(() => expect(answer).toHaveBeenCalled());
+  act(() => observer?.onAguiEvent?.({type:"RUN_STARTED",runId:"NEXT",threadId:"SESSION"}));
+  await waitFor(() => expect(screen.queryByRole("button",{name:"Approve"})).toBeNull());
+  await act(async () => finish({session,run:{runId:"NEXT",status:"COMPLETED",finalOutput:"",stepCount:1},messages:[],userInputRequest:null}));
 });

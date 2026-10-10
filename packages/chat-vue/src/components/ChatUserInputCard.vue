@@ -15,4 +15,4 @@ function submit(message: ActionMessage) {
   else emit("submit", Object.values(value ?? {}));
 }
 </script>
-<template><fieldset :disabled="disabled || request.status !== 'Pending' || Boolean(request.expiresAtMs && request.expiresAtMs <= Date.now())" style="border:0;margin:0;padding:0;min-width:0"><A2UISurface :client="client" :surface-id="request.a2uiInteraction?.surfaceId ?? `interaction:${request.requestId}`" :on-action="submit" /></fieldset></template>
+<template><fieldset class="ef-chat__a2ui" :disabled="disabled || request.status !== 'Pending' || Boolean(request.expiresAtMs && request.expiresAtMs <= Date.now())" style="border:0;margin:0;padding:0;min-width:0"><A2UISurface :client="client" :surface-id="request.a2uiInteraction?.surfaceId ?? `interaction:${request.requestId}`" :on-action="submit" /></fieldset></template>

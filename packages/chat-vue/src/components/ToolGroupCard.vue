@@ -19,7 +19,7 @@ const expanded = ref(false);
 watch(
   hasRunningTool,
   () => {
-    expanded.value = hasRunningTool.value;
+    if (!hasRunningTool.value) expanded.value = false;
   },
   { immediate: true },
 );

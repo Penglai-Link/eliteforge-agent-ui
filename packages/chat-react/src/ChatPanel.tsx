@@ -629,13 +629,12 @@ function ToolCard({
     ? (complete ? toolCopy.domainExpanded(toolName) : toolCopy.domainExpanding(toolName))
     : (complete ? toolCopy.completed(toolName) : toolCopy.running(toolName));
   const nestedToolLabel = toolLabel;
-  const [expanded, setExpanded] = useState(() => running);
+  const [expanded, setExpanded] = useState(false);
   const [parametersExpanded, setParametersExpanded] = useState(false);
   const logRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
-    if (running) setExpanded(true);
-    else if (complete) setExpanded(false);
+    if (complete) setExpanded(false);
   }, [complete, running]);
 
   useEffect(() => {
@@ -819,10 +818,10 @@ function ToolGroupCard({ card, labels = defaultWorkRailLabels }: { card: ToolGro
   const hasRunningTool = toolCards.some(
     (toolCard) => toolCard.started && !toolCard.ended && !toolCard.result,
   );
-  const [expanded, setExpanded] = useState(() => hasRunningTool);
+  const [expanded, setExpanded] = useState(false);
 
   useEffect(() => {
-    setExpanded(hasRunningTool);
+    if (!hasRunningTool) setExpanded(false);
   }, [hasRunningTool]);
 
   if (!toolCards.length) return null;

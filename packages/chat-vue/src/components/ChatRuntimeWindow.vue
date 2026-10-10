@@ -1305,6 +1305,14 @@ async function handleAnswerUserInput(answers: ChatUserInputAnswer[]) {
       {...nativeUserInputAnswer(request, answers), ...(adapter.loadA2uiState ? {clientCapabilities: {userInputRequests:true,a2ui:{version:"v0.9.1" as const,catalogIds:[AGENT_CATALOG_ID]}}, a2uiMetadata:a2uiSession.value.metadata(activeSession.metadata?.agentId as string | undefined ?? "main-agent")} : {})},
       {
         onAguiEvent: (event) => {
+          if (activeSessionCodeRef.value !== activeSession.sessionId) return;
+          if (event.type === "RUN_STARTED") {
+            userInputAnswerPending.value = false;
+            if (userInputRequest.value?.requestId === request.requestId) userInputRequest.value = null;
+            userInputRequests.value = userInputRequests.value.map(item => item.requestId === request.requestId
+              ? { ...item, answers, status: "Answered" as const } : item);
+            if (event.runId) activeRunCode.value = event.runId;
+          }
           receiveA2ui(event);
           if (!aguiEnabled.value) return;
           liveAguiEvents.value = [...liveAguiEvents.value, event];
@@ -1363,6 +1371,8 @@ async function handleAnswerUserInput(answers: ChatUserInputAnswer[]) {
       "Answer submission failed",
     );
   } finally {
+    if (activeSessionCodeRef.value !== activeSession.sessionId) return;
+    activeRunCode.value = "";
     userInputAnswerPending.value = false;
     sending.value = false;
     liveAguiPending.value = false;

@@ -48,8 +48,7 @@ const nestedToolLabel = computed(
 watch(
   [running, complete],
   () => {
-    if (running.value) expanded.value = true;
-    else if (complete.value) expanded.value = false;
+    if (complete.value) expanded.value = false;
   },
   { immediate: true },
 );
