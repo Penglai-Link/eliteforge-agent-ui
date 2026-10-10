@@ -893,7 +893,7 @@
 
 .ef-chat__rail-card-list {
   display: grid;
-  gap: 8px;
+  gap: 4px;
 }
 
 .ef-chat__rail-entry {
@@ -911,7 +911,9 @@
   background: transparent;
   color: var(--agent-ui-chat-text-muted);
   cursor: pointer;
-  padding: 4px 0;
+  padding: 2px 0;
+  font: inherit;
+  line-height: 20px;
   text-align: left;
   transition:
     color 120ms ease,
@@ -978,7 +980,7 @@
   min-width: 0;
   flex: 1;
   font-size: 14px;
-  line-height: 1.45;
+  line-height: 20px;
 }
 
 .ef-chat__rail-entry-summary--strong {
@@ -991,7 +993,9 @@
 
 .ef-chat__rail-entry-chevron,
 .ef-chat__tool-chevron {
-  margin-top: 2px;
+  display: inline-flex;
+  height: 20px;
+  align-items: center;
   flex-shrink: 0;
   color: var(--agent-ui-chat-text-muted);
 }
@@ -1000,7 +1004,7 @@
   margin-top: 4px;
   margin-left: 9px;
   border-left: 1px solid var(--agent-ui-chat-border);
-  padding: 2px 0 8px 18px;
+  padding: 0 0 0 18px;
 }
 
 .ef-chat__rail-detail {
@@ -1012,7 +1016,7 @@
 
 .ef-chat__rail-entry-list {
   margin: 4px 0 0;
-  padding: 0 0 8px 28px;
+  padding: 0 0 0 28px;
   display: grid;
   gap: 4px;
   list-style: none;
@@ -1028,7 +1032,7 @@
 .ef-chat__tool-toggle {
   display: flex;
   width: 100%;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   gap: 12px;
   border: 0;
@@ -1036,7 +1040,10 @@
   background: transparent;
   color: var(--agent-ui-chat-text-muted);
   cursor: pointer;
-  padding: 4px 0;
+  padding: 2px 0;
+  font-family: inherit;
+  font-size: 14px;
+  line-height: 20px;
   text-align: left;
   transition:
     color 120ms ease,
@@ -1051,7 +1058,7 @@
 .ef-chat__tool-toggle-main {
   display: inline-flex;
   min-width: 0;
-  align-items: center;
+  align-items: flex-start;
   gap: 8px;
 }
 
@@ -1066,15 +1073,15 @@
 }
 
 .ef-chat__tool-badge--standalone {
-  width: 24px;
-  height: 24px;
+  width: 20px;
+  height: 20px;
   border-radius: 8px;
   background: var(--agent-ui-chat-surface-muted);
 }
 
 .ef-chat__tool-badge--nested {
-  width: 16px;
-  height: 16px;
+  width: 20px;
+  height: 20px;
 }
 
 .ef-chat__tool-toggle-text {
@@ -1128,7 +1135,7 @@
 }
 
 .ef-chat__tool-body--standalone {
-  padding: 8px 4px 2px;
+  padding: 8px 0 0 28px;
 }
 
 .ef-chat__tool-body--nested {
@@ -1466,7 +1473,7 @@
   border: 0;
   border-radius: 0;
   background: transparent;
-  padding: 3px 0;
+  padding: 0;
 }
 .ef-chat__tool-badge--standalone { background: transparent; }
 .ef-chat__tool-status { background: transparent; border-radius: 0; padding: 0; font-weight: 400; }
@@ -1494,28 +1501,12 @@
   color: var(--color-surface, #fff);
 }
 
-.ef-chat__a2ui .a2ui-questioncard,
 .ef-chat__a2ui .a2ui-approvalcard {
   padding: 12px 0;
   border: 0;
   border-radius: 0;
   gap: 16px;
 }
-.ef-chat__a2ui .a2ui-questioncard label {
-  display: grid;
-  grid-template-columns: 16px minmax(0, 1fr);
-  align-items: start;
-  gap: 4px 8px;
-  padding: 6px 0;
-  cursor: pointer;
-}
-.ef-chat__a2ui .a2ui-questioncard label input { margin-top: 4px; }
-.ef-chat__a2ui .a2ui-questioncard label small { grid-column: 2; font-size: 0.8125rem; }
-.ef-chat__a2ui .a2ui-questioncard textarea { box-sizing: border-box; min-height: 64px; }
-
-.ef-chat__a2ui .a2ui-questioncard > p { margin: 0; }
-.ef-chat__a2ui .a2ui-questioncard label:has(textarea) { display: flex; flex-direction: column; gap: 8px; }
-.ef-chat__a2ui .a2ui-questioncard button,
 .ef-chat__a2ui .a2ui-approvalcard button {
   font: inherit;
   border: 1px solid var(--agent-ui-chat-border, #ddd);
@@ -1525,7 +1516,6 @@
   padding: 6px 12px;
   cursor: pointer;
 }
-.ef-chat__a2ui .a2ui-questioncard button:disabled,
 .ef-chat__a2ui .a2ui-approvalcard button:disabled { opacity: .4; cursor: default; }
 
 .ef-chat__interaction-summary {
