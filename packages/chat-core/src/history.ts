@@ -1,4 +1,3 @@
-import { interactionEnvelopes } from "./a2uiInteractions";
 import type { ChatMessage, ChatUserInputLabels, ChatUserInputRequest } from "./types";
 
 export type HistoryStatus = "Running" | "Waiting" | "Completed" | "Interrupted" | "Failed" | "Unknown" | "Planned" | "Approved";
@@ -92,37 +91,19 @@ export function historyMessages(page: SessionHistory, labels?: ChatUserInputLabe
       createdAt: new Date(message.createdAtMs).toISOString(), history: { message, step, tools: tools.get(message.id) ?? [], run: runs.get(message.runId) ?? null, interactions: interactionsByMessage.get(message.id) ?? [] },
     };
   });
-  // Resolved native interactions remain visible after a refresh. Their answers
-  // come directly from history records, never a second UI answer store.
+  // Submitted interactions keep only their folded answer summary. Never replay
+  // their original controls, including after a history refresh.
   for (const interaction of page.records.interactions) {
-    if (interaction.response == null) continue;
-    const request = historyUserInputRequests({ ...page, pendingInteractions: [interaction] }, labels)[0]!;
-    request.status = "Answered";
-    const value = interaction.response as any;
-    if (request.nativeInteraction?.questionnaire) {
-      request.answers = request.questions.map(q => {
-        const answer = value.answers?.[q.questionId] ?? {};
-        return { questionId:q.questionId, answerKind:answer.skip ? "Skipped" : answer.option_id ? "Option" : "Other", optionId:answer.option_id, otherText:answer.text };
-      });
-    } else {
-      request.answers = [{ questionId:interaction.id, answerKind:"Other", otherText:typeof value === "string" ? value : JSON.stringify(value) }];
-    }
-    const envelopes = request.a2uiInteraction ? [...request.a2uiInteraction.messages,
-      {version:"v0.9.1",updateDataModel:{surfaceId:request.a2uiInteraction.surfaceId,value}}] : interactionEnvelopes(request, labels);
-    // Approval values are booleans rather than questionnaire answers.
-    if (!request.a2uiInteraction && request.nativeInteraction?.reason === "approval_required") {
-      (envelopes[2] as any).updateDataModel.value.answer = value;
-    }
-    const run = runs.get(interaction.runId);
-    const tool = interactionTools.get(interaction.id);
-    const anchor = page.records.messages.find(m => m.id === tool?.messageId);
-    // A2UI input IDs are trusted tool invocation IDs; approval carries
-    // its invocation explicitly. Place the surface at creation, not run completion.
-    const requestedAt = tool?.startedAtMs ?? anchor?.createdAtMs ?? run?.startedAtMs ?? 0;
-    messages.push({ id:`interaction:${interaction.id}`,messageId:`interaction:${interaction.id}`,sessionId:page.sessionId,
-      runId:interaction.runId,role:"ASSISTANT",actor:"Assistant",channel:"history",content:"",
-      createdAt:new Date(requestedAt).toISOString(),
-      a2ui:{messages:envelopes,surfaceIds:[request.a2uiInteraction?.surfaceId ?? `interaction:${interaction.id}`]} });
+    if (interaction.response == null || interactionTools.get(interaction.id)) continue;
+    const run = runs.get(interaction.runId) ?? null;
+    const createdAtMs = run?.startedAtMs ?? 0;
+    const id = `interaction:${interaction.id}`;
+    const message: HistoryMessage = { id, runId: interaction.runId, stepId: null,
+      role: "Assistant", content: [], structured: null, status: "Completed", createdAtMs };
+    messages.push({ id, messageId: id, sessionId: page.sessionId, runId: interaction.runId,
+      role: "ASSISTANT", actor: "Assistant", channel: "history", content: "",
+      createdAt: new Date(createdAtMs).toISOString(),
+      history: { message, step: null, tools: [], run, interactions: [interaction] } });
   }
   return messages.sort((a, b) => Date.parse(a.createdAt) - Date.parse(b.createdAt));
 }

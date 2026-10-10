@@ -1,3 +1,4 @@
+import type { ChatUserInputRequest } from "./types";
 import type { HistoryInteraction } from "./history";
 
 export interface InteractionSummaryRow { label: string; value: string }
@@ -60,4 +61,12 @@ export function interactionSummaryTitle(interaction: HistoryInteraction): string
     }
   }
   return interaction.prompt.filter(b => b.type === "Text").map(b => (b as {text:string}).text).join("");
+}
+
+export function submittedFormSummary(request: ChatUserInputRequest): InteractionSummaryRow[] {
+  const answer = request.answers?.find(a => a.questionId === request.requestId);
+  return interactionSummary({ id: request.requestId, runId: request.runId, invocationId: null,
+    prompt: [{type:"Text",text:request.intro ?? ""}], responseSchema: {}, expiresAtMs: null,
+    presentation: {kind:"a2ui",messages:request.a2uiInteraction?.messages ?? []},
+    response: parse(answer?.otherText ?? "null") });
 }

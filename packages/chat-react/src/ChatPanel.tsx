@@ -1,4 +1,4 @@
-import { interactionSummary, interactionSummaryTitle, interactionToolSummary } from "@eliteforge/agent-ui-chat-core";
+import { interactionSummary, submittedFormSummary, interactionSummaryTitle, interactionToolSummary } from "@eliteforge/agent-ui-chat-core";
 import { ToolResultView } from "./ToolResultView";
 import { ChatA2UI } from "./ChatA2UI";
 import type { ChatA2uiActionHandler as ActionHandler, ChatA2uiSession } from "@eliteforge/agent-ui-chat-core";
@@ -970,7 +970,9 @@ function UserInputWorkCard({
       </button>
       {expanded ? (
         <ol className="ef-chat__rail-entry-list">
-          {request.questions.map((question) => (
+          {request.a2uiInteraction ? submittedFormSummary(request).map((row, index) => (
+            <li className="ef-chat__user-input-work-answer" key={index}><span className="ef-chat__user-input-work-question">{row.label}</span><span className="ef-chat__user-input-work-value">{row.value}</span></li>
+          )) : request.questions.map((question) => (
             <li className="ef-chat__user-input-work-answer" key={question.questionId}>
               <span className="ef-chat__user-input-work-question">{question.question}</span>
               <span className="ef-chat__user-input-work-value">

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { submittedFormSummary } from "@eliteforge/agent-ui-chat-core";
 import { BrainCircuit, ChevronDown, ChevronRight, MessageSquareText } from "lucide-vue-next";
 import { computed, onBeforeUnmount, ref, watch } from "vue";
 import {
@@ -165,7 +166,8 @@ onBeforeUnmount(() => {
         <ChevronDown v-else :size="14" />
       </button>
       <ol v-if="expandedRequestCode === request.requestId" class="ef-chat__rail-entry-list">
-        <li
+        <template v-if="request.a2uiInteraction"><li v-for="(row,index) in submittedFormSummary(request)" :key="index" class="ef-chat__user-input-work-answer"><span class="ef-chat__user-input-work-question">{{ row.label }}</span><span class="ef-chat__user-input-work-value">{{ row.value }}</span></li></template>
+        <li v-else
           v-for="question in request.questions"
           :key="question.questionId"
           class="ef-chat__user-input-work-answer"
