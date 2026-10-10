@@ -243,7 +243,6 @@ React / Vue 共用同一套变量。将变量设置在 `.a2ui-surface` 或其祖
 | `--agent-ui-a2ui-questioncard-gap` | `0.5rem` | `.a2ui-surface .a2ui-questioncard; .a2ui-questioncard .a2ui-question-header; .a2ui-questioncard .a2ui-question-option; .a2ui-questioncard .a2ui-question-actions; .a2ui-questioncard .a2ui-question-other` |
 | `--agent-ui-a2ui-questioncard-hover-background` | `color-mix(in srgb, currentColor 5%, transparent)` | `.a2ui-questioncard .a2ui-question-option:hover, .a2ui-questioncard button:hover:not(:disabled)` |
 | `--agent-ui-a2ui-questioncard-icon-size` | `15px` | `.a2ui-questioncard .a2ui-interaction-icon` |
-| `--agent-ui-a2ui-questioncard-intro-font-size` | `0.8125rem` | `.a2ui-questioncard .a2ui-question-intro` |
 | `--agent-ui-a2ui-questioncard-min-height` | `1.75rem` | `.a2ui-questioncard .a2ui-question-answer` |
 | `--agent-ui-a2ui-questioncard-navigation-font-size` | `0.6875rem` | `.a2ui-questioncard .a2ui-question-navigation` |
 | `--agent-ui-a2ui-questioncard-navigation-gap` | `0.125rem` | `.a2ui-questioncard .a2ui-question-navigation` |
@@ -257,7 +256,7 @@ React / Vue 共用同一套变量。将变量设置在 `.a2ui-surface` 或其祖
 | `--agent-ui-a2ui-questioncard-padding` | `var(--agent-ui-a2ui-interaction-card-padding, 0.75rem)` | `.a2ui-surface .a2ui-questioncard` |
 | `--agent-ui-a2ui-questioncard-selected-background` | `color-mix(in srgb, currentColor 6%, transparent)` | `.a2ui-questioncard .a2ui-question-option[data-selected="true"]` |
 | `--agent-ui-a2ui-questioncard-selected-border-color` | `var(--a2ui-border, #ddd)` | `.a2ui-questioncard .a2ui-question-option[data-selected="true"]` |
-| `--agent-ui-a2ui-questioncard-text-line-height` | `1.5` | `.a2ui-questioncard .a2ui-question-intro; .a2ui-questioncard .a2ui-question-title; .a2ui-questioncard .a2ui-question-answer` |
+| `--agent-ui-a2ui-questioncard-text-line-height` | `1.5` | `.a2ui-questioncard .a2ui-question-title; .a2ui-questioncard .a2ui-question-answer` |
 | `--agent-ui-a2ui-questioncard-title-font-size` | `0.8125rem` | `.a2ui-questioncard .a2ui-question-title` |
 | `--agent-ui-a2ui-questioncard-title-font-weight` | `600` | `.a2ui-questioncard .a2ui-question-title` |
 | `--agent-ui-a2ui-questioncard-unit-opacity` | `1` | `.a2ui-questioncard .a2ui-question-content small` |

@@ -203,7 +203,7 @@ React 与 Vue 共用 Core 渲染和数据绑定，支持以下组件：
 
 Agent Catalog 的 `QuestionCard`（AskUser）和 `ApprovalCard` 是固定组合组件，React / Vue 共用渲染实现。原生问答通过 `interactionEnvelopes` 使用同一个 `QuestionCard`；Agent 提供问题、选项、说明和回答设置，客户端负责排版和操作。
 
-`QuestionCard` 固定为题目与翻题导航、无编号选项、底部自定义输入和操作按钮。选项标题与说明位于同一列，长文本自动换行；翻题保留已有答案，支持 Enter 确认、Shift+Enter 换行以及跳过。提交中、已回答和过期状态禁止修改。组合卡片不接受 Agent 指定 CSS 或自行拼装内部布局。
+`QuestionCard` 固定为题目与翻题导航、无编号选项、底部自定义输入和操作按钮。卡片直接从题目开始，不展示顶部说明（`intro`）。选项标题与说明位于同一列，长文本自动换行；翻题保留已有答案，支持 Enter 确认、Shift+Enter 换行以及跳过。提交中、已回答和过期状态禁止修改。组合卡片不接受 Agent 指定 CSS 或自行拼装内部布局。
 
 自定义多字段表单继续使用 `Field`、`Select`、`Textarea` 等原子组件。审批仍由宿主工具策略创建和处理，`ApprovalCard` 只负责显示与收集决定。
 

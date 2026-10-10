@@ -75,7 +75,6 @@ export function renderInteraction(ctx: RenderContext, h: Element, props: Record<
     const showConfirm = !disabled && complete(answer) && (questions.length === 1 || answer?.answerKind === "Other");
     const progress = label("progress." + (index + 1), "Question " + (index + 1) + " of " + questions.length);
     return { handled: true, node: h("section", { ...props, ref: (element: HTMLElement | null) => { region = element; }, "aria-label": label("ariaLabel", "Assistant questions"), "data-status": expired ? "Expired" : status }, [
-            intro && intro !== q.question ? h("p", part("intro"), [intro]) : null,
             h("fieldset", { ...part("options"), "aria-label": q.question }, [
                 h("legend", { ...part("header"), tabIndex: -1 }, [
                     h("span", part("title"), [q.question]),

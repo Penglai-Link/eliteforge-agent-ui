@@ -661,14 +661,9 @@
   border-radius: var(--agent-ui-a2ui-interaction-card-border-radius, var(--_agent-ui-panel-radius));
   background: var(--agent-ui-a2ui-questioncard-background, var(--agent-ui-a2ui-color-elevated-surface, var(--color-elevated-surface, #fff)));
 }
-.a2ui-questioncard :is(.a2ui-question-intro, .a2ui-question-title, .a2ui-interaction-status) {
+.a2ui-questioncard :is(.a2ui-question-title, .a2ui-interaction-status) {
   margin: 0;
   overflow-wrap: anywhere;
-}
-.a2ui-questioncard .a2ui-question-intro {
-  color: var(--a2ui-muted, var(--color-on-surface-variant, #64748b));
-  font-size: var(--agent-ui-a2ui-questioncard-intro-font-size, 0.8125rem);
-  line-height: var(--agent-ui-a2ui-questioncard-text-line-height, 1.5);
 }
 .a2ui-questioncard .a2ui-question-header {
   display: flex;

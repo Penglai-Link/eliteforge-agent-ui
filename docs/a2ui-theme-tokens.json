@@ -3681,24 +3681,12 @@
       }
     ]
   },
-  "--agent-ui-a2ui-questioncard-intro-font-size": {
-    "property": "font-size",
-    "usages": [
-      {
-        "default": "0.8125rem",
-        "selectors": [
-          ".a2ui-questioncard .a2ui-question-intro"
-        ]
-      }
-    ]
-  },
   "--agent-ui-a2ui-questioncard-text-line-height": {
     "property": "line-height",
     "usages": [
       {
         "default": "1.5",
         "selectors": [
-          ".a2ui-questioncard .a2ui-question-intro",
           ".a2ui-questioncard .a2ui-question-title",
           ".a2ui-questioncard .a2ui-question-answer"
         ]
