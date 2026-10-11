@@ -131,6 +131,7 @@ export interface ChatWindowProps extends Omit<
   "showHeader"
 > {
   onStateChange?: (state: ChatFloatingState) => void;
+  showNewSession?: boolean;
   state?: ChatFloatingState;
   storageKey?: string;
   title?: string;

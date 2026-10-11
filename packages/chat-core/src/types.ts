@@ -514,6 +514,7 @@ export interface ChatClientConfig {
   resizable?: boolean;
   showAgui?: boolean;
   showSessionList?: boolean;
+  showNewSession?: boolean;
   storageKey?: string;
   title?: string;
   userInputLabels?: ChatUserInputLabels;

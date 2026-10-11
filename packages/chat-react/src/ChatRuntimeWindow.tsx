@@ -1647,6 +1647,7 @@ export function ChatRuntimeWindow({
   }
 
   function handleNewSession() {
+    if (config.showNewSession === false) return;
     queueGenerationRef.current += 1;
     detachRunObserver("detach");
     detachSteerObserver();
@@ -1815,6 +1816,7 @@ export function ChatRuntimeWindow({
   if (config.floating !== false) {
     return (
       <ChatWindow
+        showNewSession={config.showNewSession}
         allowDraftSession={allowDraftSession}
         attachmentLabels={attachmentLabels}
         attachmentDownloader={attachmentDownloader}

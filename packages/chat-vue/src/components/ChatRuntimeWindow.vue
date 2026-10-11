@@ -1473,6 +1473,7 @@ async function handleStop() {
 }
 
 function handleNewSession() {
+  if (props.config.showNewSession === false) return;
   queueGenerationRef.value += 1;
   detachRunObserver("detach");
   stopAbortRef.value?.abort();
@@ -1642,6 +1643,7 @@ function handleWindowStateChange(state: ChatFloatingState) {
   <ChatWindow
     v-if="config.floating !== false"
     v-bind="panelCommonProps"
+    :show-new-session="config.showNewSession"
     :state="windowState"
     :storage-key="config.storageKey || 'agent-ui.chat.runtime.window'"
     :title="floatingTitle"

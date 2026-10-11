@@ -24,6 +24,7 @@ interface ChatWindowProps extends Omit<
   "headerContent" | "showHeader"
 > {
   state?: ChatFloatingState;
+  showNewSession?: boolean;
   storageKey?: string;
   title?: string;
   titleSubtitle?: string;
@@ -32,6 +33,7 @@ interface ChatWindowProps extends Omit<
 
 export function ChatWindow({
   onStateChange,
+  showNewSession = true,
   state,
   storageKey = "eliteforge.agent-ui.chat.window",
   title = "Chat",
@@ -275,7 +277,7 @@ export function ChatWindow({
               </div>
             </div>
             <div className="ef-chat-window__actions">
-              <button
+              {showNewSession ? <button
                 className="ef-chat-window__control"
                 type="button"
                 title="New chat"
@@ -283,7 +285,7 @@ export function ChatWindow({
                 onClick={() => panelProps.onNewSession?.()}
               >
                 <Plus size={16} />
-              </button>
+              </button> : null}
               <button
                 className="ef-chat-window__control"
                 type="button"

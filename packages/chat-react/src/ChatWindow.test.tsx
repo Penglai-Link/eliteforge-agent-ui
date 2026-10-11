@@ -156,3 +156,10 @@ describe("ChatWindow", () => {
     });
   });
 });
+
+it("keeps New chat available by default and hides it for persistent sessions", () => {
+  const view = renderWindow();
+  expect(screen.getByRole("button", {name:"New chat"})).toBeTruthy();
+  view.unmount(); renderWindow({showNewSession:false});
+  expect(screen.queryByRole("button", {name:"New chat"})).toBeNull();
+});

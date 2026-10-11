@@ -41,6 +41,7 @@ const props = withDefaults(defineProps<ChatWindowProps>(), {
   session: null,
   showAgui: true,
   showStop: true,
+  showNewSession: true,
   state: undefined,
   steerDisabled: false,
   stopLabel: "Stop",
@@ -317,6 +318,7 @@ function endResize(event: PointerEvent) {
         </div>
         <div class="ef-chat-window__actions">
           <button
+            v-if="showNewSession"
             aria-label="New chat"
             title="New chat"
             class="ef-chat-window__control"
