@@ -31,7 +31,7 @@ const tools = computed(() => view.value?.tools.map((tool) => ({ tool, card: {
       <ToolCard :card="item.card" :status-label="labels.statuses[item.tool.status]" />
     </div>
     <details v-for="interaction in view.interactions.filter((i) => i.response != null)" :key="interaction.id" :data-history-interaction-id="interaction.id">
-      <summary>{{ interactionSummaryTitle(interaction) }} · {{ labels.statuses.Completed }}</summary>
+      <summary>{{ interactionSummaryTitle(interaction) }} · {{ labels.statuses.Completed }}<span v-if="interaction.responseProvenance?.sender" :data-interaction-response-sender="interaction.responseProvenance.sender.kind"> · {{ interaction.responseProvenance.sender.displayName || interaction.responseProvenance.sender.id || interaction.responseProvenance.sender.kind }}</span></summary>
       <dl class="ef-chat__interaction-summary"><div v-for="(row, index) in interactionSummary(interaction)" :key="index"><dt>{{ row.label }}</dt><dd>{{ row.value }}</dd></div></dl>
     </details>
     <div v-if="message.role === 'ASSISTANT' && view.run?.error" role="status">{{ error.summary }}<details v-if="error.details" class="ef-chat__error-details"><summary>{{ /[\u3400-\u9fff]/.test(labels.statuses.Failed) ? "错误详情" : "Error details" }}</summary><pre>{{ error.details }}</pre></details></div>

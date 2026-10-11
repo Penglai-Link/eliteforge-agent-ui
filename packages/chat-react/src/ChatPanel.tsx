@@ -1055,7 +1055,7 @@ function StructuredMessageDetails({ message, labels, hasRunError = false, histor
         started: tool.status === "Running", ended: ["Completed", "Failed"].includes(tool.status) }} />
     </div>)}
     {view.interactions.filter((i) => i.response != null).map((interaction) => <details key={interaction.id} data-history-interaction-id={interaction.id}>
-      <summary>{interactionSummaryTitle(interaction)} · {historyLabels.statuses.Completed}</summary>
+      <summary>{interactionSummaryTitle(interaction)} · {historyLabels.statuses.Completed}{interaction.responseProvenance?.sender ? <span data-interaction-response-sender={interaction.responseProvenance.sender.kind}> · {interaction.responseProvenance.sender.displayName || interaction.responseProvenance.sender.id || interaction.responseProvenance.sender.kind}</span> : null}</summary>
       <dl className="ef-chat__interaction-summary">{interactionSummary(interaction).map((row, index) => <div key={index}><dt>{row.label}</dt><dd>{row.value}</dd></div>)}</dl>
     </details>)}
     {message.role === "ASSISTANT" && view.run?.error && !hasRunError ? <RunErrorDetails raw={view.run.error} fallback={labels?.failed ?? historyLabels.statuses.Failed} /> : null}

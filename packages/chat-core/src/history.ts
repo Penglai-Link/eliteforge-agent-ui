@@ -22,6 +22,7 @@ export interface HistoryToolInvocation {
   resultReference: HistoryContentBlock | null; startedAtMs: number | null; finishedAtMs: number | null;
 }
 export interface HistoryInteraction {
+  responseProvenance?: MessageProvenance | null;
   id: string; runId: string; invocationId: string | null; prompt: HistoryContentBlock[];
   responseSchema: Record<string, unknown>; presentation: Record<string, unknown> | null; response: unknown; expiresAtMs: number | null;
 }
