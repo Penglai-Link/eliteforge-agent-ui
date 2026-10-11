@@ -776,3 +776,13 @@ it("shows readable historical answers and interaction tool details without dupli
   expect(details.textContent).toContain("发起会诊");
   expect(details.textContent).not.toContain("uuid");
 });
+
+
+describe("ChatPanel sender attribution", () => {
+  it("shows Dude identity on the input side independently of current human", () => {
+    renderPanel({ currentUserDisplayName: "Human", messages: [{...message("USER", "Delegated work"), provenance: {sender: {kind: "dude", id:"d", displayName:"Main Dude"}}}] });
+    expect(screen.getByText("Main Dude")).toBeTruthy();
+    expect(screen.queryByText("Human")).toBeNull();
+    expect(screen.getByText("Delegated work", {selector:".ef-chat__message-body"}).closest("article")?.className).toContain("ef-chat__message--user");
+  });
+});

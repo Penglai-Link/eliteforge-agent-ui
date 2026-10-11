@@ -73,7 +73,22 @@ export interface UpdateChatSessionInput {
   title: string;
 }
 
+/** Host-assigned identity; independent of the message's LLM role. */
+export interface MessageSender {
+  kind: string;
+  id?: string;
+  displayName?: string;
+  avatarUrl?: string;
+}
+
+export interface MessageProvenance {
+  sender: MessageSender;
+  source?: string;
+  correlation?: unknown;
+}
+
 export interface ChatMessage {
+  provenance?: MessageProvenance;
   /** Ordered A2UI protocol envelopes; persist alongside the message. */
   a2ui?: { messages: unknown[]; surfaceIds?: string[] };
   history?: HistoryMessageView;
@@ -465,6 +480,7 @@ export interface ChatAdapter {
     input: ChatAttachmentUploadInput,
     signal?: AbortSignal,
   ) => Promise<ChatMessageAttachment>;
+  /** Abort detaches this transport observer. Only stopRun cancels a host-owned run. */
   streamMessage: (
     session: ChatSession,
     input: SendChatMessageInput,

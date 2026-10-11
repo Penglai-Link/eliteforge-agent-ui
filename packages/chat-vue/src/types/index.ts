@@ -1,3 +1,4 @@
+import type { MessageSender } from "@eliteforge/agent-ui-chat-core";
 import type { ChatA2uiActionHandler as ActionHandler, ChatA2uiSession } from "@eliteforge/agent-ui-chat-core";
 import type {
   AssistantReplyEffect,
@@ -31,6 +32,7 @@ export interface ChatPanelProps {
   composerHeader?: unknown;
   createSessionLabel?: string;
   currentUserDisplayName?: string;
+  currentSender?: MessageSender;
   debugOptions?: ChatDebugOptions;
   disabledInput?: boolean;
   draft: string;
@@ -95,6 +97,7 @@ export interface ChatRuntimeWindowProps {
   config: ChatClientConfig;
   composerHeader?: unknown;
   currentUserDisplayName?: string;
+  currentSender?: MessageSender;
   draft?: string;
   debugOptions?: ChatDebugOptions;
   emptyDescription?: string;

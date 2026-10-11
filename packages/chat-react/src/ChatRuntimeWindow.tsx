@@ -1,6 +1,8 @@
 import { ChatA2uiSession, AGENT_CATALOG_ID, type ChatA2uiActionHandler as ActionHandler } from "@eliteforge/agent-ui-chat-core";
 import {
   chatErrorPresentation,
+  applyMessageProvenance,
+  type MessageSender,
   AssistantReplyQueue,
   buildTranscriptPresentation,
   belongsToNewChatTurn,
@@ -78,6 +80,7 @@ export interface ChatRuntimeWindowProps {
   composerHeader?: ReactNode;
   createSessionLabel?: string;
   currentUserDisplayName?: string;
+  currentSender?: MessageSender;
   draft?: string;
   debugOptions?: ChatDebugOptions;
   emptyDescription?: string;
@@ -214,6 +217,7 @@ export function ChatRuntimeWindow({
   composerRef,
   createSessionLabel = "Start chat",
   currentUserDisplayName,
+  currentSender,
   draft: controlledDraft,
   debugOptions,
   emptyDescription,
@@ -442,8 +446,8 @@ export function ChatRuntimeWindow({
   // session out of the transcript during that render so their attachments
   // cannot be downloaded through the new session's adapter.
   const visibleMessages = useMemo(
-    () => presentedMessages.filter((message) => message.sessionId === session?.sessionId),
-    [presentedMessages, session?.sessionId],
+    () => applyMessageProvenance(presentedMessages.filter((message) => message.sessionId === session?.sessionId), [...protocolEvents, ...liveAguiEvents]),
+    [presentedMessages, session?.sessionId, protocolEvents, liveAguiEvents],
   );
 
   function setSendingState(value: boolean) {
@@ -1115,7 +1119,8 @@ export function ChatRuntimeWindow({
     setMessages((current) => [
       ...current,
       {
-        actor: currentUserDisplayName || "User",
+        actor: currentSender?.displayName ?? currentUserDisplayName ?? "User",
+        provenance: { sender: currentSender ?? { kind: "user", displayName: currentUserDisplayName || "User" } },
         channel: "conversation",
         content,
         attachments: submittedAttachments,

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import {
   AssistantReplyQueue,
+  applyMessageProvenance,
   ChatA2uiSession, AGENT_CATALOG_ID, type ChatA2uiActionHandler,
   historyMessages,
   historyEventRunId,
@@ -117,7 +118,7 @@ watch(() => session.value?.sessionId, (id, _, cleanup) => {
 }, {immediate: true});
 async function reloadA2ui() { const runtime = a2uiSession.value; if (runtime.sessionId && activeAdapter.value.loadA2uiState) runtime.hydrate(await activeAdapter.value.loadA2uiState(runtime.sessionId)); }
 function receiveA2ui(event: ChatAguiStreamEvent) { try { if (!a2uiSession.value.applyEvent(event)) void reloadA2ui().catch(e => props.onError?.(String(e), "A2UI recovery failed")); } catch(e) { props.onError?.(String(e), "A2UI presentation failed"); void reloadA2ui().catch(() => {}); } }
-const presentedMessages = computed(() => { void a2uiEpoch.value; return mergeChatMessagesChronologically(messages.value, a2uiSession.value.messages()); });
+const presentedMessages = computed(() => { void a2uiEpoch.value; return applyMessageProvenance(mergeChatMessagesChronologically(messages.value, a2uiSession.value.messages()), [...protocolEvents.value, ...liveAguiEvents.value]); });
 const streamingAssistantMessageCode = ref<string | null>(null);
 const agentReplySpeed = computed(
   () => props.agentReplySpeed ?? defaultAssistantReplySpeed,
@@ -861,7 +862,8 @@ async function runMessage(
   messages.value = [
     ...messages.value,
     {
-      actor: props.currentUserDisplayName || "User",
+      actor: props.currentSender?.displayName ?? props.currentUserDisplayName ?? "User",
+      provenance: { sender: props.currentSender ?? { kind: "user", displayName: props.currentUserDisplayName || "User" } },
       channel: "conversation",
       content,
       createdAt: optimisticCreatedAt,

@@ -1,3 +1,4 @@
+import { messageActorName, messageSenderIsHuman, messageSenderAvatar } from "@eliteforge/agent-ui-chat-core";
 import { interactionSummary, submittedFormSummary, interactionSummaryTitle, interactionToolSummary } from "@eliteforge/agent-ui-chat-core";
 import { ToolResultView } from "./ToolResultView";
 import { ChatA2UI } from "./ChatA2UI";
@@ -464,9 +465,8 @@ function ChatBubble({
   onEditMessage?: (content: string) => void;
 }) {
   const isUser = message.role === "USER";
-  const actorName = isUser
-    ? currentUserDisplayName || message.actor
-    : message.actor;
+  const actorName = messageActorName(message, currentUserDisplayName);
+  const senderAvatar = messageSenderAvatar(message);
   return (
     <div
       className={cx(
@@ -482,7 +482,7 @@ function ChatBubble({
       >
         <div className="ef-chat__message-header">
           <div className="ef-chat__message-actor">
-            {isUser ? <UserRound size={16} /> : <Bot size={16} />}
+            {senderAvatar ? <img src={senderAvatar} alt="" width={16} height={16} /> : messageSenderIsHuman(message) ? <UserRound size={16} /> : <Bot size={16} />}
             <span>{actorName}</span>
           </div>
         </div>

@@ -52,3 +52,8 @@ Chat 和 A2UI 共用 `MotionProvider`、`AgentMotion` 和 `MotionConfig`，支�
 ## 独立 A2UI 客户端
 
 新增 a2ui-core、a2ui-react、a2ui-vue 三个包，提供 A2UI v0.9.1 最小 Catalog 与模拟交互闭环，见 [接入文档](docs/a2ui-client.md)。
+
+
+Message attribution is independent of LLM role. Hosts provide `ChatMessage.provenance` (and `HistoryMessage.provenance`) with `{ sender: { kind, id?, displayName?, avatarUrl? }, source?, correlation? }`; `USER` still determines input-side layout. React and Vue use this sender before human display-name defaults. The runtime accepts `currentSender` for optimistic attribution only; hosts remain responsible for authenticating and persisting the true sender. Native live/replay events use `CUSTOM`, name `framework.message.provenance`, and value `{ messageId, provenance }` with the matching `threadId`.
+
+The runtime's transport `AbortSignal` detaches observation on unmount or session change. Host adapters must keep admitted background runs alive after detachment; only explicit `stopRun` cancels them. Existing `getActiveRun`, structured history, and protocol observation restore the view on reconnect.

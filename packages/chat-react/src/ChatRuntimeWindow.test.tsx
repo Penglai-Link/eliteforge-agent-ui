@@ -1285,3 +1285,23 @@ describe("ChatRuntimeWindow", () => {
     expect(streamMessage).toHaveBeenCalledTimes(1);
   });
 });
+
+
+it("unmount detaches the transport without stopping a host-owned run", async () => {
+  const { adapter } = createAdapter();
+  const stopRun = vi.fn();
+  adapter.stopRun = stopRun;
+  let signal: AbortSignal | undefined;
+  adapter.streamMessage = vi.fn((_session, _input, _handlers, transportSignal) => {
+    signal = transportSignal;
+    return new Promise<ChatSendResult>(() => undefined);
+  });
+  const view = render(<ChatRuntimeWindow adapter={adapter} initialSession={restoredSession()} config={{floating:false}} onError={vi.fn()} />);
+  await waitFor(() => expect((screen.getByRole("textbox") as HTMLTextAreaElement).disabled).toBe(false));
+  fireEvent.change(screen.getByRole("textbox"), {target:{value:"Start background work"}});
+  fireEvent.click(screen.getByRole("button", {name:"Send"}));
+  await waitFor(() => expect(adapter.streamMessage).toHaveBeenCalledOnce());
+  view.unmount();
+  expect(signal?.aborted).toBe(true);
+  expect(stopRun).not.toHaveBeenCalled();
+});

@@ -149,3 +149,13 @@ describe("Vue ChatPanel submit controls", () => {
     expect(onRemoveQueuedMessage).toHaveBeenCalledWith("QUEUE-1");
   });
 });
+
+
+it("keeps Dude sender attribution on the input side in Vue", async () => {
+  const container = document.createElement("div");
+  document.body.append(container);
+  const app = createApp({render: () => h(ChatPanel, {draft:"", onDraftChange:()=>undefined, onSend:()=>undefined, currentUserDisplayName:"Human", session: activeSession(), messages:[{id:"m",messageId:"m",sessionId:"SESSION-1",role:"USER",actor:"User",channel:"main",content:"Delegated work",createdAt:"2026-10-11T00:00:00Z",provenance:{sender:{kind:"dude",id:"d",displayName:"Main Dude"}}}]})});
+  app.mount(container); mounted={app,container}; await nextTick();
+  expect(container.querySelector(".ef-chat__message-actor")?.textContent).toContain("Main Dude");
+  expect(container.querySelector(".ef-chat__message--user")).not.toBeNull();
+});

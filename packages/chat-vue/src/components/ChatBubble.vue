@@ -3,7 +3,7 @@ import ChatA2UI from "./ChatA2UI.vue";
 import type { ChatA2uiActionHandler as ActionHandler, ChatA2uiSession } from "@eliteforge/agent-ui-chat-core";
 import { Bot, Pencil, UserRound } from "lucide-vue-next";
 import { computed } from "vue";
-import { formatTime } from "@eliteforge/agent-ui-chat-core";
+import { formatTime, messageActorName, messageSenderIsHuman, messageSenderAvatar } from "@eliteforge/agent-ui-chat-core";
 import type { ChatMessage } from "@eliteforge/agent-ui-chat-core";
 import { cx } from "../utils";
 import MarkdownBlock from "./MarkdownBlock.vue";
@@ -25,7 +25,7 @@ const emit = defineEmits<{
 
 const isUser = computed(() => props.message.role === "USER");
 const actorName = computed(() =>
-  isUser.value ? (props.currentUserDisplayName || props.message.actor) : props.message.actor
+  messageActorName(props.message, props.currentUserDisplayName)
 );
 </script>
 
@@ -37,7 +37,8 @@ const actorName = computed(() =>
   >
     <div class="ef-chat__message-header">
       <div class="ef-chat__message-actor">
-        <UserRound v-if="isUser" :size="16" />
+        <img v-if="messageSenderAvatar(message)" :src="messageSenderAvatar(message)" alt="" width="16" height="16" />
+        <UserRound v-else-if="messageSenderIsHuman(message)" :size="16" />
         <Bot v-else :size="16" />
         <span>{{ actorName }}</span>
       </div>
