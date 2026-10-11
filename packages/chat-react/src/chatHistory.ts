@@ -47,12 +47,12 @@ export function buildChatHistoryTurns(
         id: `turn-${message.messageId}`,
         messageCodes: [message.messageId],
         userMessageCode: message.messageId,
-        userPreview: messagePreview(message.content, 72),
+        userPreview: messagePreview(message.content, 72) || message.provenance?.sender.displayName || message.actor || "User",
       };
       return;
     }
 
-    if (!currentTurn && message.a2ui) currentTurn = { assistantPreview: "", hasAssistantReply: true, hasWorkActivity: false, id: `turn-${message.messageId}`, messageCodes: [], userMessageCode: message.messageId, userPreview: message.actor || "Assistant" };
+    if (!currentTurn && (message.content.trim() || message.a2ui || message.history)) currentTurn = { assistantPreview: "", hasAssistantReply: false, hasWorkActivity: false, id: `turn-${message.messageId}`, messageCodes: [], userMessageCode: message.messageId, userPreview: message.provenance?.sender.displayName || message.actor || "Assistant" };
     if (!currentTurn) return;
 
     currentTurn.messageCodes.push(message.messageId);

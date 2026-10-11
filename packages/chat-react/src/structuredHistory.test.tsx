@@ -69,3 +69,25 @@ it.each(["R", "goal:R"])("replaces live output with the same durable identity af
   await waitFor(()=>expect(document.querySelector('[data-history-message-id="A"]')).not.toBeNull());
   expect(screen.getAllByText("Durable answer")).toHaveLength(1);
 });
+
+it.each(["system-trigger", "assistant-only"])("renders completed background history despite a later empty failed auxiliary run (%s)", async kind => {
+  const adapter = host(); const snapshot = page("S", "dude-background-finished");
+  snapshot.records.messages = snapshot.records.messages.filter(message => kind === "system-trigger" || message.role !== "User");
+  if (kind === "system-trigger") { const trigger = snapshot.records.messages.find(message => message.role === "User")!; trigger.content = []; trigger.provenance = {sender:{kind:"SYSTEM",displayName:"Task reminder"},source:"TaskReminder"}; }
+  snapshot.runs.push({id:"summary-failed",sessionId:"S",parentRunId:null,rootRunId:"summary-failed",status:"Failed",startedAtMs:3,finishedAtMs:4,error:"model did not return valid JSON"});
+  vi.mocked(adapter.loadHistory!).mockResolvedValue(snapshot);
+  render(<ChatRuntimeWindow adapter={adapter} initialSession={session} config={{floating:false,disabledInput:true}} onError={vi.fn()} />);
+  expect(await screen.findByText("dude-background-finished")).toBeTruthy();
+  expect(document.querySelector('[data-history-message-id="A"]')).not.toBeNull();
+});
+
+it("keeps a background interaction visible when its system trigger and assistant have no text", async () => {
+  const adapter=host(); const snapshot=page();
+  snapshot.records.messages.forEach(message => { message.content=[]; if(message.role === "User") message.provenance={sender:{kind:"SYSTEM",displayName:"Task reminder"},source:"TaskReminder"}; });
+  const interaction={id:"awaiting-background-input",runId:"R",invocationId:"TOOL",prompt:[{type:"Text" as const,text:"Proceed with background work?"}],responseSchema:{type:"boolean"},presentation:null,response:null,expiresAtMs:null};
+  snapshot.records.interactions=[interaction];snapshot.pendingInteractions=[interaction];
+  vi.mocked(adapter.loadHistory!).mockResolvedValue(snapshot);
+  render(<ChatRuntimeWindow adapter={adapter} initialSession={session} config={{floating:false,disabledInput:true}} onError={vi.fn()} />);
+  expect(await screen.findByRole("button",{name:"Approve"})).toBeTruthy();
+  expect(document.querySelector('[data-history-message-id="A"]')).not.toBeNull();
+});
