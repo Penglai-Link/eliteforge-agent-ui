@@ -11,6 +11,11 @@ describe("host message provenance", () => {
     expect(messageSenderIsHuman(attributed)).toBe(false);
     expect(attributed.role).toBe("USER");
   });
+  it("uses the signed-in user's name instead of a generic human attribution label", () => {
+    const attributed = { ...message, provenance: { sender: { kind: "user", displayName: "你" }, source: "chat" } };
+    expect(messageActorName(attributed, "17725021454")).toBe("17725021454");
+    expect(messageActorName(attributed)).toBe("你");
+  });
   it("projects framework attribution events only into their own session", () => {
     const events = [{ type: "CUSTOM", name: "framework.message.provenance", threadId: "s", value: {messageId: "m", provenance} }];
     const result = applyMessageProvenance([message, {...message, sessionId: "other"}], events);

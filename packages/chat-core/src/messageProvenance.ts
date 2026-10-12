@@ -2,6 +2,13 @@ import type { ChatAguiStreamEvent, ChatMessage, MessageProvenance } from "./type
 
 /** Attribution comes from the host; a USER role can be sent by an agent. */
 export function messageActorName(message: ChatMessage, currentUserDisplayName?: string): string {
+  const senderKind = message.provenance?.sender.kind.toLowerCase();
+  if (senderKind === "human" || senderKind === "user") {
+    return currentUserDisplayName
+      || message.provenance?.sender.displayName
+      || message.provenance?.sender.id
+      || message.actor;
+  }
   return message.provenance?.sender.displayName
     ?? (message.provenance ? message.actor : message.role === "USER" ? currentUserDisplayName || message.actor : message.actor);
 }
