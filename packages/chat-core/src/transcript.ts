@@ -436,7 +436,7 @@ export function appendReasoningDelta(content: string, delta: string) {
   return `${content} ${delta}`;
 }
 
-const toolTargetKeys = ["command", "cmd", "file", "fileName", "filePath", "path", "target", "query", "pattern", "url", "uri"];
+const toolTargetKeys = ["command", "cmd", "file", "fileName", "filePath", "path", "target", "query", "topic", "pattern", "url", "uri"];
 
 function valueAtKnownKey(value: unknown, depth = 0): string {
   if (depth > 3 || value == null) return "";
@@ -504,7 +504,15 @@ export function toolCommandLinePreview(toolName: string, args: unknown, maxLengt
   return truncateLabel(parts.join(" "), maxLength);
 }
 
-function toolDisplayName(toolName: string, args: unknown) {
+/** Compact summary for a tool row inside a grouped run. */
+export function toolCompactLabel(toolName: string, args: unknown, displayName = humanizeToolName(toolName)) {
+  const command = toolCommandLinePreview(toolName, args);
+  if (command) return `Shell ${command}`;
+  const target = valueAtKnownKey(args);
+  return target ? `${displayName} ${target}` : displayName;
+}
+
+export function toolDisplayName(toolName: string, args: unknown = undefined) {
   const normalizedName = toolName.trim();
   const domainCode = domainCodeFromToolPayload(normalizedName) || domainCodeFromToolPayload(args);
 
@@ -868,6 +876,10 @@ function anchorMessageCodeForAguiRun(
   runId: string,
   liveAnchorMessageCodes: Record<string, string>,
 ) {
+  const liveAnchorMessageCode = liveAnchorMessageCodes[runId] ?? "";
+  if (liveAnchorMessageCode && messages.some((message) => message.messageId === liveAnchorMessageCode)) {
+    return liveAnchorMessageCode;
+  }
   const assistantIndex = messages.findIndex((message) => (
     message.role === "ASSISTANT" && message.runId === runId
   ));
@@ -875,10 +887,6 @@ function anchorMessageCodeForAguiRun(
     const previousMessage = messages[assistantIndex - 1];
     if (previousMessage.role === "ASSISTANT") return previousMessage.messageId;
     return userMessageCodeBeforeIndex(messages, assistantIndex - 1);
-  }
-  const liveAnchorMessageCode = liveAnchorMessageCodes[runId] ?? "";
-  if (liveAnchorMessageCode && messages.some((message) => message.messageId === liveAnchorMessageCode)) {
-    return liveAnchorMessageCode;
   }
   return userMessageCodeBeforeIndex(messages, messages.length - 1);
 }

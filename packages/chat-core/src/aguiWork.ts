@@ -8,21 +8,34 @@ import {
 import type { TranscriptAguiEvent } from "./types";
 
 export function isAguiRunTerminal(events: TranscriptAguiEvent[]) {
-  return events.some(isAguiExecutionTerminalEvent);
+  return currentAguiTerminalEvent(events) !== null;
+}
+
+/** An interrupt closes one execution segment; RUN_STARTED opens the next. */
+export function currentAguiTerminalEvent(events: TranscriptAguiEvent[]) {
+  for (const event of [...events].reverse()) {
+    if (isAguiExecutionTerminalEvent(event)) return event;
+    if (aguiEventType(event).toUpperCase() === "RUN_STARTED") return null;
+  }
+  return null;
 }
 
 export function aguiWorkElapsedMilliseconds(
   events: TranscriptAguiEvent[],
   now = Date.now(),
 ) {
-  const timestamps = events
+  const reverseStart = [...events].reverse().findIndex(event => aguiEventType(event).toUpperCase() === "RUN_STARTED");
+  const start = reverseStart < 0 ? -1 : events.length - 1 - reverseStart;
+  const segment = start < 0 ? events : events.slice(start);
+  const timestamps = segment
     .map(aguiEventMillis)
     .filter((value): value is number => typeof value === "number");
   if (!timestamps.length) return 0;
 
   const first = Math.min(...timestamps);
   const latest = Math.max(...timestamps);
-  const end = isAguiRunTerminal(events) ? latest : Math.max(latest, now);
+  const terminal = currentAguiTerminalEvent(segment);
+  const end = terminal ? aguiEventMillis(terminal) ?? latest : Math.max(latest, now);
   return Math.max(0, end - first);
 }
 

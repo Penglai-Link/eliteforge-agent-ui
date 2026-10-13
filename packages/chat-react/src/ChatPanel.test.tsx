@@ -310,7 +310,7 @@ describe("ChatPanel submit controls", () => {
     expect(completedButton.getAttribute("aria-expanded")).toBe("true");
   });
 
-  it("collapses answered user questions into completed work in event order", () => {
+  it("shows answered user questions in user messages outside completed work", () => {
     const messages = [
       message("USER", "Choose a direction"),
       {
@@ -364,14 +364,8 @@ describe("ChatPanel submit controls", () => {
     fireEvent.click(workSummary);
 
     const workItems = screen.getByLabelText("Agent work rail");
-    const summary = within(workItems).getByRole("button", { name: "Asked 1 questions" });
-    expect(screen.queryByText("Which direction?")).toBeNull();
-    const itemButtons = within(workItems).getAllByRole("button");
-    expect(itemButtons.map((button) => button.textContent).join(" ")).toMatch(
-      /Before question[\s\S]*Asked 1 questions[\s\S]*After question/,
-    );
-    fireEvent.click(summary);
-    expect(screen.getByText("Which direction?")).toBeTruthy();
+    expect(within(workItems).queryByText("First option")).toBeNull();
+    expect(screen.getByText("Which direction?").closest("article")?.className).toContain("ef-chat__message--user");
     expect(screen.getByText("First option")).toBeTruthy();
   });
 
@@ -767,7 +761,8 @@ it("shows readable historical answers and interaction tool details without dupli
   const tool:any = {id:"tool",callId:"call",toolName:"chat_ask_user",arguments:{questions:[{question:"需求方向"}]},status:"Completed",content:[],structured:{kind:"ask_user",questions:[{id:"uuid"}]},startedAtMs:100,finishedAtMs:155};
   renderPanel({messages:[{id:"u",messageId:"u",sessionId:"SESSION-1",role:"USER",actor:"User",channel:"history",content:"测试",createdAt:"2026-10-09T23:59:00Z"} as any,{id:"m",messageId:"m",sessionId:"SESSION-1",role:"ASSISTANT",actor:"Assistant",channel:"history",content:"",createdAt:"2026-10-10T00:00:00Z",history:{message:{id:"m",role:"Assistant",content:[],structured:null},tools:[tool],interactions:[interaction],step:null,run:null}} as any]});
   expect(screen.queryByText(/55 ms/)).toBeNull();
-  fireEvent.click(screen.getByRole("button",{name:/chat_ask_user/}));
+  fireEvent.click(screen.getByRole("button", {name:/Worked for/}));
+  fireEvent.click(screen.getByRole("button",{name:/Chat Ask User/}));
   expect(screen.queryByText("Parameters")).toBeNull();
   expect(screen.queryByText(/"kind"/)).toBeNull();
   const details=document.querySelector("[data-history-interaction-id=question]")!;
@@ -785,4 +780,22 @@ describe("ChatPanel sender attribution", () => {
     expect(screen.queryByText("Human")).toBeNull();
     expect(screen.getByText("Delegated work", {selector:".ef-chat__message-body"}).closest("article")?.className).toContain("ef-chat__message--user");
   });
+});
+
+it("folds structured work when the run completes and keeps final text visible", () => {
+  const running = { ...message("ASSISTANT", "Final reply"), history: {
+    message: { id: "a", runId: "r", stepId: null, role: "Assistant", content: [{ type: "Reasoning", text: "Internal thought" }], structured: null, status: "Running", createdAtMs: 100 },
+    step: null, tools: [], interactions: [],
+    run: { id: "r", sessionId: "SESSION-1", rootRunId: "r", parentRunId: null, status: "Running", startedAtMs: 100, finishedAtMs: null, error: null },
+  } } satisfies ChatMessage;
+  const view = renderPanel({ messages: [running] });
+  fireEvent.click(screen.getByRole("button", { name: "Thinking…" }));
+  expect(document.querySelector("[data-history-work] button")?.getAttribute("aria-expanded")).toBe("true");
+  const completed: ChatMessage = { ...running, history: { ...running.history, message: { ...running.history.message, status: "Completed" }, run: { ...running.history.run, status: "Completed", finishedAtMs: 200 } } };
+  view.rerender(<ChatPanel allowDraftSession messages={[completed]} draft="" onDraftChange={() => undefined} onSend={() => undefined} />);
+  const summary = screen.getByRole("button", { name: /Worked for/ });
+  expect(summary.getAttribute("aria-expanded")).toBe("false");
+  expect(screen.getByText("Final reply")).toBeTruthy();
+  fireEvent.click(summary);
+  expect(summary.getAttribute("aria-expanded")).toBe("true");
 });

@@ -88,6 +88,8 @@ export interface MessageProvenance {
 }
 
 export interface ChatMessage {
+  /** Display-only response to an interaction; never sent as another chat turn. */
+  interactionResponse?: { requestId: string; answeredAt?: number; rows: { label: string; value: string }[] };
   provenance?: MessageProvenance;
   /** Ordered A2UI protocol envelopes; persist alongside the message. */
   a2ui?: { messages: unknown[]; surfaceIds?: string[] };

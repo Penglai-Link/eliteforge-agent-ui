@@ -1,11 +1,12 @@
 <script setup lang="ts">
 import { ChevronDown, ChevronRight, Terminal } from "lucide-vue-next";
 import { computed, ref, watch } from "vue";
-import type { ToolGroupWorkCard } from "@eliteforge/agent-ui-chat-core";
+import type { ChatWorkRailLabels, ToolGroupWorkCard } from "@eliteforge/agent-ui-chat-core";
 import ToolCard from "./ToolCard.vue";
 
 const props = defineProps<{
   card: ToolGroupWorkCard;
+  labels?: ChatWorkRailLabels;
 }>();
 
 const toolCards = computed(() =>
@@ -28,7 +29,7 @@ watch(
 <template>
   <section
     v-if="toolCards.length"
-    aria-label="Tool run steps"
+    :aria-label="props.labels?.tool?.ariaLabel ?? 'Tool run steps'"
     class="ef-chat__rail-entry"
   >
     <button
@@ -44,8 +45,7 @@ watch(
         <span
           class="ef-chat__rail-entry-summary ef-chat__rail-entry-summary--strong"
         >
-          Ran {{ toolCards.length }}
-          {{ toolCards.length === 1 ? "command" : "commands" }}
+          {{ props.labels?.tool?.group?.(toolCards.length) ?? `Ran ${toolCards.length} ${toolCards.length === 1 ? "command" : "commands"}` }}
         </span>
       </span>
       <span class="ef-chat__rail-entry-chevron">
@@ -55,7 +55,7 @@ watch(
     </button>
     <ol v-if="expanded" class="ef-chat__rail-entry-list">
       <li v-for="(tc, index) in toolCards" :key="tc.id">
-        <ToolCard :card="tc" :nested="true" :step-number="index + 1" />
+            <ToolCard :card="tc" :labels="props.labels" :nested="true" :step-number="index + 1" />
       </li>
     </ol>
   </section>

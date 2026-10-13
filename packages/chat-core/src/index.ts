@@ -20,5 +20,7 @@ export * from "./toolResults";
 export * from "./errorPresentation";
 
 export * from "./interactionSummary";
+export * from "./interactionMessages";
+export * from "./historyWork";
 
 export * from "./messageProvenance";

@@ -1368,11 +1368,11 @@ export function ChatRuntimeWindow({
       setUserInputAnswerPending(false);
       setUserInputRequest(current => current?.requestId === submittedRequest.requestId ? null : current);
       setUserInputRequests(current => current.map(request => request.requestId === submittedRequest.requestId
-        ? { ...request, answers, status: "Answered" as const } : request));
+        ? { ...request, answers, answeredAt: request.answeredAt ?? Date.now(), assistantMessageId: request.assistantMessageId ?? continuationAnchorMessageCode, status: "Answered" as const } : request));
     };
     const continuationAnchorMessageCode = [...messages]
       .reverse()
-      .find((message) => message.role === "ASSISTANT")?.messageId ?? "";
+      .find((message) => message.role === "ASSISTANT")?.messageId ?? messages.at(-1)?.messageId ?? "";
     setUserInputAnswerPending(true);
     let presentationEpoch = ++presentationRefreshEpochRef.current;
     setSendingState(true);
@@ -1400,7 +1400,7 @@ export function ChatRuntimeWindow({
             if (runId && continuationAnchorMessageCode) {
               setLiveAguiAnchorMessageCodes((current) => current[runId]
                 ? current
-                : { ...current, [runId]: continuationAnchorMessageCode });
+                : { ...current, [runId]: `interaction:${submittedRequest.requestId}` });
             }
           },
         },
@@ -1413,7 +1413,7 @@ export function ChatRuntimeWindow({
       setUserInputRequest(result.userInputRequest?.status === "Pending" ? result.userInputRequest : null);
       setUserInputRequests((current) => current.map((request) => (
         request.requestId === userInputRequest.requestId
-          ? { ...request, answers, status: "Answered" as const }
+          ? { ...request, answers, answeredAt: request.answeredAt ?? Date.now(), assistantMessageId: request.assistantMessageId ?? continuationAnchorMessageCode, status: "Answered" as const }
           : request
       )));
       setLiveAguiPending(false);

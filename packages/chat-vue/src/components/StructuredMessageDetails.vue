@@ -1,10 +1,9 @@
 <script setup lang="ts">
-import { interactionSummary, interactionSummaryTitle } from "@eliteforge/agent-ui-chat-core";
 import { computed } from "vue";
 import { chatErrorPresentation, defaultHistoryLabels, historyToolResult, historyBlockUrl, type ChatHistoryLabels, type ChatMessage, type ToolWorkCard } from "@eliteforge/agent-ui-chat-core";
 import ReasoningCard from "./ReasoningCard.vue";
 import ToolCard from "./ToolCard.vue";
-const props = defineProps<{ message: ChatMessage; labels?: ChatHistoryLabels }>();
+const props = defineProps<{ message: ChatMessage; workOnly?: boolean; labels?: ChatHistoryLabels }>();
 const labels = computed(() => props.labels ?? defaultHistoryLabels);
 const view = computed(() => props.message.history);
 const error = computed(() => chatErrorPresentation(view.value?.run?.error ?? "", labels.value.statuses.Failed));
@@ -17,8 +16,8 @@ const tools = computed(() => view.value?.tools.map((tool) => ({ tool, card: {
 </script>
 <template>
   <section v-if="view" class="ef-chat__history-details" :data-history-message-id="message.messageId">
-    <ReasoningCard v-if="reasoning" :card="{ id: `${message.messageId}:reasoning`, runId: message.runId ?? '', content: reasoning, summary: reasoning, ended: view.message.status !== 'Running', firstMillis: view.message.createdAtMs, endMillis: view.step?.finishedAtMs ?? null, toolCards: [] }" />
-    <template v-for="(block, index) in view.message.content" :key="index">
+    <ReasoningCard v-if="workOnly && reasoning" :card="{ id: `${message.messageId}:reasoning`, runId: message.runId ?? '', content: reasoning, summary: reasoning, ended: view.message.status !== 'Running', firstMillis: view.message.createdAtMs, endMillis: view.step?.finishedAtMs ?? null, toolCards: [] }" />
+    <template v-for="(block, index) in workOnly ? [] : view.message.content" :key="index">
       <pre v-if="block.type === 'Json'">{{ JSON.stringify(block.value, null, 2) }}</pre>
       <img v-else-if="block.type === 'Media' && block.mimeType.startsWith('image/') && historyBlockUrl(block)" :src="historyBlockUrl(block)!" :alt="block.name ?? block.mimeType" loading="lazy" />
       <template v-else-if="block.type === 'Resource' || block.type === 'Media'">
@@ -26,15 +25,11 @@ const tools = computed(() => view.value?.tools.map((tool) => ({ tool, card: {
         <code v-else>{{ block.name ?? (block.type === 'Resource' ? block.uri : block.mimeType) }}</code>
       </template>
     </template>
-    <pre v-if="view.message.structured != null">{{ JSON.stringify(view.message.structured, null, 2) }}</pre>
-    <div v-for="item in tools" :key="item.tool.id" :data-tool-invocation-id="item.tool.id">
+    <pre v-if="!workOnly && view.message.structured != null">{{ JSON.stringify(view.message.structured, null, 2) }}</pre>
+    <div v-for="item in workOnly ? tools : []" :key="item.tool.id" :data-tool-invocation-id="item.tool.id">
       <ToolCard :card="item.card" :status-label="labels.statuses[item.tool.status]" />
     </div>
-    <details v-for="interaction in view.interactions.filter((i) => i.response != null)" :key="interaction.id" :data-history-interaction-id="interaction.id">
-      <summary>{{ interactionSummaryTitle(interaction) }} · {{ labels.statuses.Completed }}<span v-if="interaction.responseProvenance?.sender" :data-interaction-response-sender="interaction.responseProvenance.sender.kind"> · {{ interaction.responseProvenance.sender.displayName || interaction.responseProvenance.sender.id || interaction.responseProvenance.sender.kind }}</span></summary>
-      <dl class="ef-chat__interaction-summary"><div v-for="(row, index) in interactionSummary(interaction)" :key="index"><dt>{{ row.label }}</dt><dd>{{ row.value }}</dd></div></dl>
-    </details>
-    <div v-if="message.role === 'ASSISTANT' && view.run?.error" role="status">{{ error.summary }}<details v-if="error.details" class="ef-chat__error-details"><summary>{{ /[\u3400-\u9fff]/.test(labels.statuses.Failed) ? "错误详情" : "Error details" }}</summary><pre>{{ error.details }}</pre></details></div>
+    <div v-if="!workOnly && message.role === 'ASSISTANT' && view.run?.error" role="status">{{ error.summary }}<details v-if="error.details" class="ef-chat__error-details"><summary>{{ /[\u3400-\u9fff]/.test(labels.statuses.Failed) ? "错误详情" : "Error details" }}</summary><pre>{{ error.details }}</pre></details></div>
   </section>
 </template>
 

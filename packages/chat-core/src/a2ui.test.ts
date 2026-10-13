@@ -27,7 +27,7 @@ describe("session A2UI projection",()=>{
 import {historyMessages} from "./history";
 it("projects submitted interactions as folded summaries without original controls",()=>{
  const page:any={sessionId:"session",runs:[{id:"run",startedAtMs:1,finishedAtMs:2}],records:{steps:[],messages:[],toolInvocations:[],interactions:[{id:"question",runId:"run",invocationId:null,prompt:[{type:"Text",text:"Choose"}],responseSchema:{type:"object"},presentation:{questions:[{id:"q",question:"Language?",options:[{id:"zh",label:"Chinese"}]}]},response:{answers:{q:{option_id:"zh"}}},expiresAtMs:null},{id:"approval",runId:"run",invocationId:"tool",prompt:[{type:"Text",text:"Allow?"}],responseSchema:{type:"boolean"},presentation:null,response:false,expiresAtMs:null}]},pendingInteractions:[],activeRuns:[]};
- const messages=historyMessages(page);expect(messages).toHaveLength(2);expect(messages.every(m=>m.channel === "history")).toBe(true);
+ const messages=historyMessages(page);expect(messages).toHaveLength(2);expect(messages.every(m=>m.role === "USER")).toBe(true);
  expect(messages.every(m => !m.a2ui)).toBe(true);
- expect(messages.flatMap(m => m.history?.interactions ?? []).map(i=>i.id)).toEqual(["question","approval"]);
+ expect(messages.map(m => m.interactionResponse?.requestId)).toEqual(["question","approval"]);
 });

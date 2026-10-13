@@ -25,7 +25,10 @@ it("reads one structured snapshot and renders records without any event replay",
   const adapter = host();
   render(<ChatRuntimeWindow adapter={adapter} initialSession={session} config={{ floating: false }} onError={vi.fn()} />);
   expect(await screen.findByText("Durable answer")).toBeTruthy();
-  expect(screen.getByText(/Step 1 · Attempt 2/)).toBeTruthy();
+  expect(screen.queryByText(/Step 1 · Attempt 2/)).toBeNull();
+  const work = screen.getByRole("button", { name: /Worked for/ });
+  expect(work.getAttribute("aria-expanded")).toBe("false");
+  fireEvent.click(work);
   expect(screen.getAllByText(/Result unknown/).length).toBeGreaterThan(0);
   expect(screen.queryByText("Ran lookup")).toBeNull();
   expect(screen.getByText('"public": true', { exact: false })).toBeTruthy();

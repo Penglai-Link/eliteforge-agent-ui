@@ -1293,7 +1293,7 @@ async function handleAnswerUserInput(answers: ChatUserInputAnswer[]) {
   }
   const continuationAnchorMessageCode = [...messages.value]
     .reverse()
-    .find((message) => message.role === "ASSISTANT")?.messageId ?? "";
+    .find((message) => message.role === "ASSISTANT")?.messageId ?? messages.value.at(-1)?.messageId ?? "";
   userInputAnswerPending.value = true;
   sending.value = true;
   liveAguiPending.value = aguiEnabled.value;
@@ -1312,7 +1312,7 @@ async function handleAnswerUserInput(answers: ChatUserInputAnswer[]) {
             userInputAnswerPending.value = false;
             if (userInputRequest.value?.requestId === request.requestId) userInputRequest.value = null;
             userInputRequests.value = userInputRequests.value.map(item => item.requestId === request.requestId
-              ? { ...item, answers, status: "Answered" as const } : item);
+              ? { ...item, answers, answeredAt: item.answeredAt ?? Date.now(), assistantMessageId: item.assistantMessageId ?? continuationAnchorMessageCode, status: "Answered" as const } : item);
             if (event.runId) activeRunCode.value = event.runId;
           }
           receiveA2ui(event);
@@ -1322,7 +1322,7 @@ async function handleAnswerUserInput(answers: ChatUserInputAnswer[]) {
           if (runId && continuationAnchorMessageCode && !liveAguiAnchorMessageCodes.value[runId]) {
             liveAguiAnchorMessageCodes.value = {
               ...liveAguiAnchorMessageCodes.value,
-              [runId]: continuationAnchorMessageCode,
+              [runId]: `interaction:${request.requestId}`,
             };
           }
         },
@@ -1349,7 +1349,7 @@ async function handleAnswerUserInput(answers: ChatUserInputAnswer[]) {
           : null;
       userInputRequests.value = userInputRequests.value.map((item) => (
         item.requestId === request.requestId
-          ? { ...item, answers, status: "Answered" as const }
+          ? { ...item, answers, answeredAt: item.answeredAt ?? Date.now(), assistantMessageId: item.assistantMessageId ?? continuationAnchorMessageCode, status: "Answered" as const }
           : item
       ));
     }

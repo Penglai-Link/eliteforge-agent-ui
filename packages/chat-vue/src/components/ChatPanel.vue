@@ -2,6 +2,9 @@
 import { ArrowDown, Bot, Pencil, Send, Square, X } from "lucide-vue-next";
 import {
   buildTranscriptPresentation,
+  interactionMessages,
+  historyWorkGroups,
+  historyCoversAguiWork,
   defaultHistoryLabels,
   describeDebugEvent,
   type ChatAttachmentLabels,
@@ -12,6 +15,7 @@ import {
 import { computed, nextTick, onMounted, ref, watch } from "vue";
 import { cx, insertNewlineAtCursor } from "../utils";
 import ChatBubble from "./ChatBubble.vue";
+import HistoryWorkRail from "./HistoryWorkRail.vue";
 import StructuredMessageDetails from "./StructuredMessageDetails.vue";
 import WaitingRail from "./WaitingRail.vue";
 import ChatUserInputCard from "./ChatUserInputCard.vue";
@@ -85,13 +89,6 @@ const showJumpButton = ref(false);
 const autoStickToBottom = ref(true);
 const previewImage = ref<{ alt: string; source: string } | null>(null);
 
-function isUserInputAnswerSummary(message: ChatMessage) {
-  if (message.role !== "USER") return false;
-  const content = message.content.trimStart();
-  return content.startsWith("The user answered the questions you asked:")
-    || content.startsWith("用户回答了你提出的问题：");
-}
-
 function openImagePreview(source: string, alt: string) {
   previewImage.value = { alt, source };
 }
@@ -142,10 +139,12 @@ const streamingAssistantMessageCode = computed(() => {
   return latestMessage?.role === "ASSISTANT" ? latestMessage.messageId : undefined;
 });
 const transcriptMessages = computed(() =>
-  props.messages.filter((message) =>
+  interactionMessages(props.messages, props.userInputRequests, props.workRailLabels).filter((message) =>
     message.messageId !== streamingAssistantMessageCode.value || message.content.trim().length > 0 || !!message.a2ui,
   ),
 );
+
+const historyWork = computed(() => historyWorkGroups(transcriptMessages.value));
 
 const presentation = computed(() =>
   buildTranscriptPresentation({
@@ -154,7 +153,7 @@ const presentation = computed(() =>
     liveAguiEvents: props.liveAguiEvents,
     liveAguiPendingAnchorMessageCode: props.liveAguiPendingAnchorMessageCode,
     liveAguiPending: props.liveAguiPending,
-    messages: props.messages,
+    messages: transcriptMessages.value,
     protocolEvents: props.protocolEvents,
     sessionId: props.session?.sessionId ?? "",
   }),
@@ -333,9 +332,10 @@ onMounted(() => {
           <button v-if="!props.historyLoading && props.onLoadOlderHistory" type="button" :disabled="props.historyLoadingOlder" @click="props.onLoadOlderHistory">{{ props.historyLoadingOlder ? (props.historyLabels ?? defaultHistoryLabels).loading : (props.historyLabels ?? defaultHistoryLabels).loadOlder }}</button>
           <div v-if="!props.historyLoading && transcriptMessages.length" class="ef-chat__transcript-inner">
             <template v-for="message in transcriptMessages" :key="message.messageId">
+              <HistoryWorkRail v-if="historyWork.has(message.messageId)" :messages="historyWork.get(message.messageId)!" :labels="props.workRailLabels" :history-labels="props.historyLabels" />
               <StructuredMessageDetails :message="message" :labels="props.historyLabels" />
               <ChatBubble
-                v-if="!isUserInputAnswerSummary(message) && (!message.history || message.a2ui || message.content.trim())"
+                v-if="(!message.history || message.a2ui || message.content.trim())"
                 :current-user-display-name="currentUserDisplayName"
                 :is-streaming="message.messageId === streamingAssistantMessageCode"
                 :message="message"
@@ -365,8 +365,9 @@ onMounted(() => {
                   :key="run.runId"
                   :debug-events="debugEventsForRun(run.runId)"
                   :events="run.events"
+                  :history-covered="historyCoversAguiWork(transcriptMessages, run.events)"
                   :labels="props.workRailLabels"
-                  :message-code="message.messageId"
+                  :message-id="message.messageId"
                   :user-input-requests="props.userInputRequests"
                 />
               </template>

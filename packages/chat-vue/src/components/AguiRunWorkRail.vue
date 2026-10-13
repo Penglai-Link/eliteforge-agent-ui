@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { submittedFormSummary } from "@eliteforge/agent-ui-chat-core";
 import { BrainCircuit, ChevronDown, ChevronRight, MessageSquareText } from "lucide-vue-next";
 import { computed, onBeforeUnmount, ref, watch } from "vue";
 import {
@@ -11,13 +10,13 @@ import {
   type TranscriptAguiEvent,
   type ChatWorkRailLabels,
   type ChatUserInputRequest,
-  type AguiUserWorkCard,
 } from "@eliteforge/agent-ui-chat-core";
 import ReasoningCard from "./ReasoningCard.vue";
 import ToolGroupCard from "./ToolGroupCard.vue";
 import ToolCard from "./ToolCard.vue";
 
 const props = withDefaults(defineProps<{
+  historyCovered?: boolean;
   debugEvents?: string[];
   events?: TranscriptAguiEvent[];
   labels?: ChatWorkRailLabels;
@@ -60,28 +59,18 @@ const userCards = computed(() => buildAguiUserWorkCards(props.events));
 const matchingUserInputRequests = computed(() => {
   const runCodes = new Set(props.events.map((event) => {
     if ("runId" in event && typeof event.runId === "string") return event.runId;
-    if ("runId" in event && typeof event.runId === "string") return event.runId;
     return "";
   }));
   return props.userInputRequests.filter((request) => (
     runCodes.has(request.runId) || request.assistantMessageId === props.messageId
   ));
 });
-const answeredUserInputRequests = computed(() => matchingUserInputRequests.value.filter(
-  (request) => request.status === "Answered",
-));
 const pendingUserInputRequest = computed(() => matchingUserInputRequests.value.find(
   (request) => request.status === "Pending",
 ));
-const expandedRequestCode = ref<string | null>(null);
-const visibleUserCards = computed<AguiUserWorkCard[]>(() => userCards.value.flatMap((card): AguiUserWorkCard[] => {
-  if (card.kind === "tool" && card.value.toolName === "chat_ask_user") return [];
-  if (card.kind !== "toolGroup") return [card];
-  const toolCards = card.value.toolCards.filter((toolCard) => toolCard.toolName !== "chat_ask_user");
-  return toolCards.length ? [{ ...card, value: { ...card.value, toolCards } }] : [];
-}));
+const visibleUserCards = userCards;
 const reasoningEffort = computed(() => aguiReasoningEffort(props.events));
-const terminalEvent = computed(() => isAguiRunTerminal(props.events));
+const terminalEvent = computed(() => props.historyCovered || isAguiRunTerminal(props.events) && !pendingUserInputRequest.value);
 const expanded = ref(false);
 const now = ref(Date.now());
 const labels = computed(() => props.labels ?? defaultLabels);
@@ -94,20 +83,6 @@ const currentSummary = computed(() => {
   if (activity === "RESPONDING") return labels.value.responding;
   return labels.value.thinking;
 });
-function answerText(request: ChatUserInputRequest, question: ChatUserInputRequest["questions"][number]) {
-  const answer = request.answers?.find((item) => item.questionId === question.questionId);
-  if (!answer) return labels.value.waitingForAnswer ?? "Waiting for your answer";
-  if (answer.answerKind === "Other") return answer.otherText?.trim() || labels.value.waitingForAnswer || "Waiting for your answer";
-  if (answer.answerKind === "Skipped") return labels.value.skipped ?? "Skipped";
-  return question.options.find((option) => option.optionId === answer.optionId)?.label
-    ?? answer.optionId
-    ?? labels.value.waitingForAnswer
-    ?? "Waiting for your answer";
-}
-function requestSummary(request: ChatUserInputRequest) {
-  return labels.value.askedQuestions?.(request.questions.length)
-    ?? `Asked ${request.questions.length} questions`;
-}
 let timer: ReturnType<typeof setInterval> | undefined;
 
 watch(terminalEvent, (completed) => {
@@ -129,7 +104,7 @@ onBeforeUnmount(() => {
 
 <template>
   <section
-    v-if="props.events.length || userCards.length || props.debugEvents.length"
+    v-if="(!props.historyCovered || props.debugEvents.length) && (props.events.length || userCards.length || props.debugEvents.length)"
     :aria-label="labels.ariaLabel"
     class="ef-chat__rail"
   >
@@ -146,37 +121,6 @@ onBeforeUnmount(() => {
       <ChevronDown v-if="expanded" :size="14" />
       <ChevronRight v-else :size="14" />
     </button>
-    <section
-      v-for="request in answeredUserInputRequests"
-      :key="request.requestId"
-      :aria-label="requestSummary(request)"
-      class="ef-chat__rail-entry"
-    >
-      <button
-        :aria-expanded="expandedRequestCode === request.requestId"
-        class="ef-chat__rail-entry-toggle"
-        type="button"
-        @click="expandedRequestCode = expandedRequestCode === request.requestId ? null : request.requestId"
-      >
-        <span class="ef-chat__rail-entry-label">
-          <MessageSquareText :size="15" />
-          <span>{{ requestSummary(request) }}</span>
-        </span>
-        <ChevronRight v-if="expandedRequestCode !== request.requestId" :size="14" />
-        <ChevronDown v-else :size="14" />
-      </button>
-      <ol v-if="expandedRequestCode === request.requestId" class="ef-chat__rail-entry-list">
-        <template v-if="request.a2uiInteraction"><li v-for="(row,index) in submittedFormSummary(request)" :key="index" class="ef-chat__user-input-work-answer"><span class="ef-chat__user-input-work-question">{{ row.label }}</span><span class="ef-chat__user-input-work-value">{{ row.value }}</span></li></template>
-        <li v-else
-          v-for="question in request.questions"
-          :key="question.questionId"
-          class="ef-chat__user-input-work-answer"
-        >
-          <span class="ef-chat__user-input-work-question">{{ question.question }}</span>
-          <span class="ef-chat__user-input-work-value">{{ answerText(request, question) }}</span>
-        </li>
-      </ol>
-    </section>
     <div v-if="!terminalEvent || pendingUserInputRequest" aria-live="polite" class="ef-chat__rail-current">
       <template v-if="pendingUserInputRequest">
         <MessageSquareText class="ef-chat__rail-current-icon animate-pulse" :size="15" />
@@ -204,8 +148,8 @@ onBeforeUnmount(() => {
         <div class="ef-chat__rail-card-list">
           <template v-for="card in visibleUserCards" :key="card.value.id">
             <ReasoningCard v-if="card.kind === 'reasoning'" :card="card.value" />
-            <ToolGroupCard v-else-if="card.kind === 'toolGroup'" :card="card.value" />
-            <ToolCard v-else :card="card.value" />
+            <ToolGroupCard v-else-if="card.kind === 'toolGroup'" :card="card.value" :labels="labels" />
+            <ToolCard v-else :card="card.value" :labels="labels" />
           </template>
         </div>
       </section>

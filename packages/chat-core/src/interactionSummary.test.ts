@@ -9,10 +9,11 @@ it("places answered interactions at their invoking tools before subsequent repli
  const tool = (id:string,messageId:string,time:number) => ({id,runId:"run",messageId,startedAtMs:time,structured:null,content:id === "ask-tool" ? [{type:"Text",text:JSON.stringify({...questionnaire.presentation,frameworkInteractionId:"ask"})}] : []});
  const page = {sessionId:"s",runs:[{id:"run",startedAtMs:1,finishedAtMs:1000}],records:{steps:[],messages:[message("final",900),message("ask-message",10),message("form-message",100)],toolInvocations:[tool("ask-tool","ask-message",20),tool("form","form-message",110)],interactions:[questionnaire,form]},pendingInteractions:[],activeRuns:[]} as unknown as SessionHistory;
  const messages = historyMessages(page);
- expect(messages.map(m=>m.id)).toEqual(["ask-message","form-message","final"]);
+ expect(messages.map(m=>m.id)).toEqual(["ask-message","interaction:ask","form-message","interaction:form","final"]);
  expect(messages.find(m=>m.id==="final")?.history?.interactions).toEqual([]);
  expect(messages[0].history?.interactions[0].id).toBe("ask");
  expect(messages.every(m => !m.a2ui)).toBe(true);
+ expect(messages.filter(m => m.interactionResponse).every(m => m.role === "USER")).toBe(true);
 });
 it("shows question and option labels instead of answer envelopes and transport IDs", () => {
  expect(interactionSummary(questionnaire)).toEqual([{label:"您的需求？",value:"发起会诊"}]);

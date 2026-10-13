@@ -10,6 +10,9 @@ import {
   formatJsonBlockValue,
   interactionToolSummary,
   toolSummaryLabel,
+  toolCompactLabel,
+  toolDisplayName,
+  type ChatWorkRailLabels,
   type ToolWorkCard,
 } from "@eliteforge/agent-ui-chat-core";
 import { computed, nextTick, ref, watch } from "vue";
@@ -20,6 +23,7 @@ import CopyValueButton from "./CopyValueButton.vue";
 
 const props = defineProps<{
   card: ToolWorkCard;
+  labels?: ChatWorkRailLabels;
   statusLabel?: string;
   nested?: boolean;
   stepNumber?: number;
@@ -42,9 +46,10 @@ const resultText = computed(() =>
 const toolLabel = computed(() =>
   toolSummaryLabel(props.card.toolName, props.card.args),
 );
+const resolvedName = computed(() => props.labels?.tool?.resolveName?.(props.card.toolName, props.card.args) ?? toolDisplayName(props.card.toolName, props.card.args));
 const nestedToolLabel = computed(
   () =>
-    props.statusLabel ? `${toolLabel.value} · ${props.statusLabel}` : `${complete.value ? "Ran" : "Running"} ${toolLabel.value.replace(/^Run\s+/i, "")}`,
+    props.statusLabel ? `${toolLabel.value} · ${props.statusLabel}` : toolCompactLabel(props.card.toolName, props.card.args, resolvedName.value),
 );
 
 watch(
@@ -172,12 +177,12 @@ function hasToolParameterPayload(value: unknown): boolean {
               <span class="ef-chat__tool-subtoggle-label">
                 <ChevronDown v-if="parametersExpanded" :size="13" />
                 <ChevronRight v-else :size="13" />
-                <span>Parameters</span>
+                <span>{{ props.labels?.tool?.parameters ?? "Parameters" }}</span>
               </span>
             </button>
             <CopyValueButton
-              ariaLabel="Copy parameters"
-              title="Copy parameters"
+              :ariaLabel="props.labels?.tool?.copyParameters ?? 'Copy parameters'"
+              :title="props.labels?.tool?.copyParameters ?? 'Copy parameters'"
               :value="parametersText"
             />
           </div>
@@ -189,10 +194,10 @@ function hasToolParameterPayload(value: unknown): boolean {
             class="ef-chat__tool-section-header"
             style="margin-bottom: 8px"
           >
-            <h3 class="ef-chat__tool-section-title">Result</h3>
+            <h3 class="ef-chat__tool-section-title">{{ props.labels?.tool?.result ?? "Result" }}</h3>
             <CopyValueButton
-              ariaLabel="Copy result"
-              title="Copy result"
+              :ariaLabel="props.labels?.tool?.copyResult ?? 'Copy result'"
+              :title="props.labels?.tool?.copyResult ?? 'Copy result'"
               :value="resultText"
             />
           </div>
@@ -207,7 +212,7 @@ function hasToolParameterPayload(value: unknown): boolean {
 
         <section v-else>
           <h3 class="ef-chat__tool-section-title" style="margin-bottom: 8px">
-            Log
+            {{ props.labels?.tool?.log ?? "Log" }}
           </h3>
           <div
             ref="logRef"

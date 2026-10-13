@@ -40,7 +40,7 @@ const actorName = computed(() =>
         <img v-if="messageSenderAvatar(message)" :src="messageSenderAvatar(message)" alt="" width="16" height="16" />
         <UserRound v-else-if="messageSenderIsHuman(message)" :size="16" />
         <Bot v-else :size="16" />
-        <span>{{ actorName }}</span>
+        <span :data-interaction-response-sender="message.interactionResponse ? message.provenance?.sender.kind : undefined">{{ actorName }}</span>
       </div>
       <div class="ef-chat__message-actions">
         <CopyValueButton
@@ -49,7 +49,7 @@ const actorName = computed(() =>
           :value="props.message.content"
         />
         <button
-          v-if="isUser"
+          v-if="isUser && !message.interactionResponse"
           aria-label="Edit message"
           class="ef-chat__icon-button"
           type="button"
@@ -57,11 +57,12 @@ const actorName = computed(() =>
         >
           <Pencil :size="14" />
         </button>
-        <span class="ef-chat__message-time">{{ formatTime(props.message.createdAt) }}</span>
+        <span v-if="!message.interactionResponse || message.interactionResponse.answeredAt != null" class="ef-chat__message-time">{{ formatTime(props.message.createdAt) }}</span>
       </div>
     </div>
-    <div v-if="isUser" class="ef-chat__message-body">
-      {{ props.message.content }}
+    <div v-if="isUser" class="ef-chat__message-body" :data-history-interaction-id="message.interactionResponse?.requestId">
+      <dl v-if="message.interactionResponse" class="ef-chat__interaction-summary"><div v-for="(row, index) in message.interactionResponse.rows" :key="index"><dt>{{ row.label }}</dt><dd>{{ row.value }}</dd></div></dl>
+      <template v-else>{{ props.message.content }}</template>
     </div>
     <MarkdownBlock
       v-else

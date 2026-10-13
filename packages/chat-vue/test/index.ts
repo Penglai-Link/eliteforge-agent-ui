@@ -1,10 +1,12 @@
 import { createApp } from "vue";
-import { createMockChatAdapter } from "@eliteforge/agent-ui-chat-core";
-import { ChatRuntimeWindow } from "../src";
+import { ChatPanel } from "../src";
+import { interactionTimelineDemoAnchors, interactionTimelineDemoEvents, interactionTimelineDemoMessages, interactionTimelineDemoRequest, interactionTimelineDemoLabels } from "../../chat-core/src/interactionTimelineDemo";
 import "@eliteforge/agent-ui-chat-theme";
 import "../src/styles.css";
 
-createApp(ChatRuntimeWindow, {
-  adapter: createMockChatAdapter({ eventDelayMs: 350 }),
-  config: { floating: false, title: "模拟宿主聊天" },
+createApp(ChatPanel, {
+  session: {id: "DEMO", sessionId: "DEMO", title: "AG-UI 消息时序预览", status: "ACTIVE", createdAt: new Date().toISOString(), updatedAt: new Date().toISOString()},
+  messages: interactionTimelineDemoMessages, draft: "", onDraftChange: () => undefined, onSend: () => undefined,
+  protocolEvents: interactionTimelineDemoEvents, liveAguiAnchorMessageCodes: interactionTimelineDemoAnchors,
+  userInputRequests: [interactionTimelineDemoRequest], workRailLabels: interactionTimelineDemoLabels, showHeader: false,
 }).mount("#app");

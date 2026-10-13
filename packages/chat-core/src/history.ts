@@ -1,4 +1,5 @@
 import type { ChatMessage, MessageProvenance, ChatUserInputLabels, ChatUserInputRequest } from "./types";
+import { interactionMessages } from "./interactionMessages";
 
 export type HistoryStatus = "Running" | "Waiting" | "Completed" | "Interrupted" | "Failed" | "Unknown" | "Planned" | "Approved";
 export type HistoryContentBlock =
@@ -98,8 +99,8 @@ export function historyMessages(page: SessionHistory, labels?: ChatUserInputLabe
   for (const interaction of page.records.interactions) {
     if (interaction.response == null || interactionTools.get(interaction.id)) continue;
     const run = runs.get(interaction.runId) ?? null;
-    const createdAtMs = run?.startedAtMs ?? 0;
-    const id = `interaction:${interaction.id}`;
+    const createdAtMs = page.records.messages.filter(message => message.runId === interaction.runId).at(-1)?.createdAtMs ?? run?.startedAtMs ?? 0;
+    const id = `interaction-request:${interaction.id}`;
     const message: HistoryMessage = { id, runId: interaction.runId, stepId: null,
       role: "Assistant", content: [], structured: null, status: "Completed", createdAtMs };
     messages.push({ id, messageId: id, sessionId: page.sessionId, runId: interaction.runId,
@@ -107,7 +108,8 @@ export function historyMessages(page: SessionHistory, labels?: ChatUserInputLabe
       createdAt: new Date(createdAtMs).toISOString(),
       history: { message, step: null, tools: [], run, interactions: [interaction] } });
   }
-  return messages.sort((a, b) => Date.parse(a.createdAt) - Date.parse(b.createdAt));
+  return interactionMessages(messages.sort((a, b) => Date.parse(a.createdAt) - Date.parse(b.createdAt)))
+    .filter(message => !message.messageId.startsWith("interaction-request:"));
 }
 
 export function historyUserInputRequests(page: SessionHistory, labels?: Partial<ChatUserInputLabels>): ChatUserInputRequest[] {
