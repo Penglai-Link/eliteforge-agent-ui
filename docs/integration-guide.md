@@ -240,6 +240,8 @@ React 和 Vue 聊天消息都支持 fenced `mermaid` 代码块，按需加载 Me
 
 AG-UI 过程按事件顺序展示公开思考摘要、独立步骤输出和工具调用，执行中保持展开。时间线末尾只显示固定的工作状态（`workRailLabels.working`），不重复当前摘要。`TEXT_MESSAGE_END` 只结束当前步骤；运行成功结束后才将此前过程整体折叠，并把最终回答保留为独立卡片。用户可以展开查看全部过程；结构化历史恢复使用相同顺序和折叠规则。停止、失败和等待输入不会把未完成的步骤输出标为最终回答。
 
+子代理派发卡片使用 `workRailLabels.tool.subagentDispatched(name)` 生成标题；`name` 从 `agent_spawn` 的参数或子代理事件字段中读取。未提供回调时，界面根据已有 `workRailLabels` 文案判断中英文并生成标题。`agent_spawn` 工具行不再重复显示运行状态文字。
+
 点击图表或聚焦后按 Enter/空格，可打开带遮罩的大图预览，支持放大、缩小和适应窗口。按 Esc、点击关闭按钮或遮罩可关闭，焦点返回原图表。历史消息使用同一渲染和预览能力。
 
 渲染使用 [Mermaid strict 安全配置](https://mermaid.js.org/config/usage.html)，禁用 HTML 标签和图内跳转脚本，消息内容不能覆盖安全配置。

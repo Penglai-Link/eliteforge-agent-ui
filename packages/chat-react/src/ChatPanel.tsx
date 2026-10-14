@@ -592,6 +592,7 @@ const defaultToolWorkLabels = {
   reasoningThinking: "Thinking...",
   reasoningAria: "Thinking",
   emptyReasoning: "No reasoning content was produced.",
+  subagentDispatched: (name: string) => name ? `Dispatched ${name} subagent` : "Subagent dispatched",
   resolveName: (runtimeName: string, args: unknown) => toolDisplayName(runtimeName, args),
 } satisfies ChatToolWorkLabels;
 
@@ -618,6 +619,12 @@ function toolResultFailed(result: string) {
   } catch {
     return false;
   }
+}
+
+function subagentDispatchedLabel(name: string, labels: ChatWorkRailLabels) {
+  if (labels.tool?.subagentDispatched) return labels.tool.subagentDispatched(name);
+  const chinese = /[\u3400-\u9fff]/.test([labels.ariaLabel, labels.thinking, labels.preparing, labels.responding].join(" "));
+  return chinese ? (name ? `已派发 ${name} 子代理` : "已派发子代理") : defaultToolWorkLabels.subagentDispatched(name);
 }
 
 function JsonBlock({ value }: { value: unknown }) {
@@ -648,11 +655,14 @@ function ToolCard({
   const resultText = card.result ? formatJsonBlockValue(card.result) : "";
   const toolCopy = { ...defaultToolWorkLabels, ...labels.tool };
   const toolName = toolCopy.resolveName(card.toolName, card.args);
+  const subagentDispatch = card.toolName.toLowerCase() === "agent_spawn";
   const domainExpansion = card.toolName === "discovery_expand_tool_domain";
-  const toolLabel = domainExpansion
+  const toolLabel = card.subagentName !== undefined || subagentDispatch && card.toolCallId.startsWith("subagent:")
+    ? subagentDispatchedLabel(card.subagentName || "", labels)
+    : domainExpansion
     ? (complete ? toolCopy.domainExpanded(toolName) : toolCopy.domainExpanding(toolName))
     : statusLabel ? toolName : (complete ? toolCopy.completed(toolName) : toolCopy.running(toolName));
-  const nestedToolLabel = domainExpansion ? toolLabel : toolCompactLabel(card.toolName, card.args, toolCopy.resolveName(card.toolName, card.args));
+  const nestedToolLabel = card.subagentName !== undefined ? toolLabel : domainExpansion ? toolLabel : toolCompactLabel(card.toolName, card.args, toolCopy.resolveName(card.toolName, card.args));
   const [expanded, setExpanded] = useState(false);
   const [parametersExpanded, setParametersExpanded] = useState(false);
   const logRef = useRef<HTMLDivElement | null>(null);
@@ -722,7 +732,7 @@ function ToolCard({
               >
                 {nested || compact && nestedToolLabel !== toolName ? nestedToolLabel : toolLabel}
               </span>
-              {nested || complete || failed ? null : (
+              {nested || complete || failed || subagentDispatch ? null : (
                 <span
                   className={cx(
                     "ef-chat__tool-status",

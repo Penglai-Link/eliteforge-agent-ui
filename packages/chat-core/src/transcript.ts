@@ -134,6 +134,7 @@ export interface ToolWorkCard {
   result: string;
   runId: string;
   started: boolean;
+  subagentName?: string;
   toolCallId: string;
   toolName: string;
 }
@@ -544,6 +545,33 @@ function parseToolPayload(value: unknown): Record<string, unknown> | null {
   }
 }
 
+function subagentNameFromArgs(value: unknown): string {
+  const payload = parseToolPayload(value);
+  if (payload) {
+    for (const key of ["agentName", "agent_name", "subagentName", "subagent_name", "agentType", "agent_type", "agent", "subagent", "name", "target"]) {
+      const candidate = payload[key];
+      if (typeof candidate === "string" && candidate.trim()) return candidate.trim();
+    }
+  }
+  if (typeof value === "string") {
+    const raw = value.trim();
+    if (!raw) return "";
+    try {
+      const parsed: unknown = JSON.parse(raw);
+      if (typeof parsed === "string" && parsed.trim()) return parsed.trim();
+    } catch {
+      if (!/[{}\[\]]/.test(raw)) return raw;
+    }
+  }
+  return "";
+}
+
+function subagentNameFromEvent(event: TranscriptAguiEvent): string {
+  const name = subagentNameFromArgs(event);
+  if (name) return name;
+  return typeof event.subagentName === "string" ? event.subagentName.trim() : "";
+}
+
 function humanizeToolName(value: string) {
   return value
     .trim()
@@ -682,6 +710,8 @@ export function buildAguiUserWorkCards(events: TranscriptAguiEvent[]): AguiUserW
   const latestReasoningCardIdsByRun = new Map<string, string>();
   const reasoningSequenceByRun = new Map<string, number>();
   const toolCards = new Map<string, ToolWorkCard>();
+  const pendingSubagentNamesByRun = new Map<string, string[]>();
+  const queuedSubagentToolIds = new Set<string>();
 
   events.forEach((event) => {
     const type = aguiEventType(event).toUpperCase();
@@ -732,10 +762,17 @@ export function buildAguiUserWorkCards(events: TranscriptAguiEvent[]): AguiUserW
         toolCallName: "toolName" in event && typeof event.toolName === "string" ? event.toolName : "Agent",
       });
       if (!card) return;
+      if (type === "SUBAGENT_STARTED") {
+        const pendingNames = pendingSubagentNamesByRun.get(aguiEventRunId(event)) ?? [];
+        const eventName = subagentNameFromEvent(event);
+        const matchingNameIndex = eventName ? pendingNames.indexOf(eventName) : -1;
+        card.subagentName = eventName || pendingNames.shift() || "";
+        if (matchingNameIndex >= 0) pendingNames.splice(matchingNameIndex, 1);
+      }
       card.started ||= type === "SUBAGENT_STARTED";
       card.ended ||= type !== "SUBAGENT_STARTED";
-      if ("description" in event && typeof event.description === "string") card.result = event.description;
-      if ("message" in event && typeof event.message === "string") card.result = event.message;
+      if ("description" in event && typeof event.description === "string" && !/^delegated child agent\.?$/i.test(event.description.trim())) card.result = event.description;
+      if ("message" in event && typeof event.message === "string" && !/^delegated child agent\.?$/i.test(event.message.trim())) card.result = event.message;
       return;
     }
 
@@ -760,6 +797,16 @@ export function buildAguiUserWorkCards(events: TranscriptAguiEvent[]): AguiUserW
           card.args = JSON.parse(combined);
         } catch {
           card.args = combined;
+        }
+      }
+      const queuedToolKey = `${card.runId}:${card.toolCallId}`;
+      if (card.toolName.toLowerCase() === "agent_spawn" && !queuedSubagentToolIds.has(queuedToolKey)) {
+        const subagentName = subagentNameFromArgs(card.args);
+        if (subagentName) {
+          const pendingNames = pendingSubagentNamesByRun.get(card.runId) ?? [];
+          pendingNames.push(subagentName);
+          pendingSubagentNamesByRun.set(card.runId, pendingNames);
+          queuedSubagentToolIds.add(queuedToolKey);
         }
       }
       return;

@@ -260,6 +260,7 @@ export interface ChatToolWorkLabels {
   reasoningThinking: string;
   reasoningAria: string;
   emptyReasoning: string;
+  subagentDispatched?: (name: string) => string;
   resolveName: (runtimeName: string, args: unknown) => string;
 }
 

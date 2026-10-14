@@ -45,7 +45,12 @@ const resultText = computed(() =>
   props.card.result ? formatJsonBlockValue(props.card.result) : "",
 );
 const domainExpansion = computed(() => props.card.toolName === "discovery_expand_tool_domain");
+const subagentDispatch = computed(() => props.card.toolName.toLowerCase() === "agent_spawn");
 const toolLabel = computed(() => {
+  if (props.card.subagentName !== undefined || subagentDispatch.value && props.card.toolCallId.startsWith("subagent:")) {
+    const name = props.card.subagentName ?? "";
+    return subagentDispatchedLabel(name);
+  }
   if (domainExpansion.value) {
     const name = resolvedName.value;
     return complete.value
@@ -56,8 +61,9 @@ const toolLabel = computed(() => {
 });
 const resolvedName = computed(() => props.labels?.tool?.resolveName?.(props.card.toolName, props.card.args) ?? toolDisplayName(props.card.toolName, props.card.args));
 const nestedToolLabel = computed(
-  () =>
-    domainExpansion.value ? toolLabel.value : toolCompactLabel(props.card.toolName, props.card.args, resolvedName.value),
+  () => props.card.subagentName !== undefined || domainExpansion.value
+    ? toolLabel.value
+    : toolCompactLabel(props.card.toolName, props.card.args, resolvedName.value),
 );
 
 watch(
@@ -82,6 +88,13 @@ function hasToolParameterPayload(value: unknown): boolean {
   if (Array.isArray(value)) return value.length > 0;
   if (typeof value === "object") return true;
   return true;
+}
+
+function subagentDispatchedLabel(name: string) {
+  if (props.labels?.tool?.subagentDispatched) return props.labels.tool.subagentDispatched(name);
+  const labels = props.labels;
+  const chinese = labels && /[\u3400-\u9fff]/.test([labels.ariaLabel, labels.thinking, labels.preparing, labels.responding].join(" "));
+  return chinese ? (name ? `已派发 ${name} 子代理` : "已派发子代理") : (name ? `Dispatched ${name} subagent` : "Subagent dispatched");
 }
 </script>
 
@@ -136,7 +149,7 @@ function hasToolParameterPayload(value: unknown): boolean {
               {{ props.nested || props.compact ? nestedToolLabel : toolLabel }}
             </span>
             <span
-              v-if="!props.nested"
+              v-if="!props.nested && !subagentDispatch"
               :class="
                 cx(
                   'ef-chat__tool-status',

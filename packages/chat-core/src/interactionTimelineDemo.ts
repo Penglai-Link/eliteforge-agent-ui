@@ -11,6 +11,7 @@ export const interactionTimelineDemoLabels: ChatWorkRailLabels = {
     group: (count) => `${count} 个工具调用`, statusDone: "完成", statusRunning: "运行中", parameters: "参数", result: "结果", log: "日志",
     noResult: "暂无结果。", waitingActivity: "等待工具活动…", copyParameters: "复制参数", copyResult: "复制结果",
     reasoningCaptured: "推理完成。", reasoningThinking: "思考中…", reasoningAria: "思考过程", emptyReasoning: "未生成推理内容。",
+    subagentDispatched: (name) => name ? `已派发 ${name} 子代理` : "已派发子代理",
     resolveName: (name) => name === "search_release_docs" ? "搜索发布文档" : name === "chat_ask_user" ? "询问用户" : "工具调用" },
 };
 export const interactionTimelineDemoMessages: ChatMessage[] = [
