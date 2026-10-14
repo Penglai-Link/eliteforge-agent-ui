@@ -102,6 +102,23 @@ describe("ChatUserInputCard", () => {
     ]);
   });
 
+  it("confirms the last question without offering to skip or losing previous answers", () => {
+    const onSubmit = vi.fn();
+    render(<ChatUserInputCard onSubmit={onSubmit} request={request} />);
+    expect(screen.getByRole("button", { name: "Skip" })).toBeTruthy();
+    fireEvent.click(screen.getByRole("radio", { name: /Option two/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    expect(screen.queryByRole("button", { name: "Skip" })).toBeNull();
+    expect((screen.getByRole("button", { name: "Confirm" }) as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.click(screen.getByRole("radio", { name: /Keep it simple/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Confirm" }));
+    expect(onSubmit).toHaveBeenCalledTimes(1);
+    expect(onSubmit).toHaveBeenCalledWith([
+      { questionId: "QUESTION-1", answerKind: "Option", optionId: "OPTION-2", otherText: null },
+      { questionId: "QUESTION-2", answerKind: "Option", optionId: "OPTION-3", otherText: null },
+    ]);
+  });
+
   it("offers a confirm action after selecting an option", () => {
     const onSubmit = vi.fn();
     render(<ChatUserInputCard onSubmit={onSubmit} request={{ ...request, questions: [request.questions[0]] }} />);

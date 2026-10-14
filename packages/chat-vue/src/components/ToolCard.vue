@@ -43,13 +43,20 @@ const parametersText = computed(() =>
 const resultText = computed(() =>
   props.card.result ? formatJsonBlockValue(props.card.result) : "",
 );
-const toolLabel = computed(() =>
-  toolSummaryLabel(props.card.toolName, props.card.args),
-);
+const domainExpansion = computed(() => props.card.toolName === "discovery_expand_tool_domain");
+const toolLabel = computed(() => {
+  if (domainExpansion.value) {
+    const name = resolvedName.value;
+    return complete.value
+      ? (props.labels?.tool?.domainExpanded?.(name) ?? `Expand ${name} tools`)
+      : (props.labels?.tool?.domainExpanding?.(name) ?? `Expanding ${name} tools`);
+  }
+  return toolSummaryLabel(props.card.toolName, props.card.args);
+});
 const resolvedName = computed(() => props.labels?.tool?.resolveName?.(props.card.toolName, props.card.args) ?? toolDisplayName(props.card.toolName, props.card.args));
 const nestedToolLabel = computed(
   () =>
-    props.statusLabel ? `${toolLabel.value} · ${props.statusLabel}` : toolCompactLabel(props.card.toolName, props.card.args, resolvedName.value),
+    domainExpansion.value ? toolLabel.value : props.statusLabel ? `${toolLabel.value} · ${props.statusLabel}` : toolCompactLabel(props.card.toolName, props.card.args, resolvedName.value),
 );
 
 watch(

@@ -583,7 +583,7 @@ describe("ChatPanel submit controls", () => {
     expect(screen.queryByRole("button", { name: "Queue" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Steer" })).toBeNull();
     expect(composer.getAttribute("placeholder")).toBe(
-      "Enter 加入队列 · ⌘/Ctrl+Enter 立即调整当前回复 · Shift+Enter 换行",
+      "Enter to queue · ⌘/Ctrl+Enter to steer · Shift+Enter for newline",
     );
     expect(composer.getAttribute("aria-keyshortcuts")).toBe(
       "Meta+Enter Control+Enter",
@@ -637,7 +637,7 @@ describe("ChatPanel submit controls", () => {
     expect(onSend).toHaveBeenCalledWith("queue");
     expect(onSend).toHaveBeenCalledTimes(1);
     expect(composer.getAttribute("placeholder")).toBe(
-      "Enter 加入队列 · Shift+Enter 换行",
+      "Enter to queue · Shift+Enter for newline",
     );
     expect(screen.queryByRole("button", { name: "Queue" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Steer" })).toBeNull();
@@ -798,4 +798,37 @@ it("folds structured work when the run completes and keeps final text visible", 
   expect(screen.getByText("Final reply")).toBeTruthy();
   fireEvent.click(summary);
   expect(summary.getAttribute("aria-expanded")).toBe("true");
+});
+
+
+it("keeps pending questions adjacent to work without empty history sections", () => {
+  const steps: ChatMessage[] = Array.from({ length: 6 }, (_, index) => ({
+    ...message("ASSISTANT", ""), id: `step-${index}`, messageId: `step-${index}`, runId: "RUN-1",
+    history: {
+      message: { id: `step-${index}`, runId: "RUN-1", stepId: null, role: "Assistant", content: [{ type: "Reasoning", text: `Work ${index}` }], structured: null, status: "Completed", createdAtMs: index },
+      step: null, tools: [], interactions: [],
+      run: { id: "RUN-1", sessionId: "SESSION-1", rootRunId: "RUN-1", parentRunId: null, status: "Waiting", startedAtMs: 0, finishedAtMs: null, error: null },
+    },
+  }));
+  const request: ChatUserInputRequest = {
+    intro: "Let us get acquainted", answers: null, requestId: "ask", runId: "RUN-1", sessionId: "SESSION-1", assistantMessageId: "step-5", requestedAt: 7, status: "Pending",
+    questions: [{ questionId: "name", question: "What should I be called?", options: [{ optionId: "tron", label: "Tron", description: "Use this name" }] }],
+  };
+  const { container } = renderPanel({ messages: [message("USER", "Wake up"), ...steps], userInputRequest: request, userInputRequests: [request], onAnswerUserInput: vi.fn() });
+  expect(screen.getByRole("group", { name: "What should I be called?" })).toBeTruthy();
+  expect(container.querySelectorAll(".ef-chat__history-details")).toHaveLength(0);
+  expect(container.querySelectorAll(".ef-chat__turn > *")).toHaveLength(2); // User and one grouped work rail.
+  fireEvent.click(screen.getByRole("button", { name: "Thinking…" }));
+  expect(container.querySelectorAll(".ef-chat__history-details")).toHaveLength(6);
+  expect(container.querySelectorAll(".ef-chat__turn > *")).toHaveLength(2);
+});
+
+it("retains structured result content beside text without adding empty history sections", () => {
+  const assistant: ChatMessage = { ...message("ASSISTANT", "Result"), history: {
+    message: { id: "result", runId: "r", stepId: null, role: "Assistant", content: [{ type: "Json", value: { answer: 42 } }], structured: null, status: "Completed", createdAtMs: 1 },
+    step: null, tools: [], interactions: [], run: null,
+  } };
+  const { container } = renderPanel({ messages: [assistant] });
+  expect(container.querySelector(".ef-chat__history-details pre")?.textContent).toContain('"answer": 42');
+  expect(screen.getByText("Result")).toBeTruthy();
 });

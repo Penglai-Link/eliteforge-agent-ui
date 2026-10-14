@@ -142,6 +142,13 @@ watch(
 onBeforeUnmount(() => assistantReplyQueue.dispose());
 const userInputRequest = ref<ChatUserInputRequest | null>(null);
 const userInputRequests = ref<ChatUserInputRequest[]>([]);
+const acceptedUserInputRequests = ref<ChatUserInputRequest[]>([]);
+const presentedUserInputRequests = computed(() => [...new Map(
+  [...userInputRequests.value, ...acceptedUserInputRequests.value]
+    .filter(request => request.sessionId === session.value?.sessionId)
+    .map(request => [request.requestId, request]),
+).values()]);
+watch(() => session.value?.sessionId, () => { acceptedUserInputRequests.value = []; });
 const userInputAnswerPending = ref(false);
 const aguiEvents = ref<ChatAguiEvent[]>([]);
 const protocolEvents = ref<ChatAguiStreamEvent[]>([]);
@@ -274,9 +281,10 @@ const canStop = computed(() =>
 );
 
 watch(
-  [runActive, effectiveActiveRunCode, canSteer, () => session.value?.sessionId ?? ""],
-  ([active, runId, supportsSteer, sessionId]) => {
+  [runActive, effectiveActiveRunCode, canSteer, () => session.value?.sessionId ?? "", loading, activeRunStatusPending],
+  ([active, runId, supportsSteer, sessionId, historyLoading, statusPending]) => {
     props.onRunStateChange?.({
+      loading: historyLoading || statusPending,
       active,
       runId,
       sessionId,
@@ -1294,6 +1302,12 @@ async function handleAnswerUserInput(answers: ChatUserInputAnswer[]) {
   const continuationAnchorMessageCode = [...messages.value]
     .reverse()
     .find((message) => message.role === "ASSISTANT")?.messageId ?? messages.value.at(-1)?.messageId ?? "";
+  const markAnswered = () => {
+    if (activeSessionCodeRef.value !== activeSession.sessionId) return;
+    if (!acceptedUserInputRequests.value.some(item => item.requestId === request.requestId)) {
+      acceptedUserInputRequests.value = [...acceptedUserInputRequests.value, { ...request, answers, answeredAt: Date.now(), assistantMessageId: request.assistantMessageId ?? continuationAnchorMessageCode, status: "Answered" }];
+    }
+  };
   userInputAnswerPending.value = true;
   sending.value = true;
   liveAguiPending.value = aguiEnabled.value;
@@ -1309,6 +1323,7 @@ async function handleAnswerUserInput(answers: ChatUserInputAnswer[]) {
         onAguiEvent: (event) => {
           if (activeSessionCodeRef.value !== activeSession.sessionId) return;
           if (event.type === "RUN_STARTED") {
+            markAnswered();
             userInputAnswerPending.value = false;
             if (userInputRequest.value?.requestId === request.requestId) userInputRequest.value = null;
             userInputRequests.value = userInputRequests.value.map(item => item.requestId === request.requestId
@@ -1329,6 +1344,7 @@ async function handleAnswerUserInput(answers: ChatUserInputAnswer[]) {
       },
     );
     if (activeSessionCodeRef.value !== activeSession.sessionId) return;
+    markAnswered();
     const [nextMessages, durableAudits, durableProtocol, durableRequests, durableHistory] = await readPresentation(activeSession.sessionId, undefined, adapter).catch(() => [null, [], [], [], null] as const);
     acceptHistory(durableHistory);
     messages.value = nextMessages
@@ -1589,6 +1605,8 @@ const panelCommonProps = computed(() => ({
   emptyTitle: props.emptyTitle,
   formatAnnotationCount: props.formatAnnotationCount,
   inputPlaceholder: props.config.inputPlaceholder,
+  inputSuggestions: props.config.inputSuggestions,
+  inputSuggestionLabels: props.config.inputSuggestionLabels,
   liveAguiAnchorMessageCodes: liveAguiAnchorMessageCodes.value,
   liveAguiEvents: liveAguiEvents.value,
   liveAguiPendingAnchorMessageCode: liveAguiPendingAnchorMessageCode.value,
@@ -1627,7 +1645,7 @@ const panelCommonProps = computed(() => ({
   stopLabel: "Stop",
   title: props.config.title || props.floatingTitle,
   userInputLabels: props.config.userInputLabels,
-  userInputRequests: userInputRequests.value,
+  userInputRequests: presentedUserInputRequests.value,
   workRailLabels: props.config.workRailLabels,
   userInputAnswerPending: userInputAnswerPending.value,
   userInputRequest: userInputRequest.value,

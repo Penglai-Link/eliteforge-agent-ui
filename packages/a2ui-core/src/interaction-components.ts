@@ -72,7 +72,7 @@ export function renderInteraction(ctx: RenderContext, h: Element, props: Record<
             dispatch();
     };
     const other = (event: any) => update({ questionId: q.questionId, answerKind: "Other", optionId: null, otherText: event.target.value });
-    const showConfirm = !disabled && complete(answer) && (questions.length === 1 || answer?.answerKind === "Other");
+    const showConfirm = last || !disabled && complete(answer) && answer?.answerKind === "Other";
     const progress = label("progress." + (index + 1), "Question " + (index + 1) + " of " + questions.length);
     return { handled: true, node: h("section", { ...props, "data-agent-motion": "enter", "data-agent-motion-key": JSON.stringify([surfaceId, c.id, scope]), "data-agent-motion-disabled": disabled, ref: (element: HTMLElement | null) => { region = element; }, "aria-label": label("ariaLabel", "Assistant questions"), "data-status": expired ? "Expired" : status }, [
             h("fieldset", { ...part("options"), "data-agent-motion": "fade", "data-agent-motion-key": q.questionId, "data-agent-motion-disabled": disabled, "aria-label": q.question }, [
@@ -103,8 +103,8 @@ export function renderInteraction(ctx: RenderContext, h: Element, props: Record<
                             }
                         }, onInput: other, onChange: other }, []),
                 ]) : null,
-                showConfirm ? button(label("confirm", "Confirm"), submit, false, { ...part("confirm"), "data-variant": "primary" }) : null,
-                q.allowSkip !== false ? button(label("skipOptionLabel", "Skip"), skip, disabled, part("skip")) : null,
+                showConfirm ? button(label("confirm", "Confirm"), submit, disabled || !complete(answer), { ...part("confirm"), "data-variant": "primary" }) : null,
+                !last && q.allowSkip !== false ? button(label("skipOptionLabel", "Skip"), skip, disabled, part("skip")) : null,
             ]) : null,
             settled,
         ]) };

@@ -417,6 +417,7 @@
 }
 
 .ef-chat__composer {
+  position: relative;
   display: flex;
   min-height: 112px;
   width: 100%;
@@ -426,6 +427,40 @@
   box-shadow: inset 0 0 0 1px rgba(15, 23, 42, 0.055);
   padding: 12px;
 }
+
+.ef-chat__suggestions {
+  position: absolute;
+  z-index: 20;
+  right: 0;
+  bottom: calc(100% + 8px);
+  left: 0;
+  max-height: min(320px, 50vh);
+  overflow: auto;
+  border: 1px solid var(--agent-ui-chat-border, #e5e7eb);
+  border-radius: 10px;
+  background: var(--agent-ui-chat-surface-strong, #fff);
+  box-shadow: 0 8px 28px rgba(15, 23, 42, .14);
+  padding: 6px;
+}
+
+.ef-chat__suggestion-group + .ef-chat__suggestion-group { margin-top: 6px; }
+.ef-chat__suggestion-heading { padding: 5px 9px; color: var(--agent-ui-chat-text-muted); font-size: 11px; }
+.ef-chat__suggestion {
+  display: flex;
+  width: 100%;
+  align-items: baseline;
+  gap: 8px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  padding: 7px 9px;
+  text-align: left;
+}
+.ef-chat__suggestion[data-active="true"], .ef-chat__suggestion:hover { background: var(--agent-ui-chat-hover, #f2f2f7); }
+.ef-chat__suggestion-name { flex: none; font-size: 13px; }
+.ef-chat__suggestion-description { overflow: hidden; color: var(--agent-ui-chat-text-muted); font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
 
 .ef-chat__composer-header {
   display: flex;

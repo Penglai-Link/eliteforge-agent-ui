@@ -38,3 +38,30 @@ it("settles the answered approval while the resumed stream is still running", as
   await waitFor(() => expect(screen.queryByRole("button",{name:"Approve"})).toBeNull());
   await act(async () => finish({session,run:{runId:"NEXT",status:"COMPLETED",finalOutput:"",stepCount:1},messages:[],userInputRequest:null}));
 });
+
+it("keeps an accepted ask-user answer visible through resume events and pending-list refresh", async () => {
+  const time = Date.now();
+  const session: ChatSession = {id:1,sessionId:"S",title:"Awakening",status:"ACTIVE",createdAt:new Date(time).toISOString(),updatedAt:new Date(time).toISOString()};
+  const messages = [{id:1,messageId:"USER",sessionId:"S",runId:"R",role:"USER",actor:"User",channel:"MAIN_AGENT",content:"Wake up",createdAt:session.createdAt}];
+  const protocol: ChatAguiStreamEvent[] = [{type:"RUN_STARTED",runId:"R",threadId:"S",timestamp:time},{type:"RUN_FINISHED",runId:"R",threadId:"S",timestamp:time+1,outcome:{type:"interrupt",interrupts:[{id:"ASK",reason:"user_input",message:"Your preference?",responseSchema:{type:"object"},metadata:{interaction:{presentation:{questions:[{id:"tone",question:"Which tone?",options:[{id:"brief",label:"Keep it brief"}],allow_free_text:true,allow_skip:false}]}}}}]}}];
+  let observer: Parameters<NonNullable<ChatAdapter["answerUserInputRequestStream"]>>[3];
+  let finish!: (result:any) => void;
+  const answer = vi.fn((_s,_id,_input,handlers) => {observer=handlers;return new Promise<any>(resolve=>{finish=resolve;});});
+  const adapter:ChatAdapter={capabilities:{supportsStreaming:true,supportsAgui:true,supportsProtocolReplay:true,supportsUserInputRequests:true},createSession:vi.fn(),streamMessage:vi.fn(),loadMessages:vi.fn().mockResolvedValue(messages),loadAguiEvents:vi.fn().mockResolvedValue([]),loadProtocolEvents:vi.fn().mockResolvedValue(protocol),loadUserInputRequests:vi.fn().mockResolvedValue([]),answerUserInputRequestStream:answer};
+  const view=render(<ChatRuntimeWindow adapter={adapter} config={{floating:false}} initialSession={session} onError={vi.fn()}/>);
+  fireEvent.click(await screen.findByRole("radio",{name:"Keep it brief"}));
+  fireEvent.click(screen.getByRole("button",{name:"Confirm"}));
+  await waitFor(()=>expect(answer).toHaveBeenCalled());
+  expect(view.container.querySelector('[data-history-interaction-id="ASK"]')).toBeNull();
+  act(()=>observer?.onAguiEvent?.({type:"RUN_STARTED",runId:"NEXT",threadId:"S"}));
+  await waitFor(()=>expect(view.container.querySelector('[data-history-interaction-id="ASK"]')?.textContent).toContain("Keep it brief"));
+  expect(screen.queryByRole("button",{name:"Confirm"})).toBeNull();
+  act(()=>observer?.onAguiEvent?.({type:"STEP_STARTED",stepName:"continue",runId:"NEXT",threadId:"S"}));
+  expect(view.container.querySelectorAll('[data-history-interaction-id="ASK"]')).toHaveLength(1);
+  await act(async()=>finish({session,run:{runId:"NEXT",status:"COMPLETED",finalOutput:"",stepCount:1},messages:[],userInputRequest:null}));
+  await waitFor(()=>expect(adapter.loadMessages).toHaveBeenCalledTimes(2));
+  expect(view.container.querySelectorAll('[data-history-interaction-id="ASK"]')).toHaveLength(1);
+  expect(view.container.querySelector('[data-history-interaction-id="ASK"]')?.textContent).toContain("Which tone?Keep it brief");
+  view.rerender(<ChatRuntimeWindow adapter={adapter} config={{floating:false}} initialSession={{...session,sessionId:"OTHER"}} onError={vi.fn()}/>);
+  await waitFor(()=>expect(view.container.querySelector('[data-history-interaction-id="ASK"]')).toBeNull());
+});

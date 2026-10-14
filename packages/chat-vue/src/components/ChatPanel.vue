@@ -9,6 +9,8 @@ import {
   describeDebugEvent,
   type ChatAttachmentLabels,
   type ChatMessage,
+  type ChatInputSuggestion,
+  type ChatInputSuggestionLabels,
   type ChatSubmitMode,
   type ChatUserInputRequest,
 } from "@eliteforge/agent-ui-chat-core";
@@ -39,6 +41,8 @@ const props = withDefaults(defineProps<ChatPanelProps>(), {
   emptyTitle: "No session selected",
   formatAnnotationCount: (count: number) => `${count} annotation${count === 1 ? "" : "s"}`,
   inputPlaceholder: "Enter to send, Shift+Enter for newline",
+  inputSuggestions: () => [],
+  inputSuggestionLabels: (): ChatInputSuggestionLabels => ({ commands: "Commands", skills: "Skills", commandsAndSkills: "Commands and skills" }),
   liveAguiAnchorMessageCodes: () => ({}),
   liveAguiEvents: () => [],
   liveAguiPendingAnchorMessageCode: "",
@@ -88,6 +92,46 @@ const composerRef = ref<HTMLTextAreaElement | null>(null);
 const showJumpButton = ref(false);
 const autoStickToBottom = ref(true);
 const previewImage = ref<{ alt: string; source: string } | null>(null);
+const activeSuggestion = ref(0);
+const suggestionsDismissed = ref(false);
+const suggestionQuery = computed(() => {
+  const match = props.draft.match(/(?:^|\s)([/$])([^\s]*)$/);
+  return match ? { trigger: match[1], query: match[2] } : null;
+});
+const visibleSuggestions = computed(() => {
+  if (!suggestionQuery.value) return [];
+  const query = suggestionQuery.value.query.toLocaleLowerCase();
+  return props.inputSuggestions.filter((item: ChatInputSuggestion) =>
+    (suggestionQuery.value?.trigger !== "$" || item.kind === "skill")
+    && (item.name.toLocaleLowerCase().includes(query)
+      || item.description?.toLocaleLowerCase().includes(query)
+      || item.category?.toLocaleLowerCase().includes(query)),
+  );
+});
+const suggestionGroups = computed(() => {
+  const commands = visibleSuggestions.value.filter((item) => item.kind === "command");
+  const skills = visibleSuggestions.value.filter((item) => item.kind === "skill");
+  return [
+    ...(commands.length ? [[props.inputSuggestionLabels.commands, commands] as const] : []),
+    ...(skills.length ? [[props.inputSuggestionLabels.skills, skills] as const] : []),
+  ];
+});
+const flatSuggestions = computed(() => suggestionGroups.value.flatMap(([, items]) => items));
+watch(() => props.draft, () => { activeSuggestion.value = 0; suggestionsDismissed.value = false; });
+
+function chooseSuggestion(item: ChatInputSuggestion) {
+  const match = props.draft.match(/(?:^|\s)([/$])([^\s]*)$/);
+  const textarea = composerRef.value;
+  if (!match || !textarea) return;
+  const start = props.draft.length - match[0].length;
+  const prefix = match[0].startsWith(" ") ? " " : "";
+  const replacement = `${prefix}${item.kind === "skill" ? "$" : "/"}${item.name} `;
+  emit("draft-change", `${props.draft.slice(0, start)}${replacement}`);
+  void nextTick(() => {
+    textarea.focus();
+    textarea.setSelectionRange(start + replacement.length, start + replacement.length);
+  });
+}
 
 function openImagePreview(source: string, alt: string) {
   previewImage.value = { alt, source };
@@ -178,6 +222,25 @@ function handleScroll() {
 
 function handleKeydown(event: KeyboardEvent) {
   if (event.isComposing) return;
+  if (!suggestionsDismissed.value && flatSuggestions.value.length && event.key === "ArrowDown") {
+    event.preventDefault();
+    activeSuggestion.value = (activeSuggestion.value + 1) % flatSuggestions.value.length;
+    return;
+  }
+  if (!suggestionsDismissed.value && flatSuggestions.value.length && event.key === "ArrowUp") {
+    event.preventDefault();
+    activeSuggestion.value = (activeSuggestion.value - 1 + flatSuggestions.value.length) % flatSuggestions.value.length;
+    return;
+  }
+  if (!suggestionsDismissed.value && flatSuggestions.value.length && event.key === "Escape") {
+    suggestionsDismissed.value = true;
+    return;
+  }
+  if (!suggestionsDismissed.value && flatSuggestions.value.length && event.key === "Enter" && !event.shiftKey) {
+    event.preventDefault();
+    chooseSuggestion(flatSuggestions.value[activeSuggestion.value]);
+    return;
+  }
   if (event.key === "Enter" && event.shiftKey) {
     event.preventDefault();
     emit(
@@ -455,6 +518,30 @@ onMounted(() => {
           </ol>
         </section>
         <div class="ef-chat__composer">
+          <div
+            v-if="suggestionQuery && !suggestionsDismissed && flatSuggestions.length"
+            class="ef-chat__suggestions"
+            role="listbox"
+            :aria-label="suggestionQuery.trigger === '$' ? inputSuggestionLabels.skills : inputSuggestionLabels.commandsAndSkills"
+          >
+            <section v-for="[group, items] in suggestionGroups" :key="group" class="ef-chat__suggestion-group">
+              <div class="ef-chat__suggestion-heading">{{ group }}</div>
+              <button
+                v-for="item in items"
+                :key="`${item.kind}:${item.name}`"
+                class="ef-chat__suggestion"
+                :data-active="flatSuggestions.indexOf(item) === activeSuggestion"
+                role="option"
+                :aria-selected="flatSuggestions.indexOf(item) === activeSuggestion"
+                type="button"
+                @mousedown.prevent
+                @click="chooseSuggestion(item)"
+              >
+                <span class="ef-chat__suggestion-name">{{ item.kind === "command" ? "/" : "$" }}{{ item.name }}</span>
+                <span v-if="item.description" class="ef-chat__suggestion-description">{{ item.description }}</span>
+              </button>
+            </section>
+          </div>
           <div v-if="composerHeader" class="ef-chat__composer-header">
             <component :is="composerHeader" />
           </div>

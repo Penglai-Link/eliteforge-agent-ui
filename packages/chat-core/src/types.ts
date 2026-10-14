@@ -328,6 +328,8 @@ export interface ChatActiveRun {
 }
 
 export interface ChatRuntimeRunState {
+  /** History or authoritative run status is still being resolved. */
+  loading?: boolean;
   active: boolean;
   runId: string;
   sessionId: string;
@@ -501,6 +503,8 @@ export interface ChatFloatingState {
 }
 
 export interface ChatClientConfig {
+  inputSuggestions?: ChatInputSuggestion[];
+  inputSuggestionLabels?: ChatInputSuggestionLabels;
   historyLabels?: ChatHistoryLabels;
   defaultSessionId?: string;
   disabledInput?: boolean;
@@ -510,6 +514,8 @@ export interface ChatClientConfig {
   fullScreen?: boolean;
   fullScreenMinWidth?: number;
   inputPlaceholder?: string;
+  queuedInputPlaceholder?: string;
+  steeringInputPlaceholder?: string;
   maxFileSize?: number;
   maxLimitFile?: number;
   open?: boolean;
@@ -521,6 +527,20 @@ export interface ChatClientConfig {
   title?: string;
   userInputLabels?: ChatUserInputLabels;
   workRailLabels?: ChatWorkRailLabels;
+}
+
+export interface ChatInputSuggestion {
+  kind: "command" | "skill";
+  name: string;
+  description?: string;
+  /** Optional grouping label, such as a command category. */
+  category?: string;
+}
+
+export interface ChatInputSuggestionLabels {
+  commands: string;
+  skills: string;
+  commandsAndSkills: string;
 }
 
 export interface ChatDebugOptions {

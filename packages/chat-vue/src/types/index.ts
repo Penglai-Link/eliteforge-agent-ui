@@ -10,6 +10,8 @@ import type {
   ChatFloatingState,
   ChatMessage,
   ChatHistoryLabels,
+  ChatInputSuggestion,
+  ChatInputSuggestionLabels,
   ChatMessageAttachment,
   ChatQueuedSubmission,
   ChatRunningSubmitMode,
@@ -40,6 +42,8 @@ export interface ChatPanelProps {
   emptyTitle?: string;
   formatAnnotationCount?: (count: number) => string;
   inputPlaceholder?: string;
+  inputSuggestions?: ChatInputSuggestion[];
+  inputSuggestionLabels?: ChatInputSuggestionLabels;
   liveAguiAnchorMessageCodes?: Record<string, string>;
   liveAguiEvents?: ChatAguiStreamEvent[];
   liveAguiPendingAnchorMessageCode?: string;

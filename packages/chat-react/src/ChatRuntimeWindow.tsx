@@ -110,6 +110,7 @@ export interface ChatRuntimeWindowProps {
   ) => SendChatMessageInput | null;
   showAttachmentControl?: boolean;
   showHeader?: boolean;
+  showHistoryRail?: boolean;
   sidebarContent?: ReactNode;
   windowState?: ChatFloatingState;
   onWindowStateChange?: (state: ChatFloatingState) => void;
@@ -241,6 +242,7 @@ export function ChatRuntimeWindow({
   createSendInput: createSendInputOverride,
   showAttachmentControl = true,
   showHeader,
+  showHistoryRail,
   sidebarContent,
   windowState,
   onWindowStateChange,
@@ -277,6 +279,13 @@ export function ChatRuntimeWindow({
   const [historyLoadingOlder, setHistoryLoadingOlder] = useState(false);
   const [userInputRequest, setUserInputRequest] = useState<ChatUserInputRequest | null>(null);
   const [userInputRequests, setUserInputRequests] = useState<ChatUserInputRequest[]>([]);
+  // Accepted replies are transcript data, not part of the refreshable pending queue.
+  const [acceptedUserInputRequests, setAcceptedUserInputRequests] = useState<ChatUserInputRequest[]>([]);
+  const presentedUserInputRequests = useMemo(() => [...new Map(
+    [...userInputRequests, ...acceptedUserInputRequests]
+      .filter(request => request.sessionId === session?.sessionId)
+      .map(request => [request.requestId, request]),
+  ).values()], [userInputRequests, acceptedUserInputRequests, session?.sessionId]);
   const answeredNativeInteractionsRef = useRef(new Set<string>());
   const [userInputAnswerPending, setUserInputAnswerPending] = useState(false);
   const [submissionError, setSubmissionError] = useState<string | null>(null);
@@ -424,6 +433,7 @@ export function ChatRuntimeWindow({
 
   useEffect(() => {
     onRunStateChange?.({
+      loading: loading || activeRunStatusPending,
       active: runActive,
       runId: effectiveActiveRunCode,
       sessionId: session?.sessionId ?? "",
@@ -433,6 +443,8 @@ export function ChatRuntimeWindow({
     canSteer,
     effectiveActiveRunCode,
     onRunStateChange,
+    loading,
+    activeRunStatusPending,
     runActive,
     session?.sessionId,
   ]);
@@ -733,7 +745,7 @@ export function ChatRuntimeWindow({
     liveNativePendingRequests.forEach((r) => pending.set(r.requestId, r));
     return [...pending.values()];
   }, [historySnapshot, liveNativePendingRequests, config.userInputLabels]);
-  useEffect(() => { answeredNativeInteractionsRef.current.clear(); }, [session?.sessionId]);
+  useEffect(() => { answeredNativeInteractionsRef.current.clear(); setAcceptedUserInputRequests([]); }, [session?.sessionId]);
   useEffect(() => {
     const pending = nativePendingRequests.filter((request) => !answeredNativeInteractionsRef.current.has(request.requestId));
     setUserInputRequests((current) => {
@@ -1365,6 +1377,8 @@ export function ChatRuntimeWindow({
     const markAnswered = () => {
       if (activeSessionCodeRef.current !== submittedSessionId) return;
       if (submittedRequest.nativeInteraction) answeredNativeInteractionsRef.current.add(submittedRequest.requestId);
+      setAcceptedUserInputRequests(current => current.some(request => request.requestId === submittedRequest.requestId)
+        ? current : [...current, { ...submittedRequest, answers, answeredAt: Date.now(), assistantMessageId: submittedRequest.assistantMessageId ?? continuationAnchorMessageCode, status: "Answered" }]);
       setUserInputAnswerPending(false);
       setUserInputRequest(current => current?.requestId === submittedRequest.requestId ? null : current);
       setUserInputRequests(current => current.map(request => request.requestId === submittedRequest.requestId
@@ -1768,6 +1782,10 @@ export function ChatRuntimeWindow({
       formatAnnotationCount={formatAnnotationCount}
       headerContent={headerContent}
       inputPlaceholder={config.inputPlaceholder}
+      inputSuggestions={config.inputSuggestions}
+      inputSuggestionLabels={config.inputSuggestionLabels}
+      queuedInputPlaceholder={config.queuedInputPlaceholder}
+      steeringInputPlaceholder={config.steeringInputPlaceholder}
       liveAguiAnchorMessageCodes={liveAguiAnchorMessageCodes}
       liveAguiEvents={liveAguiEvents}
       liveAguiPendingAnchorMessageCode={liveAguiPendingAnchorMessageCode}
@@ -1794,6 +1812,7 @@ export function ChatRuntimeWindow({
       sending={runActive}
       streamingAssistantMessageCode={streamingAssistantMessageCode}
       session={session}
+      showHistoryRail={showHistoryRail}
       showAgui={aguiEnabled}
       showHeader={showHeader ?? !config.floating}
       showStop={canStop}
@@ -1801,7 +1820,7 @@ export function ChatRuntimeWindow({
       steerDisabled={steerDisabled || Boolean(userInputRequest)}
       title={config.title || floatingTitle}
       userInputLabels={config.userInputLabels}
-      userInputRequests={userInputRequests}
+      userInputRequests={presentedUserInputRequests}
       workRailLabels={config.workRailLabels}
       userInputAnswerPending={userInputAnswerPending}
       userInputRequest={userInputRequest}
@@ -1832,6 +1851,10 @@ export function ChatRuntimeWindow({
         footerAddon={runtimeFooterAddon}
         formatAnnotationCount={formatAnnotationCount}
         inputPlaceholder={config.inputPlaceholder}
+        inputSuggestions={config.inputSuggestions}
+        inputSuggestionLabels={config.inputSuggestionLabels}
+      queuedInputPlaceholder={config.queuedInputPlaceholder}
+      steeringInputPlaceholder={config.steeringInputPlaceholder}
       liveAguiAnchorMessageCodes={liveAguiAnchorMessageCodes}
       liveAguiEvents={liveAguiEvents}
       liveAguiPendingAnchorMessageCode={liveAguiPendingAnchorMessageCode}
@@ -1858,7 +1881,8 @@ export function ChatRuntimeWindow({
         sending={runActive}
         streamingAssistantMessageCode={streamingAssistantMessageCode}
         session={session}
-        showAgui={aguiEnabled}
+        showHistoryRail={showHistoryRail}
+      showAgui={aguiEnabled}
         showStop={canStop}
         sidebarContent={sidebarContent}
         steerDisabled={steerDisabled || Boolean(userInputRequest)}
@@ -1867,7 +1891,7 @@ export function ChatRuntimeWindow({
         title={floatingTitle}
         titleSubtitle={floatingSubtitle}
         userInputLabels={config.userInputLabels}
-        userInputRequests={userInputRequests}
+        userInputRequests={presentedUserInputRequests}
         workRailLabels={config.workRailLabels}
         userInputAnswerPending={userInputAnswerPending}
         userInputRequest={userInputRequest}

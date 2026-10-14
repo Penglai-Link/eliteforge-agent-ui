@@ -92,5 +92,54 @@ it("keeps a background interaction visible when its system trigger and assistant
   vi.mocked(adapter.loadHistory!).mockResolvedValue(snapshot);
   render(<ChatRuntimeWindow adapter={adapter} initialSession={session} config={{floating:false,disabledInput:true}} onError={vi.fn()} />);
   expect(await screen.findByRole("button",{name:"Approve"})).toBeTruthy();
-  expect(document.querySelector('[data-history-message-id="A"]')).not.toBeNull();
+  // Tool-only history must not add a blank assistant block above the question.
+  expect(document.querySelector('[data-history-message-id="A"]')).toBeNull();
+});
+
+it("restores an answered questionnaire as a user card from durable history", async () => {
+  const adapter=host(), snapshot=page();
+  snapshot.records.toolInvocations[0].toolName="chat_ask_user";
+  snapshot.records.toolInvocations[0].structured={frameworkInteractionId:"ASK"};
+  snapshot.records.interactions=[{id:"ASK",runId:"R",invocationId:"TOOL",prompt:[],responseSchema:{type:"object"},presentation:{questions:[{id:"tone",question:"Which tone?",options:[{id:"brief",label:"Keep it brief"}]}]},response:{answers:{tone:{option_id:"brief"}}},expiresAtMs:null}];
+  vi.mocked(adapter.loadHistory!).mockResolvedValue(snapshot);
+  const config={floating:false};
+  const first=render(<ChatRuntimeWindow adapter={adapter} initialSession={session} config={config} onError={vi.fn()}/>);
+  await waitFor(()=>expect(first.container.querySelector('[data-history-interaction-id="ASK"]')?.textContent).toContain("Which tone?Keep it brief"));
+  first.unmount();
+  const restored=render(<ChatRuntimeWindow adapter={adapter} initialSession={session} config={config} onError={vi.fn()}/>);
+  await waitFor(()=>expect(restored.container.querySelectorAll('[data-history-interaction-id="ASK"]')).toHaveLength(1));
+  expect(restored.container.querySelector('[data-history-interaction-id="ASK"]')?.textContent).toContain("Keep it brief");
+});
+it("keeps the domain expansion action in completed structured tool rows", async () => {
+  const adapter = host();
+  const snapshot = page();
+  Object.assign(snapshot.records.toolInvocations[0], {
+    toolId: "discovery_expand_tool_domain", toolName: "discovery_expand_tool_domain",
+    arguments: { domainCode: "dude" }, status: "Completed", finishedAtMs: 2,
+    structured: { status: "expanded", toolCount: 4 },
+  });
+  vi.mocked(adapter.loadHistory!).mockResolvedValue(snapshot);
+  render(<ChatRuntimeWindow adapter={adapter} initialSession={session} config={{ floating: false,
+    workRailLabels: {
+      ariaLabel: "Work", preparing: "Preparing", responding: "Responding", thinking: "Thinking",
+      workedFor: (duration) => `Worked for ${duration}`, workingFor: (duration) => `Working for ${duration}`,
+      tool: { resolveName: () => "Dude", domainExpanded: (name) => `Expand ${name} tools` },
+    },
+  }} onError={vi.fn()} />);
+  await screen.findByText("Durable answer");
+  fireEvent.click(screen.getByRole("button", { name: /Worked for/ }));
+  const tool = screen.getByRole("button", { name: "Expand Dude tools" });
+  expect(tool).toBeTruthy();
+  fireEvent.click(tool);
+  expect(screen.getByRole("button", { name: "Expand Dude tools" }).getAttribute("aria-expanded")).toBe("true");
+});
+it("reports loading while restoring history, then reports the authoritative idle state", async () => {
+  const adapter = host();
+  let resolve!: (history: SessionHistory) => void;
+  vi.mocked(adapter.loadHistory!).mockReturnValue(new Promise((accept) => { resolve = accept; }));
+  const onRunStateChange = vi.fn();
+  render(<ChatRuntimeWindow adapter={adapter} initialSession={session} config={{ floating: false }} onRunStateChange={onRunStateChange} onError={vi.fn()} />);
+  expect(onRunStateChange.mock.lastCall?.[0]).toMatchObject({ loading: true, active: false });
+  await act(async () => resolve(page()));
+  expect(onRunStateChange.mock.lastCall?.[0]).toMatchObject({ loading: false, active: false, sessionId: "S" });
 });

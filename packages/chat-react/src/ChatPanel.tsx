@@ -37,6 +37,8 @@ import {
   historyToolResult, historyBlockUrl,
   defaultHistoryLabels,
   type ChatHistoryLabels,
+  type ChatInputSuggestion,
+  type ChatInputSuggestionLabels,
   currentAguiWorkSnapshot,
   describeDebugEvent,
   formatJsonBlockValue,
@@ -627,10 +629,10 @@ function ToolCard({
   const toolCopy = { ...defaultToolWorkLabels, ...labels.tool };
   const toolName = toolCopy.resolveName(card.toolName, card.args);
   const domainExpansion = card.toolName === "discovery_expand_tool_domain";
-  const toolLabel = statusLabel ? toolName : domainExpansion
+  const toolLabel = domainExpansion
     ? (complete ? toolCopy.domainExpanded(toolName) : toolCopy.domainExpanding(toolName))
-    : (complete ? toolCopy.completed(toolName) : toolCopy.running(toolName));
-  const nestedToolLabel = toolCompactLabel(card.toolName, card.args, toolCopy.resolveName(card.toolName, card.args));
+    : statusLabel ? toolName : (complete ? toolCopy.completed(toolName) : toolCopy.running(toolName));
+  const nestedToolLabel = domainExpansion ? toolLabel : toolCompactLabel(card.toolName, card.args, toolCopy.resolveName(card.toolName, card.args));
   const [expanded, setExpanded] = useState(false);
   const [parametersExpanded, setParametersExpanded] = useState(false);
   const logRef = useRef<HTMLDivElement | null>(null);
@@ -1001,10 +1003,15 @@ function StructuredMessageDetails({ message, workOnly = false, labels, hasRunErr
   const view = message.history;
   if (!view) return null;
   const reasoning = view.message.content.filter((b) => b.type === "Reasoning").map((b) => "text" in b ? b.text : "").join("");
+  const blocks = view.message.content.filter((b) => b.type === "Json" || b.type === "Media" || b.type === "Resource");
+  const showError = !workOnly && message.role === "ASSISTANT" && !!view.run?.error && !hasRunError;
+  // Empty history sections are flex children: each one used to add another
+  // transcript gap after tool-only steps, pushing the pending question away.
+  if (workOnly ? !reasoning.trim() && !view.tools.length : !blocks.length && view.message.structured == null && !showError) return null;
   return <section className="ef-chat__history-details" data-history-message-id={message.messageId}>
     {workOnly && reasoning ? <ReasoningCard labels={labels} card={{ id: `${message.messageId}:reasoning`, runId: message.runId ?? "", content: reasoning, summary: reasoning,
       ended: view.message.status !== "Running", firstMillis: view.message.createdAtMs, endMillis: view.step?.finishedAtMs ?? null, toolCards: [] }} /> : null}
-    {!workOnly && view.message.content.filter((b) => b.type !== "Text" && b.type !== "Reasoning").map((block, index) => <div key={index}>
+    {!workOnly && blocks.map((block, index) => <div key={index}>
       {block.type === "Json" ? <pre>{JSON.stringify(block.value, null, 2)}</pre> : block.type === "Media" && block.mimeType.startsWith("image/") && historyBlockUrl(block) ? <img src={historyBlockUrl(block)!} alt={block.name ?? block.mimeType} loading="lazy" /> : block.type === "Media" || block.type === "Resource" ? historyBlockUrl(block) ? <a href={historyBlockUrl(block)!} target="_blank" rel="noreferrer">{block.name ?? (block.type === "Resource" ? block.uri : block.mimeType)}</a> : <code>{block.name ?? (block.type === "Resource" ? block.uri : block.mimeType)}</code> : null}
     </div>)}
     {!workOnly && view.message.structured != null ? <pre>{JSON.stringify(view.message.structured, null, 2)}</pre> : null}
@@ -1013,7 +1020,7 @@ function StructuredMessageDetails({ message, workOnly = false, labels, hasRunErr
         result: historyToolResult(tool), logs: [], parentReasoningId: null, firstMillis: tool.startedAtMs ?? view.message.createdAtMs,
         started: tool.status === "Running", ended: ["Completed", "Failed"].includes(tool.status) }} />
     </div>)}
-    {!workOnly && message.role === "ASSISTANT" && view.run?.error && !hasRunError ? <RunErrorDetails raw={view.run.error} fallback={labels?.failed ?? historyLabels.statuses.Failed} /> : null}
+    {showError ? <RunErrorDetails raw={view.run!.error!} fallback={labels?.failed ?? historyLabels.statuses.Failed} /> : null}
   </section>;
 }
 
@@ -1253,6 +1260,10 @@ export interface ChatPanelProps {
   formatAnnotationCount?: (count: number) => string;
   headerContent?: ReactNode;
   inputPlaceholder?: string;
+  inputSuggestions?: ChatInputSuggestion[];
+  inputSuggestionLabels?: ChatInputSuggestionLabels;
+  queuedInputPlaceholder?: string;
+  steeringInputPlaceholder?: string;
   liveAguiAnchorMessageCodes?: Record<string, string>;
   liveAguiEvents?: ChatAguiStreamEvent[];
   liveAguiPendingAnchorMessageCode?: string;
@@ -1286,6 +1297,7 @@ export interface ChatPanelProps {
   session?: ChatSession | null;
   showAgui?: boolean;
   showHeader?: boolean;
+  showHistoryRail?: boolean;
   showStop?: boolean;
   sidebarContent?: ReactNode;
   steerDisabled?: boolean;
@@ -1318,6 +1330,10 @@ export function ChatPanel({
   formatAnnotationCount = defaultFormatAnnotationCount,
   headerContent,
   inputPlaceholder = "Enter to send, Shift+Enter for newline",
+  inputSuggestions = [],
+  inputSuggestionLabels = { commands: "Commands", skills: "Skills", commandsAndSkills: "Commands and skills" },
+  queuedInputPlaceholder = "Enter to queue · Shift+Enter for newline",
+  steeringInputPlaceholder = "Enter to queue · ⌘/Ctrl+Enter to steer · Shift+Enter for newline",
   liveAguiAnchorMessageCodes,
   liveAguiEvents,
   liveAguiPendingAnchorMessageCode,
@@ -1351,6 +1367,7 @@ export function ChatPanel({
   session,
   showAgui = true,
   showHeader = true,
+  showHistoryRail = true,
   showStop = true,
   sidebarContent,
   steerDisabled = false,
@@ -1366,6 +1383,47 @@ export function ChatPanel({
 }: ChatPanelProps) {
   const transcriptRef = useRef<HTMLElement | null>(null);
   const composerElementRef = useRef<HTMLTextAreaElement | null>(null);
+  const [activeSuggestion, setActiveSuggestion] = useState(0);
+  const [suggestionsDismissed, setSuggestionsDismissed] = useState(false);
+  const suggestionQuery = useMemo(() => {
+    const match = draft.match(/(?:^|\s)([/$])([^\s]*)$/);
+    return match ? { trigger: match[1], query: match[2] } : null;
+  }, [draft]);
+  const visibleSuggestions = useMemo(() => {
+    if (!suggestionQuery) return [];
+    const kind = suggestionQuery.trigger === "$" ? "skill" : null;
+    const query = suggestionQuery.query.toLocaleLowerCase();
+    return inputSuggestions.filter((item) => (!kind || item.kind === kind)
+      && (item.name.toLocaleLowerCase().includes(query)
+        || item.description?.toLocaleLowerCase().includes(query)
+        || item.category?.toLocaleLowerCase().includes(query)));
+  }, [inputSuggestions, suggestionQuery]);
+  const suggestionGroups = useMemo(() => {
+    const commands = visibleSuggestions.filter((item) => item.kind === "command");
+    const skills = visibleSuggestions.filter((item) => item.kind === "skill");
+    return [
+      ...(commands.length ? [[inputSuggestionLabels.commands, commands] as const] : []),
+      ...(skills.length ? [[inputSuggestionLabels.skills, skills] as const] : []),
+    ];
+  }, [inputSuggestionLabels, visibleSuggestions]);
+  const flatSuggestions = useMemo(() => suggestionGroups.flatMap(([, items]) => items), [suggestionGroups]);
+  const suggestionsOpen = !suggestionsDismissed;
+  useEffect(() => { setActiveSuggestion(0); setSuggestionsDismissed(false); }, [draft]);
+  function chooseSuggestion(item: ChatInputSuggestion) {
+    const textarea = composerElementRef.current;
+    if (!textarea || !suggestionQuery) return;
+    const match = draft.match(/(?:^|\s)([/$])([^\s]*)$/)!;
+    const start = draft.length - match[0].length;
+    const prefix = match[0].startsWith(" ") ? " " : "";
+    const replacement = `${prefix}${item.kind === "skill" ? "$" : "/"}${item.name} `;
+    const next = `${draft.slice(0, start)}${replacement}`;
+    onDraftChange(next);
+    requestAnimationFrame(() => {
+      textarea.focus();
+      const position = start + replacement.length;
+      textarea.setSelectionRange(position, position);
+    });
+  }
   const [showJumpButton, setShowJumpButton] = useState(false);
   const [previewImage, setPreviewImage] = useState<{ alt: string; source: string } | null>(null);
   const autoStickToBottomRef = useRef(true);
@@ -1373,8 +1431,8 @@ export function ChatPanel({
   const canSteerWhileRunning = runningSubmitModes.includes("steer");
   const composerPlaceholder = sending && canQueueWhileRunning
     ? canSteerWhileRunning
-      ? "Enter 加入队列 · ⌘/Ctrl+Enter 立即调整当前回复 · Shift+Enter 换行"
-      : "Enter 加入队列 · Shift+Enter 换行"
+      ? steeringInputPlaceholder
+      : queuedInputPlaceholder
     : inputPlaceholder;
   const primarySubmitMode: ChatSubmitMode | null = !sending
     ? "send"
@@ -1567,11 +1625,11 @@ export function ChatPanel({
               Boolean(sidebarContent) && "ef-chat__content--with-sidebar",
             )}
           >
-            <ChatHistoryRail
+            {showHistoryRail ? <ChatHistoryRail
               messages={transcriptMessages}
               presentation={presentation}
               transcriptRef={transcriptRef}
-            />
+            /> : null}
             <section
               className="ef-chat__transcript"
               aria-label="Chat transcript"
@@ -1738,6 +1796,20 @@ export function ChatPanel({
               </section>
             ) : null}
             <div className="ef-chat__composer">
+              {suggestionQuery && suggestionsOpen && flatSuggestions.length ? (
+                <div className="ef-chat__suggestions" role="listbox" aria-label={suggestionQuery.trigger === "$" ? inputSuggestionLabels.skills : inputSuggestionLabels.commandsAndSkills}>
+                  {suggestionGroups.map(([group, items]) => <section className="ef-chat__suggestion-group" key={group}>
+                    <div className="ef-chat__suggestion-heading">{group}</div>
+                    {items.map((item) => {
+                      const index = flatSuggestions.indexOf(item);
+                      return <button className="ef-chat__suggestion" data-active={index === activeSuggestion} key={`${item.kind}:${item.name}`} role="option" aria-selected={index === activeSuggestion} type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => chooseSuggestion(item)}>
+                        <span className="ef-chat__suggestion-name">{item.kind === "command" ? "/" : "$"}{item.name}</span>
+                        {item.description ? <span className="ef-chat__suggestion-description">{item.description}</span> : null}
+                      </button>;
+                    })}
+                  </section>)}
+                </div>
+              ) : null}
               {composerHeader ? (
                 <div className="ef-chat__composer-header">
                   {composerHeader}
@@ -1756,6 +1828,25 @@ export function ChatPanel({
                 onPaste={handleComposerPaste}
                 onKeyDown={(event) => {
                   if (event.nativeEvent.isComposing) return;
+                  if (suggestionsOpen && visibleSuggestions.length && event.key === "ArrowDown") {
+                    event.preventDefault();
+                    setActiveSuggestion((index) => (index + 1) % flatSuggestions.length);
+                    return;
+                  }
+                  if (suggestionsOpen && visibleSuggestions.length && event.key === "ArrowUp") {
+                    event.preventDefault();
+                    setActiveSuggestion((index) => (index - 1 + flatSuggestions.length) % flatSuggestions.length);
+                    return;
+                  }
+                  if (suggestionsOpen && visibleSuggestions.length && event.key === "Escape") {
+                    setSuggestionsDismissed(true);
+                    return;
+                  }
+                  if (suggestionsOpen && visibleSuggestions.length && event.key === "Enter" && !event.shiftKey) {
+                    event.preventDefault();
+                    chooseSuggestion(flatSuggestions[activeSuggestion < 0 ? 0 : activeSuggestion]);
+                    return;
+                  }
                   if (event.key === "Enter" && event.shiftKey) {
                     event.preventDefault();
                     onDraftChange(insertNewlineAtCursor(event.currentTarget));
