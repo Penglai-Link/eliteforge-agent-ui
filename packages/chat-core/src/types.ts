@@ -532,6 +532,8 @@ export interface ChatClientConfig {
 export interface ChatInputSuggestion {
   kind: "command" | "skill";
   name: string;
+  /** Human-readable name shown for a selected skill token. */
+  displayName?: string;
   description?: string;
   /** Optional grouping label, such as a command category. */
   category?: string;

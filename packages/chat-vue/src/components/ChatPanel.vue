@@ -94,6 +94,7 @@ const autoStickToBottom = ref(true);
 const previewImage = ref<{ alt: string; source: string } | null>(null);
 const activeSuggestion = ref(0);
 const suggestionsDismissed = ref(false);
+const composerCaretAtEnd = ref(false);
 const suggestionQuery = computed(() => {
   const match = props.draft.match(/(?:^|\s)([/$])([^\s]*)$/);
   return match ? { trigger: match[1], query: match[2] } : null;
@@ -117,6 +118,15 @@ const suggestionGroups = computed(() => {
   ];
 });
 const flatSuggestions = computed(() => suggestionGroups.value.flatMap(([, items]) => items));
+const composerOverlayParts = computed(() => {
+  const skills = new Map(props.inputSuggestions.filter((item) => item.kind === "skill").map((item) => [item.name, item] as const));
+  return props.draft.split(/(\$[\w.-]+)/gu).map((text) => ({
+    text,
+    displayName: text.startsWith("$")
+      ? skills.get(text.slice(1))?.displayName ?? skills.get(text.slice(1))?.description ?? text.slice(1)
+      : null,
+  }));
+});
 watch(() => props.draft, () => { activeSuggestion.value = 0; suggestionsDismissed.value = false; });
 
 function chooseSuggestion(item: ChatInputSuggestion) {
@@ -130,7 +140,22 @@ function chooseSuggestion(item: ChatInputSuggestion) {
   void nextTick(() => {
     textarea.focus();
     textarea.setSelectionRange(start + replacement.length, start + replacement.length);
+    updateComposerCaret(textarea);
   });
+}
+
+function syncComposerOverlayScroll(event: Event) {
+  const textarea = event.currentTarget as HTMLTextAreaElement;
+  const overlay = textarea.previousElementSibling;
+  if (overlay instanceof HTMLElement) overlay.scrollTop = textarea.scrollTop;
+}
+
+function updateComposerCaret(eventOrTextarea: Event | HTMLTextAreaElement) {
+  const textarea = eventOrTextarea instanceof HTMLTextAreaElement
+    ? eventOrTextarea
+    : eventOrTextarea.currentTarget as HTMLTextAreaElement;
+  composerCaretAtEnd.value = textarea.selectionStart === textarea.value.length
+    && textarea.selectionEnd === textarea.value.length;
 }
 
 function openImagePreview(source: string, alt: string) {
@@ -545,26 +570,44 @@ onMounted(() => {
           <div v-if="composerHeader" class="ef-chat__composer-header">
             <component :is="composerHeader" />
           </div>
-          <textarea
-            ref="composerRef"
-            class="ef-chat__textarea"
-            data-theme-part="chat-input" data-theme-anchor="chat-input"
-            :autofocus="autoFocusComposer"
-            :disabled="disabledInput"
-            :placeholder="composerPlaceholder"
-            :value="draft"
-            :aria-keyshortcuts="
-              sending && canSteerWhileRunning
-                ? 'Meta+Enter Control+Enter'
-                : undefined
-            "
-            @input="
-              (e: Event) =>
-                emit('draft-change', (e.target as HTMLTextAreaElement).value)
-            "
-            @paste="handleComposerPaste"
-            @keydown="handleKeydown"
-          />
+          <div class="ef-chat__composer-editor" :data-caret-at-end="composerCaretAtEnd ? 'true' : undefined">
+            <div class="ef-chat__composer-overlay" aria-hidden="true">
+              <span
+                v-for="(part, index) in composerOverlayParts"
+                :key="index"
+                :class="{ 'ef-chat__skill-token': part.displayName !== null }"
+              ><template v-if="part.displayName"><span class="ef-chat__skill-token-label">{{ part.displayName }}</span></template><template v-else>{{ part.text }}</template></span>
+              <span v-if="composerCaretAtEnd" class="ef-chat__composer-overlay-caret" />
+            </div>
+            <textarea
+              ref="composerRef"
+              class="ef-chat__textarea"
+              data-theme-part="chat-input" data-theme-anchor="chat-input"
+              :autofocus="autoFocusComposer"
+              :disabled="disabledInput"
+              :placeholder="composerPlaceholder"
+              :value="draft"
+              :aria-keyshortcuts="
+                sending && canSteerWhileRunning
+                  ? 'Meta+Enter Control+Enter'
+                  : undefined
+              "
+              @input="
+                (e: Event) => {
+                  updateComposerCaret(e);
+                  emit('draft-change', (e.target as HTMLTextAreaElement).value);
+                }
+              "
+              @click="updateComposerCaret"
+              @focus="updateComposerCaret"
+              @blur="composerCaretAtEnd = false"
+              @keyup="updateComposerCaret"
+              @select="updateComposerCaret"
+              @scroll="syncComposerOverlayScroll"
+              @paste="handleComposerPaste"
+              @keydown="handleKeydown"
+            />
+          </div>
           <div class="ef-chat__composer-row">
             <div class="ef-chat__composer-addon">
               <slot name="footerAddon" />

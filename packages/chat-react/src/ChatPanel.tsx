@@ -118,6 +118,17 @@ async function copyPlainText(value: string) {
   document.body.removeChild(textarea);
 }
 
+function composerOverlayContent(draft: string, suggestions: ChatInputSuggestion[]) {
+  const skills = new Map(suggestions.filter((item) => item.kind === "skill").map((item) => [item.name, item] as const));
+  return draft.split(/(\$[\w.-]+)/gu).map((part, index) => (
+    part.startsWith("$") && skills.has(part.slice(1))
+      ? <span className="ef-chat__skill-token" key={index}>
+          <span className="ef-chat__skill-token-label">{skills.get(part.slice(1))?.displayName ?? skills.get(part.slice(1))?.description ?? part.slice(1)}</span>
+        </span>
+      : <Fragment key={index}>{part}</Fragment>
+  ));
+}
+
 export interface ChatMarkdownLinkProps {
   children?: ReactNode;
   href?: string;
@@ -1383,6 +1394,7 @@ export function ChatPanel({
 }: ChatPanelProps) {
   const transcriptRef = useRef<HTMLElement | null>(null);
   const composerElementRef = useRef<HTMLTextAreaElement | null>(null);
+  const [composerCaretAtEnd, setComposerCaretAtEnd] = useState(false);
   const [activeSuggestion, setActiveSuggestion] = useState(0);
   const [suggestionsDismissed, setSuggestionsDismissed] = useState(false);
   const suggestionQuery = useMemo(() => {
@@ -1422,7 +1434,14 @@ export function ChatPanel({
       textarea.focus();
       const position = start + replacement.length;
       textarea.setSelectionRange(position, position);
+      setComposerCaretAtEnd(true);
     });
+  }
+  function updateComposerCaret(textarea: HTMLTextAreaElement) {
+    setComposerCaretAtEnd(
+      textarea.selectionStart === textarea.value.length
+      && textarea.selectionEnd === textarea.value.length,
+    );
   }
   const [showJumpButton, setShowJumpButton] = useState(false);
   const [previewImage, setPreviewImage] = useState<{ alt: string; source: string } | null>(null);
@@ -1815,18 +1834,35 @@ export function ChatPanel({
                   {composerHeader}
                 </div>
               ) : null}
-              <textarea
-                autoFocus={autoFocusComposer}
-                key={session?.sessionId ?? "composer"}
-                ref={setComposerNode}
-                className="ef-chat__textarea"
-                data-theme-part="chat-input" data-theme-anchor="chat-input"
-                disabled={disabledInput}
-                placeholder={composerPlaceholder}
-                value={draft}
-                onChange={(event) => onDraftChange(event.target.value)}
-                onPaste={handleComposerPaste}
-                onKeyDown={(event) => {
+              <div className="ef-chat__composer-editor" data-caret-at-end={composerCaretAtEnd ? "true" : undefined}>
+                <div className="ef-chat__composer-overlay" aria-hidden="true">
+                  {composerOverlayContent(draft, inputSuggestions)}
+                  {composerCaretAtEnd ? <span className="ef-chat__composer-overlay-caret" /> : null}
+                </div>
+                <textarea
+                  autoFocus={autoFocusComposer}
+                  key={session?.sessionId ?? "composer"}
+                  ref={setComposerNode}
+                  className="ef-chat__textarea"
+                  data-theme-part="chat-input" data-theme-anchor="chat-input"
+                  disabled={disabledInput}
+                  placeholder={composerPlaceholder}
+                  value={draft}
+                  onChange={(event) => {
+                    updateComposerCaret(event.currentTarget);
+                    onDraftChange(event.target.value);
+                  }}
+                  onClick={(event) => updateComposerCaret(event.currentTarget)}
+                  onFocus={(event) => updateComposerCaret(event.currentTarget)}
+                  onBlur={() => setComposerCaretAtEnd(false)}
+                  onKeyUp={(event) => updateComposerCaret(event.currentTarget)}
+                  onSelect={(event) => updateComposerCaret(event.currentTarget)}
+                  onScroll={(event) => {
+                    const overlay = event.currentTarget.previousElementSibling;
+                    if (overlay instanceof HTMLElement) overlay.scrollTop = event.currentTarget.scrollTop;
+                  }}
+                  onPaste={handleComposerPaste}
+                  onKeyDown={(event) => {
                   if (event.nativeEvent.isComposing) return;
                   if (suggestionsOpen && visibleSuggestions.length && event.key === "ArrowDown") {
                     event.preventDefault();
@@ -1873,11 +1909,12 @@ export function ChatPanel({
                   if (primarySubmitMode && !primarySubmitDisabled) {
                     onSend(primarySubmitMode);
                   }
-                }}
-                aria-keyshortcuts={sending && canSteerWhileRunning
-                  ? "Meta+Enter Control+Enter"
-                  : undefined}
-              />
+                  }}
+                  aria-keyshortcuts={sending && canSteerWhileRunning
+                    ? "Meta+Enter Control+Enter"
+                    : undefined}
+                />
+              </div>
               <div className="ef-chat__composer-row">
                 <div className="ef-chat__composer-addon">{footerAddon}</div>
                 <div className="ef-chat__composer-actions">
