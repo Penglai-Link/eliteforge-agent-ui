@@ -938,6 +938,50 @@ describe("ChatRuntimeWindow", () => {
     expect(screen.queryByRole("button", { name: "Send" })).toBeNull();
   });
 
+  it.each(["off", "typewriter"] as const)("shows each AG-UI model step immediately in a stable card with %s text", async (effect) => {
+    const { adapter, loadMessages } = createAdapter();
+    let handlers: ChatStreamHandlers | undefined;
+    let finish: (result: ChatSendResult) => void = () => undefined;
+    adapter.streamMessage = vi.fn((_session, _input, next) => new Promise(resolve => { handlers = next; finish = resolve; }));
+    render(<ChatRuntimeWindow adapter={adapter} agentReplyEffect={effect} config={{ floating: false }} initialSession={restoredSession()} />);
+    await waitFor(() => expect(loadMessages).toHaveBeenCalled());
+    fireEvent.change(screen.getByRole("textbox"), { target: { value: "Inspect the repository" } });
+    fireEvent.click(screen.getByRole("button", { name: "Send" }));
+    await waitFor(() => expect(handlers).toBeDefined());
+    let sequence = 0;
+    const emit = (type: string, messageId: string, delta?: string) => act(() => {
+      handlers!.onAguiEvent?.({ type, messageId, delta, runId: "RUN-STREAM", threadId: "SESSION-RESTORED", metadata: { framework: { runId: "NATIVE-RUN" }, tron: { eventId: `frame:${++sequence}` } } });
+      if (delta) handlers!.onDelta?.(delta);
+    });
+    emit("TEXT_MESSAGE_START", "step-first");
+    emit("TEXT_MESSAGE_CONTENT", "step-first", "First progress summary");
+    await waitFor(() => expect(document.querySelector('[data-message-id="step-first"]')?.textContent).toContain("First"));
+    const first = document.querySelector('[data-message-id="step-first"]');
+    emit("TEXT_MESSAGE_END", "step-first");
+    expect(first?.textContent).toContain("First progress summary");
+    expect(first?.getAttribute("data-streaming")).toBeNull();
+    emit("TEXT_MESSAGE_START", "step-second");
+    emit("TEXT_MESSAGE_CONTENT", "step-second", "Second progress summary");
+    await waitFor(() => expect(document.querySelector('[data-message-id="step-second"]')?.textContent).toContain("Second"));
+    expect(document.querySelector('[data-message-id="step-first"]')).toBe(first);
+    expect(first?.textContent).not.toContain("Second");
+    emit("TEXT_MESSAGE_END", "step-second");
+    emit("TEXT_MESSAGE_START", "step-final");
+    emit("TEXT_MESSAGE_CONTENT", "step-final", "Final answer");
+    emit("TEXT_MESSAGE_END", "step-final");
+    expect(screen.getAllByText("First progress summary")).toHaveLength(1);
+    expect(screen.getAllByText("Second progress summary")).toHaveLength(1);
+    expect(screen.getAllByText("Final answer")).toHaveLength(1);
+    // A slow presentation refresh must retain the same protocol message IDs.
+    loadMessages.mockImplementation(() => new Promise(() => {}));
+    const result = completedResult("RUN-STREAM");
+    result.messages = [{ id: "product-final", messageId: "product-final", role: "ASSISTANT", sessionId: "SESSION-RESTORED", runId: "RUN-STREAM", channel: "MAIN_AGENT", content: "Final answer\n\n", createdAt: new Date().toISOString() }];
+    await act(async () => finish(result));
+    expect(document.querySelector('[data-message-id="step-first"]')?.textContent).toContain("First progress summary");
+    expect(screen.getAllByText("Final answer")).toHaveLength(1);
+    expect(document.querySelectorAll('[data-theme-part="chat-message-assistant"]')).toHaveLength(3);
+  });
+
   it("steers the active run and drains queued messages in FIFO order", async () => {
     const pendingStreams: Array<{
       handlers?: ChatStreamHandlers;
@@ -984,18 +1028,19 @@ describe("ChatRuntimeWindow", () => {
     render(
       <ChatRuntimeWindow
         adapter={adapter}
-        config={{ floating: false }}
+        config={{ floating: false, inputSuggestions: [{ kind: "skill", name: "review" }] }}
         initialSession={restoredSession()}
       />,
     );
 
     await waitFor(() => expect(adapter.loadMessages).toHaveBeenCalled());
     fireEvent.change(screen.getByRole("textbox"), {
-      target: { value: "Start the run" },
+      target: { value: "$review Start the run" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Send" }));
     await waitFor(() => expect(pendingStreams).toHaveLength(1));
 
+    expect(pendingStreams[0].input.requestedSkills).toEqual(["review"]);
     act(() => {
       pendingStreams[0].handlers?.onAguiEvent?.({
         runId: "RUN-1",
@@ -1009,13 +1054,13 @@ describe("ChatRuntimeWindow", () => {
 
     const composer = screen.getByRole("textbox");
     fireEvent.change(composer, {
-      target: { value: "Change direction" },
+      target: { value: "$review Change direction" },
     });
     fireEvent.keyDown(composer, { key: "Enter", metaKey: true });
     await waitFor(() => {
       expect(steerMessage).toHaveBeenCalledWith(
         expect.objectContaining({ sessionId: "SESSION-RESTORED" }),
-        expect.objectContaining({ content: "Change direction" }),
+        expect.objectContaining({ content: "$review Change direction", requestedSkills: ["review"] }),
         { expectedRunId: "RUN-1" },
         expect.any(AbortSignal),
       );
@@ -1023,20 +1068,62 @@ describe("ChatRuntimeWindow", () => {
     expect(screen.getAllByText("Change direction").length).toBeGreaterThan(0);
 
     fireEvent.change(composer, {
-      target: { value: "Run this next" },
+      target: { value: "$review Run this next" },
     });
     fireEvent.keyDown(composer, { key: "Enter" });
-    expect(screen.getByText("Run this next")).toBeTruthy();
+    await waitFor(() => expect(document.querySelector(".ef-chat__queued-message-content")?.textContent).toBe("$review Run this next"));
 
     await act(async () => {
       pendingStreams[0].resolve(completedResult("RUN-1"));
     });
     await waitFor(() => expect(pendingStreams).toHaveLength(2));
-    expect(pendingStreams[1].input.content).toBe("Run this next");
+    expect(pendingStreams[1].input.requestedSkills).toEqual(["review"]);
+    expect(pendingStreams[1].input.content).toBe("$review Run this next");
 
     await act(async () => {
       pendingStreams[1].resolve(completedResult("RUN-2"));
     });
+  });
+
+  it("restores saved explicit skill identities when editing history without current suggestions", async () => {
+    const { adapter, loadMessages } = createAdapter();
+    loadMessages.mockResolvedValue([{ id: 1, messageId: "saved-selection", sessionId: "SESSION-RESTORED", role: "USER", channel: "MAIN_AGENT", content: "$review saved", requestedSkills: ["review"], createdAt: "2026-06-10T00:00:00.000Z" }]);
+    adapter.streamMessage = vi.fn().mockResolvedValue(completedResult("RUN-EDIT"));
+    render(<ChatRuntimeWindow adapter={adapter} config={{ floating: false, inputSuggestions: [] }} initialSession={restoredSession()} />);
+    fireEvent.click(await screen.findByRole("button", { name: "Edit message" }));
+    fireEvent.click(screen.getByRole("button", { name: "Send" }));
+    await waitFor(() => expect(adapter.streamMessage).toHaveBeenCalled());
+    expect(vi.mocked(adapter.streamMessage!).mock.calls[0][1]).toMatchObject({ content: "$review saved", requestedSkills: ["review"] });
+  });
+
+  it("preserves explicitly rejected queued work for editing without retrying it", async () => {
+    let finish: (result: ChatSendResult) => void = () => undefined;
+    const streamMessage = vi.fn().mockImplementationOnce(() => new Promise<ChatSendResult>(resolve => { finish = resolve; }))
+      .mockRejectedValue(new ChatAdapterError("Skill access revoked", { code: "101032002", rejectedBeforeAdmission: true }));
+    const adapter: ChatAdapter = {
+      capabilities: { supportsStreaming: true, supportsAgui: true }, createSession: vi.fn(),
+      loadMessages: vi.fn().mockResolvedValue([]), loadAguiEvents: vi.fn().mockResolvedValue([]), streamMessage,
+    };
+    const config = { floating: false, inputSuggestions: [{ kind: "skill" as const, name: "review" }] };
+    const view = render(<ChatRuntimeWindow adapter={adapter} config={config} initialSession={restoredSession()} />);
+    await waitFor(() => expect(adapter.loadMessages).toHaveBeenCalled());
+    const editor = screen.getByRole("textbox");
+    fireEvent.change(editor, { target: { value: "first" } });
+    fireEvent.click(screen.getByRole("button", { name: "Send" }));
+    await waitFor(() => expect(streamMessage).toHaveBeenCalledTimes(1));
+    fireEvent.change(editor, { target: { value: "$review next" } });
+    fireEvent.keyDown(editor, { key: "Enter" });
+    await waitFor(() => expect(screen.getByRole("button", { name: "Edit queued message" })).toBeTruthy());
+    view.rerender(<ChatRuntimeWindow adapter={adapter} config={{ floating: false, inputSuggestions: [] }} initialSession={restoredSession()} />);
+    await act(async () => finish(completedResult("RUN-FIRST")));
+    await waitFor(() => expect(streamMessage).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Edit queued message" })).toBeTruthy());
+    expect(streamMessage.mock.calls[1][1].requestedSkills).toEqual(["review"]);
+    fireEvent.click(screen.getByRole("button", { name: "Edit queued message" }));
+    expect((screen.getByRole("textbox") as HTMLTextAreaElement).value).toBe("$review next");
+    fireEvent.click(screen.getByRole("button", { name: "Send" }));
+    await waitFor(() => expect(streamMessage).toHaveBeenCalledTimes(3));
+    expect(streamMessage.mock.calls[2][1].requestedSkills).toEqual(["review"]);
   });
 
   it("consumes an interrupted active item and pauses the remaining FIFO", async () => {

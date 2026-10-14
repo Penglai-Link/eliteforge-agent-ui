@@ -16,6 +16,7 @@ import MarkdownBlock from "./MarkdownBlock.vue";
 
 const props = defineProps<{
   card: ReasoningValue;
+  unfolded?: boolean;
 }>();
 
 const expanded = ref(false);
@@ -29,7 +30,13 @@ const detail = computed(() => props.card.summary);
 </script>
 
 <template>
-  <section aria-label="Thinking" class="ef-chat__rail-entry">
+  <section v-if="unfolded" aria-label="Thinking" class="ef-chat__rail-entry">
+    <div class="ef-chat__rail-entry-main ef-chat__reasoning-inline">
+      <BrainCircuit :class="{ 'animate-pulse': !card.ended }" :size="15" />
+      <div class="ef-chat__rail-detail"><MarkdownBlock :content="detail || summary" :streaming="!card.ended" /></div>
+    </div>
+  </section>
+  <section v-else aria-label="Thinking" class="ef-chat__rail-entry">
     <button
       :aria-expanded="expanded"
       class="ef-chat__rail-entry-toggle"

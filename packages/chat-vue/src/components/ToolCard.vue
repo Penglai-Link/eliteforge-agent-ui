@@ -26,6 +26,7 @@ const props = defineProps<{
   labels?: ChatWorkRailLabels;
   statusLabel?: string;
   nested?: boolean;
+  compact?: boolean;
   stepNumber?: number;
 }>();
 
@@ -56,7 +57,7 @@ const toolLabel = computed(() => {
 const resolvedName = computed(() => props.labels?.tool?.resolveName?.(props.card.toolName, props.card.args) ?? toolDisplayName(props.card.toolName, props.card.args));
 const nestedToolLabel = computed(
   () =>
-    domainExpansion.value ? toolLabel.value : props.statusLabel ? `${toolLabel.value} · ${props.statusLabel}` : toolCompactLabel(props.card.toolName, props.card.args, resolvedName.value),
+    domainExpansion.value ? toolLabel.value : toolCompactLabel(props.card.toolName, props.card.args, resolvedName.value),
 );
 
 watch(
@@ -132,7 +133,7 @@ function hasToolParameterPayload(value: unknown): boolean {
                 )
               "
             >
-              {{ props.nested ? nestedToolLabel : toolLabel }}
+              {{ props.nested || props.compact ? nestedToolLabel : toolLabel }}
             </span>
             <span
               v-if="!props.nested"

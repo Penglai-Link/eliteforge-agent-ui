@@ -4,6 +4,7 @@ import {
   reasoningLastSentence,
   truncateLabel,
 } from "./display";
+import { historyEventRunId } from "./history";
 import type {
   ChatAguiStreamEvent,
   ChatDebugOptions,
@@ -269,7 +270,7 @@ export function aguiEventToolArgs(event: TranscriptAguiEvent) {
   return "toolCallArgs" in event ? event.toolCallArgs : undefined;
 }
 
-function aguiEventStableKey(event: TranscriptAguiEvent): string | null {
+export function aguiEventStableKey(event: TranscriptAguiEvent): string | null {
   const metadata = "metadata" in event && event.metadata && typeof event.metadata === "object"
     ? event.metadata as Record<string, unknown> : {};
   const tron = metadata.tron && typeof metadata.tron === "object"
@@ -404,7 +405,7 @@ export function filterTranscriptAguiEventsForSession(
   return events.filter((event) => {
     const threadId = aguiEventThreadId(event);
     if (threadId && threadId !== sessionId) return false;
-    return runCodes.has(aguiEventRunId(event));
+    return runCodes.has(aguiEventRunId(event)) || runCodes.has(historyEventRunId(event));
   });
 }
 
@@ -855,6 +856,7 @@ function aguiRunsWithWorkDetails(events: TranscriptAguiEvent[], limit: number) {
   return Array.from(runs.values())
     .filter((run) => (
       buildAguiUserWorkCards(run.events).length > 0
+      || run.events.some(event => aguiEventType(event).toUpperCase().startsWith("TEXT_MESSAGE_"))
       || buildAguiRunNotices(run.events).length > 0
       || !run.events.some((event) => {
         return isAguiExecutionTerminalEvent(event);
@@ -875,14 +877,18 @@ function anchorMessageCodeForAguiRun(
   messages: ChatMessage[],
   runId: string,
   liveAnchorMessageCodes: Record<string, string>,
+  events: TranscriptAguiEvent[] = [],
 ) {
   const liveAnchorMessageCode = liveAnchorMessageCodes[runId] ?? "";
   if (liveAnchorMessageCode && messages.some((message) => message.messageId === liveAnchorMessageCode)) {
     return liveAnchorMessageCode;
   }
+  const nativeIds = new Set(events.map(historyEventRunId));
+  const textIds = new Set(events.flatMap(event => "messageId" in event ? [event.messageId] : []));
   const assistantIndex = messages.findIndex((message) => (
-    message.role === "ASSISTANT" && message.runId === runId
+    message.role === "ASSISTANT" && (message.runId === runId || nativeIds.has(message.runId ?? "") || textIds.has(message.messageId))
   ));
+  if (assistantIndex === 0) return messages[0].messageId;
   if (assistantIndex > 0) {
     const previousMessage = messages[assistantIndex - 1];
     if (previousMessage.role === "ASSISTANT") return previousMessage.messageId;
@@ -899,7 +905,7 @@ export function aguiWorkRailsByMessageCode(
 ) {
   const rails = new Map<string, AguiWorkRun[]>();
   aguiRunsWithWorkDetails(events, recentWorkRunLimit).forEach((run) => {
-    const messageId = anchorMessageCodeForAguiRun(messages, run.runId, liveAnchorMessageCodes);
+    const messageId = anchorMessageCodeForAguiRun(messages, run.runId, liveAnchorMessageCodes, run.events);
     if (!messageId) return;
     const current = rails.get(messageId) ?? [];
     current.push(run);

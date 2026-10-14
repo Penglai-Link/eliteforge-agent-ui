@@ -1,19 +1,23 @@
 <script setup lang="ts">
-import { BrainCircuit, ChevronDown, ChevronRight, MessageSquareText } from "lucide-vue-next";
+import { Bot, ChevronDown, ChevronRight } from "lucide-vue-next";
 import { computed, onBeforeUnmount, ref, watch } from "vue";
 import {
   aguiWorkElapsedMilliseconds,
   aguiReasoningEffort,
   buildAguiUserWorkCards,
-  currentAguiWorkSnapshot,
   isAguiRunTerminal,
   type TranscriptAguiEvent,
   type ChatWorkRailLabels,
   type ChatUserInputRequest,
+  type TranscriptWorkRun,
+  type ChatHistoryLabels,
+  defaultHistoryLabels,
+  workTimelineElapsedMilliseconds,
 } from "@eliteforge/agent-ui-chat-core";
 import ReasoningCard from "./ReasoningCard.vue";
 import ToolGroupCard from "./ToolGroupCard.vue";
 import ToolCard from "./ToolCard.vue";
+import AguiRunNotices from "./AguiRunNotices.vue";
 
 const props = withDefaults(defineProps<{
   historyCovered?: boolean;
@@ -22,6 +26,8 @@ const props = withDefaults(defineProps<{
   labels?: ChatWorkRailLabels;
   messageId?: string;
   userInputRequests?: ChatUserInputRequest[];
+  timeline?: TranscriptWorkRun;
+  historyLabels?: ChatHistoryLabels;
 }>(), {
   debugEvents: () => [],
   events: () => [],
@@ -70,19 +76,11 @@ const pendingUserInputRequest = computed(() => matchingUserInputRequests.value.f
 ));
 const visibleUserCards = userCards;
 const reasoningEffort = computed(() => aguiReasoningEffort(props.events));
-const terminalEvent = computed(() => props.historyCovered || isAguiRunTerminal(props.events) && !pendingUserInputRequest.value);
+const terminalEvent = computed(() => props.timeline?.completed ?? (props.historyCovered || isAguiRunTerminal(props.events) && !pendingUserInputRequest.value));
 const expanded = ref(false);
 const now = ref(Date.now());
 const labels = computed(() => props.labels ?? defaultLabels);
-const duration = computed(() => formatAguiDuration(aguiWorkElapsedMilliseconds(props.events, now.value)));
-const currentSummary = computed(() => {
-  const snapshot = currentAguiWorkSnapshot(props.events);
-  if (snapshot?.summary) return snapshot.summary;
-  const activity = snapshot?.activity;
-  if (activity === "PREPARING") return labels.value.preparing;
-  if (activity === "RESPONDING") return labels.value.responding;
-  return labels.value.thinking;
-});
+const duration = computed(() => formatAguiDuration(props.timeline ? workTimelineElapsedMilliseconds(props.timeline, now.value) : aguiWorkElapsedMilliseconds(props.events, now.value)));
 let timer: ReturnType<typeof setInterval> | undefined;
 
 watch(terminalEvent, (completed) => {
@@ -104,11 +102,12 @@ onBeforeUnmount(() => {
 
 <template>
   <section
-    v-if="(!props.historyCovered || props.debugEvents.length) && (props.events.length || userCards.length || props.debugEvents.length)"
+    v-if="(props.timeline || !props.historyCovered || props.debugEvents.length) && (props.timeline?.items.length || props.events.length || userCards.length || props.debugEvents.length)"
     :aria-label="labels.ariaLabel"
     class="ef-chat__rail"
   >
     <button
+      v-if="terminalEvent && (props.timeline?.items.length || userCards.length || props.debugEvents.length)"
       :aria-expanded="expanded"
       class="ef-chat__rail-summary"
       type="button"
@@ -121,26 +120,24 @@ onBeforeUnmount(() => {
       <ChevronDown v-if="expanded" :size="14" />
       <ChevronRight v-else :size="14" />
     </button>
-    <div v-if="!terminalEvent || pendingUserInputRequest" aria-live="polite" class="ef-chat__rail-current">
-      <template v-if="pendingUserInputRequest">
-        <MessageSquareText class="ef-chat__rail-current-icon animate-pulse" :size="15" />
-        <span class="ef-chat__rail-current-text">
-          {{ labels.askingQuestions?.(pendingUserInputRequest.questions.length) ?? 'Asking questions' }}
-          <span class="ef-chat__rail-current-subtext">{{ labels.waitingForAnswer ?? 'Waiting for your answer' }}</span>
-        </span>
-      </template>
-      <template v-else>
-        <BrainCircuit class="ef-chat__rail-current-icon animate-pulse" :size="15" />
-        <span class="ef-chat__rail-current-text">{{ currentSummary }}</span>
-      </template>
-    </div>
+    <div v-else class="ef-chat__rail-summary ef-chat__rail-summary--static">{{ terminalEvent ? labels.workedFor(duration) : labels.workingFor(duration) }}</div>
+    <AguiRunNotices :events="props.events" :messages="props.timeline?.messages" :labels="labels" />
     <div
-      v-if="expanded"
+      v-if="!terminalEvent || expanded"
       class="ef-chat__rail-stack"
       :style="{ marginTop: '8px' }"
     >
+      <section v-if="props.timeline" aria-label="Agent work rail" class="ef-chat__rail" style="max-width: none; padding-left: 0">
+        <div class="ef-chat__rail-card-list">
+          <div v-for="item in props.timeline.items" :key="item.id" :data-work-item="item.kind" :data-work-item-id="item.id">
+            <slot v-if="item.kind === 'message'" name="message" :message="item.message" />
+            <ReasoningCard v-else-if="item.kind === 'reasoning'" :card="item.value" unfolded />
+            <ToolCard v-else :card="item.value" :labels="labels" compact :status-label="item.historyStatus ? (props.historyLabels ?? defaultHistoryLabels).statuses[item.historyStatus] : undefined" />
+          </div>
+        </div>
+      </section>
       <section
-        v-if="visibleUserCards.length"
+        v-else-if="visibleUserCards.length"
         aria-label="Agent work rail"
         class="ef-chat__rail"
         style="max-width: none; padding-left: 0"
@@ -169,6 +166,10 @@ onBeforeUnmount(() => {
           </div>
         </div>
       </section>
+    </div>
+    <div v-if="!terminalEvent" class="ef-chat__rail-current ef-chat__rail-current--working" role="status">
+      <Bot class="ef-chat__rail-current-icon" :size="15" aria-hidden="true" />
+      <span class="ef-chat__rail-current-text">{{ labels.working ?? (/^[\u3400-\u9fff]/.test(labels.thinking) ? '工作中' : 'Working') }}</span>
     </div>
   </section>
 </template>

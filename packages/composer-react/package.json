@@ -1,0 +1,40 @@
+{
+  "name": "@eliteforge/agent-ui-composer-react",
+  "version": "0.1.0",
+  "type": "module",
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/src/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/src/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    },
+    "./styles.css": "./dist/styles.css"
+  },
+  "sideEffects": [
+    "**/*.css"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json && vite build",
+    "test": "vitest run",
+    "dev": "vite",
+    "prepublishOnly": "npm run build"
+  },
+  "publishConfig": {
+    "registry": "http://nexus.cisdigital.cn/repository/npm-internal/",
+    "access": "restricted"
+  },
+  "dependencies": {
+    "@eliteforge/agent-ui-composer-core": "0.1.0"
+  },
+  "peerDependencies": {
+    "react": "^19.2.5",
+    "lucide-react": "^0.553.0"
+  }
+}

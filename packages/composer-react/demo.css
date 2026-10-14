@@ -1,0 +1,112 @@
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+  font-family: Inter, -apple-system, sans-serif;
+  background: #f5f3f0;
+  color: #27272a;
+}
+main {
+  max-width: 1000px;
+  margin: 64px auto;
+  padding: 0 28px;
+}
+h1 {
+  margin: 10px 0;
+  font-size: 36px;
+  letter-spacing: -1px;
+}
+p {
+  color: #71717a;
+  line-height: 1.7;
+}
+.eyebrow {
+  font: 12px monospace;
+  letter-spacing: 2px;
+}
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 24px 0;
+}
+.toolbar button {
+  border: 1px solid #d4d4d8;
+  border-radius: 6px;
+  padding: 8px 14px;
+  background: white;
+  cursor: pointer;
+}
+.stage {
+  padding: 110px 24px 24px;
+  border: 1px solid #ddd;
+  border-radius: 12px;
+  background: #e9e7e3;
+  transition: max-width 120ms;
+}
+.stage[data-narrow="true"] {
+  max-width: 360px;
+}
+.stage[data-theme="dark"] {
+  background: #151922;
+  --color-surface-container-lowest: #242a35;
+  --color-surface-container-low: #1e2430;
+  --color-surface-container: #323b48;
+  --color-on-surface: #f3f4f6;
+  --color-on-surface-variant: #a9b3c5;
+  --color-outline-variant: #4b5563;
+  --color-hover-surface: #354053;
+  --color-primary: #c4d5ff;
+  --color-on-primary: #172338;
+  --color-error: #b64854;
+}
+.stage[data-theme="brand"] {
+  background: #e0e7df;
+  --agent-ui-chat-surface-strong-color: #f3faef;
+  --agent-ui-chat-primary-color: #2d6449;
+  --agent-ui-chat-on-primary-color: white;
+  --agent-ui-chat-text-color: #183b2a;
+  --agent-ui-chat-text-muted-color: #4d6b59;
+  --agent-ui-chat-hover-color: #d9ead3;
+  --agent-ui-chat-border-color: #94ac91;
+  --agent-ui-control-height: 38px;
+  --agent-ui-control-radius: 10px;
+  --agent-ui-font: Georgia, serif;
+}
+.addon {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+}
+.addon select {
+  background: transparent;
+  color: inherit;
+  border: 1px solid currentColor;
+  border-radius: 4px;
+  padding: 3px;
+}
+.header-note {
+  font-size: 12px;
+  opacity: 0.7;
+}
+.events {
+  font: 12px/1.7 ui-monospace, monospace;
+  white-space: pre-wrap;
+  min-height: 100px;
+  padding: 18px 0;
+  color: #52525b;
+}
+@media (max-width: 600px) {
+  main {
+    margin: 32px auto;
+    padding: 0 16px;
+  }
+  .stage {
+    padding: 110px 12px 12px;
+  }
+  h1 {
+    font-size: 28px;
+  }
+}

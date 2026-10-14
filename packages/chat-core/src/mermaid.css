@@ -1,0 +1,64 @@
+.ef-chat__mermaid {
+  max-width: 100%;
+  min-width: 0;
+  overflow-x: auto;
+  color: inherit;
+  margin-block: 1em;
+}
+.ef-chat__mermaid[data-mermaid-state="ready"] {
+  padding: 1rem;
+  border: 1px solid var(--agent-ui-chat-border, #d0d7de);
+  border-radius: var(--agent-ui-chat-radius, 8px);
+  background: var(--agent-ui-chat-surface-soft, transparent);
+}
+.ef-chat__mermaid > svg {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin-inline: auto;
+}
+.ef-chat__mermaid[data-mermaid-state="ready"] { cursor: zoom-in; }
+.ef-chat__mermaid:focus-visible { outline: 2px solid currentColor; outline-offset: 3px; }
+.ef-chat__mermaid-dialog {
+  box-sizing: border-box;
+  margin: auto;
+  width: calc(100vw - 48px);
+  height: calc(100dvh - 48px);
+  max-width: 1440px;
+  max-height: 100dvh;
+  padding: 0;
+  border: 1px solid color-mix(in srgb, currentColor 25%, transparent);
+  border-radius: 12px;
+  overflow: hidden;
+}
+.ef-chat__mermaid-dialog[open] { display: flex; flex-direction: column; }
+.ef-chat__mermaid-dialog::backdrop { background: rgb(0 0 0 / 70%); }
+.ef-chat__mermaid-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: none;
+  padding: 10px 16px;
+  border-bottom: 1px solid color-mix(in srgb, currentColor 20%, transparent);
+}
+.ef-chat__mermaid-toolbar strong { margin-inline-end: auto; }
+.ef-chat__mermaid-toolbar button {
+  min-width: 36px;
+  height: 36px;
+  padding-inline: 8px;
+  border: 1px solid color-mix(in srgb, currentColor 25%, transparent);
+  border-radius: 6px;
+  color: inherit;
+  background: transparent;
+  font: inherit;
+  cursor: pointer;
+}
+.ef-chat__mermaid-toolbar button:hover { background: color-mix(in srgb, currentColor 10%, transparent); }
+.ef-chat__mermaid-toolbar button:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
+.ef-chat__mermaid-scale { min-width: 4ch; text-align: center; font-variant-numeric: tabular-nums; }
+.ef-chat__mermaid-viewport { flex: 1; min-height: 0; overflow: auto; padding: 16px; }
+.ef-chat__mermaid-viewport img { display: block; max-width: none; margin: auto; }
+@media (max-width: 480px) {
+  .ef-chat__mermaid-dialog { width: calc(100vw - 16px); height: calc(100dvh - 16px); }
+  .ef-chat__mermaid-toolbar { padding-inline: 8px; gap: 4px; }
+}

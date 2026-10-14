@@ -120,6 +120,23 @@ const adapter = createMockChatAdapter();
 
 `streamMessage` 收到文本片段时调用 `handlers?.onDelta(delta)`；收到 AG-UI 流事件时调用 `handlers?.onAguiEvent(event)`。把宿主的会话、消息、事件和最终运行结果分别映射成 `ChatSession`、`ChatMessage`、`ChatAguiStreamEvent` 和 `ChatSendResult`。
 
+有 AG-UI 消息 ID 时，必须保留每个步骤的 `TEXT_MESSAGE_START`、`TEXT_MESSAGE_CONTENT`、`TEXT_MESSAGE_END` 及其 `messageId`，并及时转发。React/Vue 使用同一个 `AssistantMessageStream` 按 ID 创建卡片；结束前的增量只更新当前步骤，结束后下一步创建新卡片。相同 ID 用于结构化历史，不能等整个运行结束后再拆分文本。
+
+```mermaid
+sequenceDiagram
+    participant Agent as Agent / AG-UI
+    participant UI as React / Vue
+    Agent->>UI: START(m1) / CONTENT(m1)
+    Note over UI: 立即展示第一步卡片
+    Agent->>UI: END(m1)
+    Agent->>UI: START(m2) / CONTENT(m2)
+    Note over UI: 新增第二步卡片，保留第一步
+    Agent->>UI: END(m2) / RUN_FINISHED
+    Note over UI: 按相同 ID 恢复历史，避免重复最终答复
+```
+
+`onDelta` 继续兼容没有消息 ID 的旧适配器。同一片段同时触发两种回调时，先转发 `onAguiEvent`，再调用 `onDelta`；组件识别协议消息后会忽略镜像的裸文本回调，避免追加两次。流式打字效果按每个卡片处理，消息结束时显示剩余文本，不阻塞下一步。
+
 最小 adapter 骨架：
 
 ```ts
@@ -218,6 +235,14 @@ AI 是可选的：省略 `ai` 后，普通终端仍可使用。`createTerminalTr
 终端服务至少要负责认证用户、授权工作目录、安全创建 PTY、限制资源并在会话结束时回收进程。不要把 shell 启动权限或服务端凭据放进浏览器代码。`dispose()` 会释放终端、传输和未完成的 AI 请求。
 
 ## 5. 主题、文案和布局
+
+React 和 Vue 聊天消息都支持 fenced `mermaid` 代码块，按需加载 Mermaid，并使用当前聊天主题的字体和颜色。流式消息在代码块闭合后渲染图表；未闭合或语法错误时保留源码。普通代码块保持原样。
+
+AG-UI 过程按事件顺序展示公开思考摘要、独立步骤输出和工具调用，执行中保持展开。时间线末尾只显示固定的工作状态（`workRailLabels.working`），不重复当前摘要。`TEXT_MESSAGE_END` 只结束当前步骤；运行成功结束后才将此前过程整体折叠，并把最终回答保留为独立卡片。用户可以展开查看全部过程；结构化历史恢复使用相同顺序和折叠规则。停止、失败和等待输入不会把未完成的步骤输出标为最终回答。
+
+点击图表或聚焦后按 Enter/空格，可打开带遮罩的大图预览，支持放大、缩小和适应窗口。按 Esc、点击关闭按钮或遮罩可关闭，焦点返回原图表。历史消息使用同一渲染和预览能力。
+
+渲染使用 [Mermaid strict 安全配置](https://mermaid.js.org/config/usage.html)，禁用 HTML 标签和图内跳转脚本，消息内容不能覆盖安全配置。
 
 - 聊天主题：先引入 `@eliteforge/agent-ui-chat-theme`，再用 CSS 变量覆盖颜色和边框。
 - React 聊天组件提供 `headerContent`、`sidebarContent`、`footerAddon` 等扩展点；Vue 组件提供对应插槽。

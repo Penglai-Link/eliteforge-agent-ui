@@ -8,6 +8,7 @@ export type HistoryContentBlock =
   | { type: "Media"; mimeType: string; source: { type: "url" | "base64"; value: string }; name: string | null }
   | { type: "Resource"; uri: string; mimeType: string | null; name: string | null; sizeBytes: number | null };
 export interface HistoryMessage {
+  requestedSkills?: string[];
   provenance?: MessageProvenance;
   id: string; runId: string; stepId: string | null; role: "User" | "Assistant";
   content: HistoryContentBlock[]; structured: unknown; status: HistoryStatus; createdAtMs: number;
@@ -89,6 +90,7 @@ export function historyMessages(page: SessionHistory, labels?: ChatUserInputLabe
     return {
       id: message.id, messageId: message.id, sessionId: page.sessionId, runId: message.runId,
       role: message.role === "User" ? "USER" : "ASSISTANT", channel: "history", actor: message.provenance?.sender.displayName ?? (message.role === "User" ? "User" : "Assistant"), provenance: message.provenance,
+      requestedSkills: message.requestedSkills ?? [],
       content: isRunDiagnostic ? "" : text, inputTokens: step?.usage?.inputTokens, outputTokens: step?.usage?.outputTokens,
       totalTokens: step?.usage ? step.usage.inputTokens + step.usage.outputTokens : null,
       createdAt: new Date(message.createdAtMs).toISOString(), history: { message, step, tools: tools.get(message.id) ?? [], run: runs.get(message.runId) ?? null, interactions: interactionsByMessage.get(message.id) ?? [] },

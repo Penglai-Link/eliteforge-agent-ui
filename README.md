@@ -1,6 +1,6 @@
 # EliteForge Agent UI
 
-面向 Web 应用的可复用 UI 组件 monorepo，提供聊天、A2UI、动效与终端相关的核心能力和 React/Vue 实现。宿主应用负责提供会话与消息服务、鉴权、Agent 服务及终端进程；本项目通过 adapter 和 transport 接入这些能力。
+面向 Web 应用的可复用 UI 组件 monorepo，提供聊天、独立消息输入区、A2UI、动效与终端相关的核心能力和 React/Vue 实现。宿主应用负责提供会话与消息服务、鉴权、Agent 服务及终端进程；本项目通过 adapter 和 transport 接入这些能力。
 
 ## 包结构
 
@@ -13,6 +13,9 @@ packages/
 ├── chat-react/   # React 聊天运行时、面板和悬浮窗口
 ├── chat-vue/     # Vue 3 聊天组件
 ├── chat-theme/   # 可复用、可覆盖的聊天主题
+├── composer-core/  # 输入区类型、输入工具与共享样式
+├── composer-react/ # React 独立消息输入区
+├── composer-vue/   # Vue 3 独立消息输入区
 ├── motion-core/  # 共用动效配置、主题变量和播放策略
 ├── motion-react/ # React 动效 Provider、效果接口和默认实现
 ├── motion-vue/   # Vue 动效接口与实现
@@ -33,10 +36,12 @@ npm run check
 ```sh
 npm run dev --workspace @eliteforge/agent-ui-chat-react
 npm run dev --workspace @eliteforge/agent-ui-chat-vue
+npm run dev --workspace @eliteforge/agent-ui-composer-react
+npm run dev --workspace @eliteforge/agent-ui-composer-vue
 npm run dev --workspace @eliteforge/agent-ui-terminal
 ```
 
-React/Vue 聊天演示使用 `chat-core` 的模拟 adapter，可创建会话、发送消息并查看 AG-UI 活动；终端演示使用内存模拟的 Shell 和 AI transport，不会访问外部服务。详细接入步骤见[接入指南](docs/integration-guide.md)，各组件 README 提供对应 API 说明。动效接入与 Bits 适配约定见[统一动效接入](docs/motion.md)。
+React/Vue 聊天演示使用 `chat-core` 的模拟 adapter，可创建会话、发送消息并查看 AG-UI 活动；终端演示使用内存模拟的 Shell 和 AI transport，不会访问外部服务。独立输入区支持附件、命令/技能、队列和主题，接入见[独立消息输入区](docs/composer.md)。详细接入步骤见[接入指南](docs/integration-guide.md)，各组件 README 提供对应 API 说明。动效接入与 Bits 适配约定见[统一动效接入](docs/motion.md)。
 
 ## 开发技能
 

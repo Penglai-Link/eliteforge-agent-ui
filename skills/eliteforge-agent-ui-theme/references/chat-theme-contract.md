@@ -11,6 +11,7 @@
 | `data-theme-part="chat"` | 聊天面板整体 |
 | `data-theme-part="chat-message-user"` | 用户消息 |
 | `data-theme-part="chat-message-assistant"` | 助手消息 |
+| `data-theme-part="composer"` | 独立消息输入区整体 |
 | `data-theme-part="chat-input"` | 消息输入框 |
 | `data-theme-effect-layer="chat"` | 宿主主题引擎可选放置聊天背景效果的区域 |
 
@@ -27,3 +28,7 @@ A2UI 外观由两端共用的 `packages/a2ui-core/{components,defaults,statistic
 根挂点为 `data-theme-part="a2ui"`；组件根挂点为 `a2ui-<组件名称小写>`。尺寸和动画优先使用共享 `--agent-ui-*`，组件特有外观使用 `--agent-ui-a2ui-*`，基础颜色保留 `--color-*` 回退。
 
 图表、迷你趋势图的 stroke / fill / 图例色必须使用同一公开系列变量；阈值条必须支持成功、警告、错误色。SVG 数据坐标属于结构，颜色、线宽、点半径、轴字号属于主题。
+
+## 独立输入区
+
+React/Vue 共用 `packages/composer-core/src/styles.css`。直接继承 chat 和通用主题变量，独立默认值采用使用点回退。完整接口见 `docs/composer-theme.md` 和 `docs/composer-theme-tokens.json`。根节点保留 `data-theme-anchor="composer"`，textarea 保留 `data-theme-anchor="chat-input"`。

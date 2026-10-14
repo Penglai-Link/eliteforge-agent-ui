@@ -20,7 +20,7 @@ const props = defineProps<{
 }>();
 
 const emit = defineEmits<{
-  editMessage: [content: string];
+  editMessage: [content: string, message: ChatMessage];
 }>();
 
 const isUser = computed(() => props.message.role === "USER");
@@ -32,6 +32,7 @@ const actorName = computed(() =>
 <template>
   <article
     :class="cx('ef-chat__message', isUser && 'ef-chat__message--user')"
+    :data-message-id="props.message.messageId"
     data-theme-anchor="chat-message" :data-theme-part="isUser ? 'chat-message-user' : 'chat-message-assistant'"
     :data-streaming="isStreaming ? 'true' : undefined"
   >
@@ -53,7 +54,7 @@ const actorName = computed(() =>
           aria-label="Edit message"
           class="ef-chat__icon-button"
           type="button"
-          @click="emit('editMessage', props.message.content)"
+          @click="emit('editMessage', props.message.content, props.message)"
         >
           <Pencil :size="14" />
         </button>
@@ -67,6 +68,7 @@ const actorName = computed(() =>
     <MarkdownBlock
       v-else
       :content="props.message.content"
+      :streaming="isStreaming"
       :empty-message="message.a2ui ? '' : props.emptyAssistantMessage"
     />
     <ChatA2UI v-if="message.a2ui" :message="message" :on-action="onA2UIAction" :runtime="a2uiSession" :disabled="a2uiDisabled" />

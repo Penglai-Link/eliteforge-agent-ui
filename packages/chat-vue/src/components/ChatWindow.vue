@@ -9,6 +9,7 @@ import {
   resolveFloatingViewportBounds,
   writeFloatingState,
   type ChatFloatingState,
+  type ChatMessage,
   type ChatSubmitMode,
 } from "@eliteforge/agent-ui-chat-core";
 import { computed, onBeforeUnmount, ref, useSlots, watch } from "vue";
@@ -54,7 +55,7 @@ const emit = defineEmits<{
   "create-session": [];
   "new-session": [];
   "draft-change": [value: string];
-  "edit-message": [value: string];
+  "edit-message": [value: string, message?: ChatMessage];
   "edit-queued-message": [id: string, content: string];
   "remove-queued-message": [id: string];
   send: [mode?: ChatSubmitMode];
@@ -361,6 +362,21 @@ function endResize(event: PointerEvent) {
           :empty-title="emptyTitle"
           :format-annotation-count="formatAnnotationCount"
           :input-placeholder="inputPlaceholder"
+          :input-suggestions="props.inputSuggestions"
+          :skill-suggestion-triggers="props.skillSuggestionTriggers"
+          :input-suggestion-labels="props.inputSuggestionLabels"
+          :queued-input-placeholder="props.queuedInputPlaceholder"
+          :steering-input-placeholder="props.steeringInputPlaceholder"
+          :pending-attachments="props.pendingAttachments"
+          :show-attachment-control="props.showAttachmentControl"
+          :attachment-upload-pending="props.attachmentUploadPending"
+          :on-attach-file="props.onAttachFile"
+          :onRemoveAttachment="props.onRemoveAttachment"
+          :attach-label="props.attachLabel"
+          :uploading-label="props.uploadingLabel"
+          :remove-attachment-label="props.removeAttachmentLabel"
+          :edit-queued-label="props.editQueuedLabel"
+          :remove-queued-label="props.removeQueuedLabel"
           :live-agui-anchor-message-codes="liveAguiAnchorMessageCodes"
           :live-agui-events="liveAguiEvents"
           :live-agui-pending-anchor-message-code="liveAguiPendingAnchorMessageCode"
@@ -391,9 +407,9 @@ function endResize(event: PointerEvent) {
           @create-session="emit('create-session')"
           @new-session="emit('new-session')"
           @draft-change="(v: string) => emit('draft-change', v)"
-          @edit-message="(v: string) => emit('edit-message', v)"
-          @edit-queued-message="(id: string, content: string) => emit('edit-queued-message', id, content)"
-          @remove-queued-message="(id: string) => emit('remove-queued-message', id)"
+          @edit-message="(v: string, message?: ChatMessage) => emit('edit-message', v, message)"
+          :onEditQueuedMessage="props.onEditQueuedMessage ? (id: string, content: string) => emit('edit-queued-message', id, content) : undefined"
+          :onRemoveQueuedMessage="props.onRemoveQueuedMessage ? (id: string) => emit('remove-queued-message', id) : undefined"
           @send="(mode?: ChatSubmitMode) => emit('send', mode)"
           @stop="emit('stop')"
         >

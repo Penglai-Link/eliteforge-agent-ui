@@ -26,7 +26,7 @@ export default defineConfig({
         formats: ["es"],
       },
       rollupOptions: {
-        external: [
+        external: ["@eliteforge/agent-ui-composer-vue",
           "@eliteforge/agent-ui-motion-vue",
           "@eliteforge/agent-ui-a2ui-core",
           "@eliteforge/agent-ui-a2ui-vue","@eliteforge/agent-ui-chat-core", "lucide-vue-next", "markdown-it", "vue"],

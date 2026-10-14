@@ -1,6 +1,6 @@
 /* Shared, scoped defaults. Host --agent-ui-* tokens inherit without a global reset.
    Bundled into each renderer stylesheet: no host Tailwind setup is required. */
-:where(.ef-chat, .ef-chat-window, .ef-chat-window__panel, .a2ui-surface) {
+:where(.ef-composer, .ef-chat, .ef-chat-window, .ef-chat-window__panel, .a2ui-surface) {
   --_agent-ui-font: var(--agent-ui-font, var(--agent-ui-skin-font, var(--font-sans, Inter, sans-serif)));
   --_agent-ui-control-height: var(--agent-ui-control-height, 2rem);
   --_agent-ui-control-radius: var(--agent-ui-control-radius, 4px);
@@ -12,11 +12,11 @@
   --_agent-ui-duration: var(--agent-ui-motion-transition-duration, var(--agent-ui-transition-duration, 120ms));
   font-family: var(--_agent-ui-font);
 }
-:where(.ef-chat, .ef-chat-window, .a2ui-surface),
-:where(.ef-chat, .ef-chat-window, .a2ui-surface) *,
-:where(.ef-chat, .ef-chat-window, .a2ui-surface) *::before,
-:where(.ef-chat, .ef-chat-window, .a2ui-surface) *::after { box-sizing: border-box; }
+:where(.ef-composer, .ef-chat, .ef-chat-window, .a2ui-surface),
+:where(.ef-composer, .ef-chat, .ef-chat-window, .a2ui-surface) *,
+:where(.ef-composer, .ef-chat, .ef-chat-window, .a2ui-surface) *::before,
+:where(.ef-composer, .ef-chat, .ef-chat-window, .a2ui-surface) *::after { box-sizing: border-box; }
 
 @media (prefers-reduced-motion: reduce) {
-  :where(.ef-chat, .ef-chat-window, .a2ui-surface) * { transition-duration: 0s !important; }
+  :where(.ef-composer, .ef-chat, .ef-chat-window, .a2ui-surface) * { transition-duration: 0s !important; }
 }

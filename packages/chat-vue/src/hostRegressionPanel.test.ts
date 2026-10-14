@@ -5,6 +5,7 @@ import { createApp, h, nextTick, type App } from "vue";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import ChatPanel from "./components/ChatPanel.vue";
+import ChatWindow from "./components/ChatWindow.vue";
 
 let mounted: { app: App; container: HTMLElement } | null = null;
 
@@ -158,4 +159,26 @@ it("keeps Dude sender attribution on the input side in Vue", async () => {
   app.mount(container); mounted={app,container}; await nextTick();
   expect(container.querySelector(".ef-chat__message-actor")?.textContent).toContain("Main Dude");
   expect(container.querySelector(".ef-chat__message--user")).not.toBeNull();
+});
+
+it.each([ChatPanel, ChatWindow])("forwards composer controls once through Vue panel/window", async (Component) => {
+  const edit = vi.fn(), remove = vi.fn(), stop = vi.fn(), removeAttachment = vi.fn();
+  const container = document.createElement("div"); document.body.append(container);
+  const app = createApp({ render: () => h(Component, {
+    session: activeSession(), draft: "$", onDraftChange: vi.fn(), onSend: vi.fn(), messages: [], sending: true,
+    onStop: stop, onEditQueuedMessage: edit, onRemoveQueuedMessage: remove,
+    queuedMessages: [{ id: "q", sessionId: "SESSION-1", input: { content: "next" } }],
+    pendingAttachments: [{ id: "f", kind: "file", summary: "Spec", fileName: "spec.md", metadata: {} }],
+    onRemoveAttachment: removeAttachment, showAttachmentControl: true, onAttachFile: vi.fn(),
+    inputSuggestions: [{ kind: "skill", name: "review" }], queuedInputPlaceholder: "Custom queue placeholder",
+    runningSubmitModes: ["queue"], state: { visible: true, collapsed: false, width: 600, height: 700, x: 0, y: 0, pinned: false }, storageKey: "composer-forwarding",
+  }) });
+  mounted = { app, container }; app.mount(container); await nextTick();
+  expect(container.querySelector("textarea")?.placeholder).toBe("Custom queue placeholder");
+  expect(container.querySelector('[role="listbox"]')).not.toBeNull();
+  expect(container.querySelector('[aria-label="Attach file"]')).not.toBeNull();
+  (container.querySelector('[aria-label="Remove spec.md"]') as HTMLButtonElement).click(); expect(removeAttachment).toHaveBeenCalledExactlyOnceWith("f");
+  (container.querySelector('[aria-label="Edit queued message"]') as HTMLButtonElement).click(); expect(edit).toHaveBeenCalledExactlyOnceWith("q", "next");
+  (container.querySelector('[aria-label="Remove queued message"]') as HTMLButtonElement).click(); expect(remove).toHaveBeenCalledExactlyOnceWith("q");
+  (container.querySelector('[aria-label="Stop"]') as HTMLButtonElement).click(); expect(stop).toHaveBeenCalledOnce();
 });

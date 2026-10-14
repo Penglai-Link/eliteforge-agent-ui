@@ -1,0 +1,602 @@
+{
+  "stylesheet": "packages/composer-core/src/styles.css",
+  "tokens": [
+    {
+      "name": "--agent-ui-chat-border",
+      "fallbacks": [
+        "var(--agent-ui-chat-border-color, var(--color-outline-variant, #c4c7c7) )"
+      ]
+    },
+    {
+      "name": "--agent-ui-chat-border-color",
+      "fallbacks": [
+        "var(--color-outline-variant, #c4c7c7)"
+      ]
+    },
+    {
+      "name": "--agent-ui-chat-danger",
+      "fallbacks": [
+        "var(--agent-ui-chat-danger-color, var(--color-error, #ba1a1a) )"
+      ]
+    },
+    {
+      "name": "--agent-ui-chat-danger-color",
+      "fallbacks": [
+        "var(--color-error, #ba1a1a)"
+      ]
+    },
+    {
+      "name": "--agent-ui-chat-danger-text",
+      "fallbacks": [
+        "var(--agent-ui-chat-danger-text-color, var(--color-on-error, #ffffff) )"
+      ]
+    },
+    {
+      "name": "--agent-ui-chat-danger-text-color",
+      "fallbacks": [
+        "var(--color-on-error, #ffffff)"
+      ]
+    },
+    {
+      "name": "--agent-ui-chat-focus",
+      "fallbacks": [
+        "var(--agent-ui-chat-focus-color, var(--color-focus-ring, #2f5f9f) )"
+      ]
+    },
+    {
+      "name": "--agent-ui-chat-focus-color",
+      "fallbacks": [
+        "var(--color-focus-ring, #2f5f9f)"
+      ]
+    },
+    {
+      "name": "--agent-ui-chat-hover",
+      "fallbacks": [
+        "var(--agent-ui-chat-hover-color, var(--color-hover-surface, #f2f2f7) )"
+      ]
+    },
+    {
+      "name": "--agent-ui-chat-hover-color",
+      "fallbacks": [
+        "var(--color-hover-surface, #f2f2f7)"
+      ]
+    },
+    {
+      "name": "--agent-ui-chat-on-primary",
+      "fallbacks": [
+        "var(--agent-ui-chat-on-primary-color, var(--color-on-primary, #ffffff) )"
+      ]
+    },
+    {
+      "name": "--agent-ui-chat-on-primary-color",
+      "fallbacks": [
+        "var(--color-on-primary, #ffffff)"
+      ]
+    },
+    {
+      "name": "--agent-ui-chat-primary",
+      "fallbacks": [
+        "var(--agent-ui-chat-primary-color, var(--color-primary, #000000) )"
+      ]
+    },
+    {
+      "name": "--agent-ui-chat-primary-color",
+      "fallbacks": [
+        "var(--color-primary, #000000)"
+      ]
+    },
+    {
+      "name": "--agent-ui-chat-surface-muted",
+      "fallbacks": [
+        "var(--agent-ui-chat-surface-muted-color, var(--color-surface-container-low, #f7f3f2) )"
+      ]
+    },
+    {
+      "name": "--agent-ui-chat-surface-muted-color",
+      "fallbacks": [
+        "var(--color-surface-container-low, #f7f3f2)"
+      ]
+    },
+    {
+      "name": "--agent-ui-chat-surface-soft",
+      "fallbacks": [
+        "var(--agent-ui-chat-surface-soft-color, var(--color-surface-container, #f1edec) )"
+      ]
+    },
+    {
+      "name": "--agent-ui-chat-surface-soft-color",
+      "fallbacks": [
+        "var(--color-surface-container, #f1edec)"
+      ]
+    },
+    {
+      "name": "--agent-ui-chat-surface-strong",
+      "fallbacks": [
+        "var(--agent-ui-chat-surface-strong-color, var(--color-surface-container-lowest, #ffffff) )"
+      ]
+    },
+    {
+      "name": "--agent-ui-chat-surface-strong-color",
+      "fallbacks": [
+        "var(--color-surface-container-lowest, #ffffff)"
+      ]
+    },
+    {
+      "name": "--agent-ui-chat-text",
+      "fallbacks": [
+        "var(--agent-ui-chat-text-color, var(--color-on-surface, #1c1b1b) )"
+      ]
+    },
+    {
+      "name": "--agent-ui-chat-text-color",
+      "fallbacks": [
+        "var(--color-on-surface, #1c1b1b)"
+      ]
+    },
+    {
+      "name": "--agent-ui-chat-text-muted",
+      "fallbacks": [
+        "var(--agent-ui-chat-text-muted-color, var(--color-on-surface-variant, #444748) )"
+      ]
+    },
+    {
+      "name": "--agent-ui-chat-text-muted-color",
+      "fallbacks": [
+        "var(--color-on-surface-variant, #444748)"
+      ]
+    },
+    {
+      "name": "--agent-ui-composer-attachment-height",
+      "fallbacks": [
+        "64px"
+      ]
+    },
+    {
+      "name": "--agent-ui-composer-attachment-radius",
+      "fallbacks": [
+        "12px"
+      ]
+    },
+    {
+      "name": "--agent-ui-composer-border-width",
+      "fallbacks": [
+        "1px"
+      ]
+    },
+    {
+      "name": "--agent-ui-composer-button-padding",
+      "fallbacks": [
+        "0 var(--_agent-ui-control-padding)"
+      ]
+    },
+    {
+      "name": "--agent-ui-composer-caret-duration",
+      "fallbacks": [
+        "1s"
+      ]
+    },
+    {
+      "name": "--agent-ui-composer-caret-height",
+      "fallbacks": [
+        "1em"
+      ]
+    },
+    {
+      "name": "--agent-ui-composer-caret-width",
+      "fallbacks": [
+        "1px"
+      ]
+    },
+    {
+      "name": "--agent-ui-composer-compact-gap",
+      "fallbacks": [
+        "6px"
+      ]
+    },
+    {
+      "name": "--agent-ui-composer-control-weight",
+      "fallbacks": [
+        "500"
+      ]
+    },
+    {
+      "name": "--agent-ui-composer-count-radius",
+      "fallbacks": [
+        "999px"
+      ]
+    },
+    {
+      "name": "--agent-ui-composer-count-size",
+      "fallbacks": [
+        "18px"
+      ]
+    },
+    {
+      "name": "--agent-ui-composer-detail-font-size",
+      "fallbacks": [
+        "13px"
+      ]
+    },
+    {
+      "name": "--agent-ui-composer-disabled-opacity",
+      "fallbacks": [
+        "0.46"
+      ]
+    },
+    {
+      "name": "--agent-ui-composer-editor-min-height",
+      "fallbacks": [
+        "72px"
+      ]
+    },
+    {
+      "name": "--agent-ui-composer-emphasis-weight",
+      "fallbacks": [
+        "600"
+      ]
+    },
+    {
+      "name": "--agent-ui-composer-file-icon-box-size",
+      "fallbacks": [
+        "44px"
+      ]
+    },
+    {
+      "name": "--agent-ui-composer-file-padding",
+      "fallbacks": [
+        "8px 40px 8px 10px"
+      ]
+    },
+    {
+      "name": "--agent-ui-composer-file-width",
+      "fallbacks": [
+        "280px"
+      ]
+    },
+    {
+      "name": "--agent-ui-composer-focus-offset",
+      "fallbacks": [
+        "3px"
+      ]
+    },
+    {
+      "name": "--agent-ui-composer-focus-width",
+      "fallbacks": [
+        "2px"
+      ]
+    },
+    {
+      "name": "--agent-ui-composer-font-size",
+      "fallbacks": [
+        "14px"
+      ]
+    },
+    {
+      "name": "--agent-ui-composer-hover-brightness",
+      "fallbacks": [
+        "0.96"
+      ]
+    },
+    {
+      "name": "--agent-ui-composer-icon-control-size",
+      "fallbacks": [
+        "24px"
+      ]
+    },
+    {
+      "name": "--agent-ui-composer-icon-size",
+      "fallbacks": [
+        "13px",
+        "14px",
+        "15px",
+        "16px",
+        "22px"
+      ]
+    },
+    {
+      "name": "--agent-ui-composer-image-width",
+      "fallbacks": [
+        "88px"
+      ]
+    },
+    {
+      "name": "--agent-ui-composer-inline-gap",
+      "fallbacks": [
+        "2px"
+      ]
+    },
+    {
+      "name": "--agent-ui-composer-line-height",
+      "fallbacks": [
+        "normal"
+      ]
+    },
+    {
+      "name": "--agent-ui-composer-menu-gap",
+      "fallbacks": [
+        "8px"
+      ]
+    },
+    {
+      "name": "--agent-ui-composer-menu-heading-padding",
+      "fallbacks": [
+        "5px 9px"
+      ]
+    },
+    {
+      "name": "--agent-ui-composer-menu-max-height",
+      "fallbacks": [
+        "min(320px, 50vh)"
+      ]
+    },
+    {
+      "name": "--agent-ui-composer-menu-padding",
+      "fallbacks": [
+        "6px"
+      ]
+    },
+    {
+      "name": "--agent-ui-composer-menu-radius",
+      "fallbacks": [
+        "var(--agent-ui-panel-radius, 10px)"
+      ]
+    },
+    {
+      "name": "--agent-ui-composer-menu-shadow",
+      "fallbacks": [
+        "0 8px 28px rgba(15, 23, 42, .14)"
+      ]
+    },
+    {
+      "name": "--agent-ui-composer-meta-font-size",
+      "fallbacks": [
+        "12px"
+      ]
+    },
+    {
+      "name": "--agent-ui-composer-min-height",
+      "fallbacks": [
+        "112px"
+      ]
+    },
+    {
+      "name": "--agent-ui-composer-padding",
+      "fallbacks": [
+        "var(--agent-ui-panel-padding, 12px)"
+      ]
+    },
+    {
+      "name": "--agent-ui-composer-queue-line-height",
+      "fallbacks": [
+        "1.45"
+      ]
+    },
+    {
+      "name": "--agent-ui-composer-queue-max-height",
+      "fallbacks": [
+        "132px"
+      ]
+    },
+    {
+      "name": "--agent-ui-composer-queue-padding",
+      "fallbacks": [
+        "6px 8px"
+      ]
+    },
+    {
+      "name": "--agent-ui-composer-radius",
+      "fallbacks": [
+        "var(--agent-ui-control-radius, 6px)"
+      ]
+    },
+    {
+      "name": "--agent-ui-composer-remove-inset",
+      "fallbacks": [
+        "6px"
+      ]
+    },
+    {
+      "name": "--agent-ui-composer-remove-radius",
+      "fallbacks": [
+        "50%"
+      ]
+    },
+    {
+      "name": "--agent-ui-composer-row-gap",
+      "fallbacks": [
+        "12px"
+      ]
+    },
+    {
+      "name": "--agent-ui-composer-send-font-size",
+      "fallbacks": [
+        "20px"
+      ]
+    },
+    {
+      "name": "--agent-ui-composer-shadow",
+      "fallbacks": [
+        "inset 0 0 0 1px rgba(15, 23, 42, 0.055)"
+      ]
+    },
+    {
+      "name": "--agent-ui-composer-skill-font-size",
+      "fallbacks": [
+        "0.94em"
+      ]
+    },
+    {
+      "name": "--agent-ui-composer-skill-max-width",
+      "fallbacks": [
+        "240px"
+      ]
+    },
+    {
+      "name": "--agent-ui-composer-skill-outline-width",
+      "fallbacks": [
+        "2px"
+      ]
+    },
+    {
+      "name": "--agent-ui-composer-small-font-size",
+      "fallbacks": [
+        "11px"
+      ]
+    },
+    {
+      "name": "--agent-ui-composer-small-gap",
+      "fallbacks": [
+        "4px"
+      ]
+    },
+    {
+      "name": "--agent-ui-composer-suggestion-padding",
+      "fallbacks": [
+        "7px 9px"
+      ]
+    },
+    {
+      "name": "--agent-ui-control-font-size",
+      "fallbacks": [
+        "0.875rem"
+      ]
+    },
+    {
+      "name": "--agent-ui-control-height",
+      "fallbacks": [
+        "2rem"
+      ]
+    },
+    {
+      "name": "--agent-ui-control-padding",
+      "fallbacks": [
+        "0.625rem"
+      ]
+    },
+    {
+      "name": "--agent-ui-control-radius",
+      "fallbacks": [
+        "4px",
+        "6px"
+      ]
+    },
+    {
+      "name": "--agent-ui-font",
+      "fallbacks": [
+        "var(--agent-ui-skin-font, var(--font-sans, Inter, sans-serif))"
+      ]
+    },
+    {
+      "name": "--agent-ui-gap",
+      "fallbacks": [
+        "0.75rem",
+        "12px",
+        "8px"
+      ]
+    },
+    {
+      "name": "--agent-ui-motion-transition-duration",
+      "fallbacks": [
+        "var(--agent-ui-transition-duration, 120ms)"
+      ]
+    },
+    {
+      "name": "--agent-ui-panel-padding",
+      "fallbacks": [
+        "12px",
+        "1rem"
+      ]
+    },
+    {
+      "name": "--agent-ui-panel-radius",
+      "fallbacks": [
+        "10px",
+        "8px"
+      ]
+    },
+    {
+      "name": "--agent-ui-skin-font",
+      "fallbacks": [
+        "var(--font-sans, Inter, sans-serif)"
+      ]
+    },
+    {
+      "name": "--agent-ui-transition-duration",
+      "fallbacks": [
+        "120ms"
+      ]
+    },
+    {
+      "name": "--color-error",
+      "fallbacks": [
+        "#ba1a1a"
+      ]
+    },
+    {
+      "name": "--color-focus-ring",
+      "fallbacks": [
+        "#2f5f9f"
+      ]
+    },
+    {
+      "name": "--color-hover-surface",
+      "fallbacks": [
+        "#f2f2f7"
+      ]
+    },
+    {
+      "name": "--color-on-error",
+      "fallbacks": [
+        "#ffffff"
+      ]
+    },
+    {
+      "name": "--color-on-primary",
+      "fallbacks": [
+        "#ffffff"
+      ]
+    },
+    {
+      "name": "--color-on-surface",
+      "fallbacks": [
+        "#1c1b1b"
+      ]
+    },
+    {
+      "name": "--color-on-surface-variant",
+      "fallbacks": [
+        "#444748"
+      ]
+    },
+    {
+      "name": "--color-outline-variant",
+      "fallbacks": [
+        "#c4c7c7"
+      ]
+    },
+    {
+      "name": "--color-primary",
+      "fallbacks": [
+        "#000000"
+      ]
+    },
+    {
+      "name": "--color-surface-container",
+      "fallbacks": [
+        "#f1edec"
+      ]
+    },
+    {
+      "name": "--color-surface-container-low",
+      "fallbacks": [
+        "#f7f3f2"
+      ]
+    },
+    {
+      "name": "--color-surface-container-lowest",
+      "fallbacks": [
+        "#ffffff"
+      ]
+    }
+  ]
+}

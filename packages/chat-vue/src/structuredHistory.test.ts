@@ -13,7 +13,10 @@ it("loads a coherent structured page without replay and shows loading while pend
  app=createApp({render:()=>h(ChatRuntimeWindow,{adapter:host,config:{floating:false},initialSession:{id:1,sessionId:"S",title:"History",status:"ACTIVE",createdAt:new Date().toISOString(),updatedAt:new Date().toISOString()},onError:vi.fn()})});app.mount(container);await nextTick();
  expect(container.textContent).toContain("Loading history");
  resolve({sessionId:"S",version:"v1",nextCursor:null,runs:[],activeRuns:[],pendingInteractions:[],records:{steps:[],toolInvocations:[],interactions:[],messages:[{id:"A",runId:"R",stepId:null,role:"Assistant",status:"Interrupted",createdAtMs:1,structured:null,content:[{type:"Text",text:"Vue history answer"},{type:"Reasoning",text:"Actual thought"},{type:"Json",value:{public:true}}]}]}});
- await vi.waitFor(()=>expect(container.textContent).toContain("Vue history answer"));
+ await vi.waitFor(()=>expect(container.textContent).toContain("Worked for"));
+ const summary = container.querySelector<HTMLButtonElement>('.ef-chat__rail-summary')!;
+ expect(summary.getAttribute('aria-expanded')).toBe('false'); summary.click(); await nextTick();
+ expect(container.textContent).toContain("Vue history answer");
  expect(container.textContent).toContain('"public": true');
  expect(host.loadMessages).not.toHaveBeenCalled();expect(host.loadAguiEvents).not.toHaveBeenCalled();expect(host.loadProtocolEvents).not.toHaveBeenCalled();
 });

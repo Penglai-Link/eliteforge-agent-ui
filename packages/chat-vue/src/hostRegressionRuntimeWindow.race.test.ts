@@ -1,7 +1,9 @@
 // @vitest-environment jsdom
 
 import {
+  ChatAdapterError,
   type ChatAdapter,
+  type ChatClientConfig,
   type ChatSendResult,
   type ChatSession,
   type ChatStreamHandlers,
@@ -81,6 +83,7 @@ function completedResult(
 function mountRuntime(
   adapter: ChatAdapter,
   initialSession: Ref<ChatSession>,
+  config: Ref<Partial<ChatClientConfig>> = ref({}),
 ) {
   const container = document.createElement("div");
   document.body.append(container);
@@ -89,7 +92,7 @@ function mountRuntime(
       return () =>
         h(ChatRuntimeWindow, {
           adapter,
-          config: { floating: false, workspaceCode: "WS-1" },
+          config: { floating: false, workspaceCode: "WS-1", ...config.value },
           initialSession: initialSession.value,
           onError: vi.fn(),
           onInfo: vi.fn(),
@@ -275,4 +278,138 @@ describe("Vue ChatRuntimeWindow stream races", () => {
 
     expect(streamMessage).toHaveBeenCalledTimes(2);
   });
+});
+
+
+it("retains explicit skills through send, steer, queued editing and refreshed suggestions", async () => {
+  const session = restoredSession();
+  const config = ref<Partial<ChatClientConfig>>({ inputSuggestions: [{ kind: "skill", name: "review" }] });
+  const pending: Array<{ input: SendChatMessageInput; handlers?: ChatStreamHandlers; resolve: (result: ChatSendResult) => void }> = [];
+  const steerMessage = vi.fn().mockResolvedValue({ sessionId: session.sessionId, runId: "RUN-SELECTED", message: {
+    id: 44, messageId: "steer-selected", sessionId: session.sessionId, runId: "RUN-SELECTED", role: "USER", channel: "conversation", content: "$review adjust", createdAt: session.createdAt,
+  } });
+  const adapter: ChatAdapter = {
+    capabilities: { supportsStreaming: true, supportsSteer: true, supportsAgui: true },
+    createSession: vi.fn(), loadMessages: vi.fn().mockResolvedValue([]), loadAguiEvents: vi.fn().mockResolvedValue([]), steerMessage,
+    streamMessage: vi.fn((_session, input, handlers) => new Promise(resolve => pending.push({ input, handlers, resolve }))),
+  };
+  const container = mountRuntime(adapter, ref(session), config);
+  await flushUi();
+  await submit(container, "$review send", "Send");
+  await waitFor(() => pending.length === 1);
+  expect(pending[0].input.requestedSkills).toEqual(["review"]);
+  pending[0].handlers?.onAguiEvent?.({ type: "RUN_STARTED", runId: "RUN-SELECTED" });
+  await flushUi();
+  const textarea = container.querySelector("textarea")!;
+  textarea.value = "$review adjust";
+  textarea.dispatchEvent(new Event("input", { bubbles: true }));
+  await nextTick();
+  textarea.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", metaKey: true, bubbles: true }));
+  await waitFor(() => steerMessage.mock.calls.length === 1);
+  expect(steerMessage.mock.calls[0][1].requestedSkills).toEqual(["review"]);
+  await submit(container, "$review next", "Queue");
+  await waitFor(() => Boolean(container.querySelector('[aria-label="Edit queued message"]')));
+  config.value = { inputSuggestions: [] };
+  await flushUi();
+  container.querySelector<HTMLButtonElement>('[aria-label="Edit queued message"]')!.click();
+  await flushUi();
+  await submit(container, "$review edited", "Queue");
+  pending[0].resolve(completedResult("RUN-SELECTED", session));
+  await waitFor(() => pending.length === 2);
+  expect(pending[1].input.requestedSkills).toEqual(["review"]);
+  expect(pending[1].input.content).toBe("$review edited");
+  pending[1].resolve(completedResult("RUN-QUEUED", session));
+  await flushUi();
+});
+
+it("preserves explicitly rejected queued selections for editing after grants refresh", async () => {
+  const session = restoredSession();
+  let finish: (result: ChatSendResult) => void = () => undefined;
+  const streamMessage = vi.fn().mockImplementationOnce(() => new Promise<ChatSendResult>(resolve => { finish = resolve; }))
+    .mockRejectedValue(new ChatAdapterError("Skill access revoked", { code: "101032002", rejectedBeforeAdmission: true }));
+  const adapter: ChatAdapter = {
+    capabilities: { supportsStreaming: true, supportsAgui: true }, createSession: vi.fn(),
+    loadMessages: vi.fn().mockResolvedValue([]), loadAguiEvents: vi.fn().mockResolvedValue([]), streamMessage,
+  };
+  const config = ref<Partial<ChatClientConfig>>({ inputSuggestions: [{ kind: "skill", name: "review" }] });
+  const container = mountRuntime(adapter, ref(session), config);
+  await flushUi();
+  await submit(container, "first", "Send");
+  await waitFor(() => streamMessage.mock.calls.length === 1);
+  await submit(container, "$review next", "Queue");
+  config.value = { inputSuggestions: [] };
+  finish(completedResult("RUN-FIRST", session));
+  await waitFor(() => streamMessage.mock.calls.length === 2);
+  await waitFor(() => Boolean(container.querySelector('[aria-label="Edit queued message"]')));
+  expect(streamMessage.mock.calls[1][1].requestedSkills).toEqual(["review"]);
+  container.querySelector<HTMLButtonElement>('[aria-label="Edit queued message"]')!.click();
+  await flushUi();
+  expect(container.querySelector("textarea")!.value).toBe("$review next");
+  await submit(container, "$review edited", "Send");
+  await waitFor(() => streamMessage.mock.calls.length === 3);
+  expect(streamMessage.mock.calls[2][1].requestedSkills).toEqual(["review"]);
+});
+
+it("restores saved explicit skill identities when editing history without suggestions", async () => {
+  const session = restoredSession();
+  const streamMessage = vi.fn().mockResolvedValue(completedResult("RUN-EDIT", session));
+  const adapter: ChatAdapter = {
+    capabilities: { supportsStreaming: true }, createSession: vi.fn(), streamMessage,
+    loadMessages: vi.fn().mockResolvedValue([{ id: 1, messageId: "saved-selection", sessionId: session.sessionId, role: "USER", channel: "MAIN_AGENT", content: "$review saved", requestedSkills: ["review"], createdAt: session.createdAt }]),
+  };
+  const container = mountRuntime(adapter, ref(session));
+  await waitFor(() => Boolean(container.querySelector('[aria-label="Edit message"]')));
+  container.querySelector<HTMLButtonElement>('[aria-label="Edit message"]')!.click();
+  await flushUi();
+  await submit(container, "$review saved", "Send");
+  await waitFor(() => streamMessage.mock.calls.length === 1);
+  expect(streamMessage.mock.calls[0][1]).toMatchObject({ content: "$review saved", requestedSkills: ["review"] });
+});
+
+it("shows separate AG-UI step cards before completion and preserves them through settlement", async () => {
+  const session = restoredSession();
+  let handlers: ChatStreamHandlers | undefined;
+  let finish: (result: ChatSendResult) => void = () => undefined;
+  const loadMessages = vi.fn().mockResolvedValue([]);
+  const adapter: ChatAdapter = {
+    capabilities: { supportsStreaming: true, supportsAgui: true }, createSession: vi.fn(), loadMessages, loadAguiEvents: vi.fn().mockResolvedValue([]),
+    streamMessage: vi.fn((_session, _input, next) => new Promise(resolve => { handlers = next; finish = resolve; })),
+  };
+  const container = mountRuntime(adapter, ref(session));
+  await flushUi(); await submit(container, "Inspect the repository", "Send");
+  await waitFor(() => Boolean(handlers));
+  let sequence = 0;
+  const emit = async (type: string, messageId: string, delta?: string) => {
+    handlers!.onAguiEvent?.({ type, messageId, delta, runId: "RUN-STREAM", threadId: session.sessionId, metadata: { framework: { runId: "NATIVE-RUN" }, tron: { eventId: `frame:${++sequence}` } } });
+    if (delta) handlers!.onDelta?.(delta);
+    await flushUi();
+  };
+  await emit("RUN_STARTED", "");
+  await emit("TEXT_MESSAGE_START", "step-first");
+  await emit("TEXT_MESSAGE_CONTENT", "step-first", "First progress summary");
+  const first = container.querySelector('[data-message-id="step-first"]');
+  expect(first?.textContent).toContain("First progress summary");
+  await emit("TEXT_MESSAGE_END", "step-first");
+  expect(first?.getAttribute("data-streaming")).toBeNull();
+  await emit("TEXT_MESSAGE_START", "step-second");
+  await emit("TEXT_MESSAGE_CONTENT", "step-second", "Second progress summary");
+  expect(container.querySelector('[data-message-id="step-first"]')).toBe(first);
+  expect(first?.textContent).not.toContain("Second");
+  expect(container.querySelector('[data-message-id="step-second"]')?.textContent).toContain("Second progress summary");
+  await emit("TEXT_MESSAGE_END", "step-second");
+  await emit("TEXT_MESSAGE_START", "step-final");
+  await emit("TEXT_MESSAGE_CONTENT", "step-final", "Final answer");
+  await emit("TEXT_MESSAGE_END", "step-final");
+  expect(container.querySelectorAll('[data-theme-part="chat-message-assistant"]')).toHaveLength(3);
+  loadMessages.mockRejectedValue(new Error("Replay unavailable"));
+  const result = completedResult("RUN-STREAM", session);
+  result.messages = [{ id: "product-final", messageId: "product-final", sessionId: session.sessionId, runId: "RUN-STREAM", role: "ASSISTANT", channel: "MAIN_AGENT", content: "Final answer\n\n", createdAt: new Date().toISOString() }];
+  await emit("RUN_FINISHED", "");
+  finish(result); await flushUi();
+  expect(container.querySelector('[data-message-id="step-first"]')).toBeNull();
+  expect(container.querySelectorAll('[data-theme-part="chat-message-assistant"]')).toHaveLength(1);
+  expect(container.querySelector('[data-message-id="step-final"]')?.textContent).toContain("Final answer");
+  container.querySelector<HTMLButtonElement>('.ef-chat__rail-summary')!.click(); await flushUi();
+  expect(container.querySelector('[data-message-id="step-first"]')?.textContent).toContain("First progress summary");
+  expect(container.querySelectorAll('[data-theme-part="chat-message-assistant"]')).toHaveLength(3);
 });

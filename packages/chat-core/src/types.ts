@@ -1,3 +1,4 @@
+import type { ComposerRunningSubmitMode, ComposerSubmitMode, ComposerAttachmentKind, ComposerAttachment, ComposerSuggestion, ComposerSuggestionLabels } from "@eliteforge/agent-ui-composer-core";
 import type { ActionMetadata } from "@eliteforge/agent-ui-a2ui-core";
 import type { ChatA2uiState, ChatA2uiActionInput } from "./a2ui";
 import type { ChatHistoryLabels, HistoryMessageView, HistoryQuery, SessionHistory } from "./history";
@@ -5,20 +6,23 @@ export type ChatSessionStatus = "ACTIVE" | "ARCHIVED";
 export type ChatSessionSource = string;
 export type ChatMessageRole = "USER" | "ASSISTANT";
 export type ChatMessageChannel = string;
-export type ChatRunningSubmitMode = "steer" | "queue";
-export type ChatSubmitMode = "send" | ChatRunningSubmitMode;
+export type ChatRunningSubmitMode = ComposerRunningSubmitMode;
+export type ChatSubmitMode = ComposerSubmitMode;
 
 export class ChatAdapterError extends Error {
   readonly code?: string;
   readonly details?: unknown;
   readonly status?: number;
+  /** Host guarantee: the input was rejected before persistence or execution. */
+  readonly rejectedBeforeAdmission?: boolean;
 
-  constructor(message: string, options: { code?: string; details?: unknown; status?: number } = {}) {
+  constructor(message: string, options: { code?: string; details?: unknown; status?: number; rejectedBeforeAdmission?: boolean } = {}) {
     super(message);
     this.name = "ChatAdapterError";
     this.code = options.code;
     this.details = options.details;
     this.status = options.status;
+    this.rejectedBeforeAdmission = options.rejectedBeforeAdmission;
   }
 }
 
@@ -102,6 +106,7 @@ export interface ChatMessage {
   channel: ChatMessageChannel;
   actor: string;
   content: string;
+  requestedSkills?: string[];
   attachments?: ChatMessageAttachment[];
   inputTokens?: number | null;
   outputTokens?: number | null;
@@ -109,20 +114,9 @@ export interface ChatMessage {
   createdAt: string;
 }
 
-export type ChatMessageAttachmentKind = "file" | "image" | "inspection";
+export type ChatMessageAttachmentKind = ComposerAttachmentKind;
 
-export interface ChatMessageAttachment {
-  id: string;
-  kind: ChatMessageAttachmentKind;
-  title?: string | null;
-  imageUrl?: string | null;
-  resourceId?: string | null;
-  fileName?: string | null;
-  contentType?: string | null;
-  byteSize?: number | null;
-  metadata: Record<string, unknown>;
-  summary: string;
-}
+export interface ChatMessageAttachment extends ComposerAttachment {}
 
 export interface ChatAttachmentLabels {
   attachments: string;
@@ -268,6 +262,8 @@ export interface ChatToolWorkLabels {
 }
 
 export interface ChatWorkRailLabels {
+  /** Fixed activity text shown after all currently available process cards. */
+  working?: string;
   ariaLabel: string;
   preparing: string;
   responding: string;
@@ -286,6 +282,7 @@ export interface ChatWorkRailLabels {
 
 export interface SendChatMessageInput {
   content: string;
+  requestedSkills?: string[];
   pageContext?: {
     title: string;
     path: string;
@@ -504,6 +501,7 @@ export interface ChatFloatingState {
 
 export interface ChatClientConfig {
   inputSuggestions?: ChatInputSuggestion[];
+  skillSuggestionTriggers?: Array<"$" | "/">;
   inputSuggestionLabels?: ChatInputSuggestionLabels;
   historyLabels?: ChatHistoryLabels;
   defaultSessionId?: string;
@@ -529,21 +527,9 @@ export interface ChatClientConfig {
   workRailLabels?: ChatWorkRailLabels;
 }
 
-export interface ChatInputSuggestion {
-  kind: "command" | "skill";
-  name: string;
-  /** Human-readable name shown for a selected skill token. */
-  displayName?: string;
-  description?: string;
-  /** Optional grouping label, such as a command category. */
-  category?: string;
-}
+export interface ChatInputSuggestion extends ComposerSuggestion {}
 
-export interface ChatInputSuggestionLabels {
-  commands: string;
-  skills: string;
-  commandsAndSkills: string;
-}
+export interface ChatInputSuggestionLabels extends ComposerSuggestionLabels {}
 
 export interface ChatDebugOptions {
   debugEventTypes?: string[];

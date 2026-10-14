@@ -1,5 +1,7 @@
 export * from "./aguiWork";
 export * from "./assistantReplyQueue";
+export * from "./assistantMessageStream";
+export * from "./mermaid";
 export * from "./chatMessages";
 export * from "./chatQueue";
 export * from "./display";
@@ -22,5 +24,8 @@ export * from "./errorPresentation";
 export * from "./interactionSummary";
 export * from "./interactionMessages";
 export * from "./historyWork";
+export * from "./workTimeline";
 
 export * from "./messageProvenance";
+
+export { requestedSkillsFromDraft } from "@eliteforge/agent-ui-composer-core";

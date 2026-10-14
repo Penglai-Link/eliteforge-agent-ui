@@ -1,9 +1,11 @@
 import { ChatA2uiSession, AGENT_CATALOG_ID, type ChatA2uiActionHandler as ActionHandler } from "@eliteforge/agent-ui-chat-core";
 import {
   chatErrorPresentation,
+  requestedSkillsFromDraft,
   applyMessageProvenance,
   type MessageSender,
   AssistantReplyQueue,
+  AssistantMessageStream,
   buildTranscriptPresentation,
   belongsToNewChatTurn,
   createMockChatAdapter,
@@ -45,21 +47,18 @@ import {
   type ChatUserInputRequest,
   type SendChatMessageInput,
 } from "@eliteforge/agent-ui-chat-core";
-import { FileText, Paperclip, X } from "lucide-react";
 import {
   useCallback,
   useEffect,
   useMemo,
   useRef,
   useState,
-  type ChangeEvent,
   type Ref,
   type ReactNode,
   type SetStateAction,
 } from "react";
 import { ChatPanel, type ChatMarkdownLinkRenderer } from "./ChatPanel";
 import { ChatWindow } from "./ChatWindow";
-import { isImageAttachment, useAttachmentImageSource } from "./chatAttachments";
 
 interface ToastLikeCallback {
   (message: string, title?: string): void;
@@ -145,65 +144,6 @@ function defaultErrorReporter(message: string) {
 function normalizeOptionalValue(value: string | null | undefined) {
   const normalized = value?.trim();
   return normalized ? normalized : undefined;
-}
-
-function attachmentLabel(attachment: ChatMessageAttachment) {
-  return attachment.fileName || attachment.title || attachment.summary || attachment.id;
-}
-
-function attachmentTypeLabel(attachment: ChatMessageAttachment) {
-  const name = attachment.fileName || attachment.title || "";
-  const extension = name.includes(".") ? name.split(".").pop() : undefined;
-  return (extension || attachment.contentType?.split("/").pop() || "FILE").toUpperCase();
-}
-
-function PendingAttachmentCard({
-  attachment,
-  downloadAttachment,
-  onRemove,
-}: {
-  attachment: ChatMessageAttachment;
-  downloadAttachment?: (attachment: ChatMessageAttachment) => Promise<Blob>;
-  onRemove: (attachmentId: string) => void;
-}) {
-  const label = attachmentLabel(attachment);
-  const imageSource = useAttachmentImageSource(attachment, downloadAttachment);
-
-  if (isImageAttachment(attachment)) {
-    return (
-      <div className="ef-chat__runtime-attachment-image">
-        {imageSource ? <img alt={label} src={imageSource} /> : null}
-        <button
-          aria-label={`Remove ${label}`}
-          className="ef-chat__runtime-attachment-remove ef-chat__runtime-attachment-remove--floating"
-          type="button"
-          onClick={() => onRemove(attachment.id)}
-        >
-          <X size={13} />
-        </button>
-      </div>
-    );
-  }
-
-  return (
-    <div className="ef-chat__runtime-attachment-file">
-      <span className="ef-chat__runtime-attachment-file-icon" aria-hidden="true">
-        <FileText size={22} />
-      </span>
-      <span className="ef-chat__runtime-attachment-file-info">
-        <span className="ef-chat__runtime-attachment-file-name" title={label}>{label}</span>
-        <span className="ef-chat__runtime-attachment-file-type">{attachmentTypeLabel(attachment)}</span>
-      </span>
-      <button
-        aria-label={`Remove ${label}`}
-        className="ef-chat__runtime-attachment-remove ef-chat__runtime-attachment-remove--floating"
-        type="button"
-        onClick={() => onRemove(attachment.id)}
-      >
-        <X size={13} />
-      </button>
-    </div>
-  );
 }
 
 export function ChatRuntimeWindow({
@@ -329,13 +269,13 @@ export function ChatRuntimeWindow({
   const queuedSubmissionsRef = useRef<ChatQueuedSubmission[]>([]);
   const queueGenerationRef = useRef(0);
   const queuedSubmissionSequenceRef = useRef(0);
-  const attachmentFileInputRef = useRef<HTMLInputElement | null>(null);
   const optimisticMessageSequenceRef = useRef(0);
   const currentLiveAguiFailedRunCodesRef = useRef<Set<string>>(new Set());
   const observedRemoteRunRef = useRef<{ runId: string; sessionId: string } | null>(null);
   const drainedRemoteRunKeysRef = useRef<Set<string>>(new Set());
   const suppressedAutoDrainRunKeysRef = useRef<Set<string>>(new Set());
   const draftRef = useRef(controlledDraft ?? "");
+  const draftSkillsRef = useRef<string[]>([]);
   const pendingAttachmentsRef = useRef<ChatMessageAttachment[]>(controlledPendingAttachments ?? []);
   const draft = controlledDraft ?? internalDraft;
   const pendingAttachments = controlledPendingAttachments ?? internalPendingAttachments;
@@ -359,6 +299,24 @@ export function ChatRuntimeWindow({
     );
   }
 
+  function receiveAssistantMessage(stream: AssistantMessageStream, event: ChatAguiStreamEvent, fallbackId?: string) {
+    const update = stream.receive(event);
+    if (!update) return;
+    const { message, delta, ended } = update;
+    if (ended) assistantReplyQueueRef.current?.flush(message.messageId);
+    setMessages(current => {
+      const next = fallbackId ? current.filter(item => item.messageId !== fallbackId) : current;
+      if (ended && !message.content.trim()) return next.filter(item => item.messageId !== message.messageId);
+      return next.some(item => item.messageId === message.messageId) ? next
+        : [...next, { ...message, content: "" }];
+    });
+    setStreamingAssistantMessageCode(stream.activeMessageId);
+    if (delta) {
+      setLiveAguiPending(false);
+      assistantReplyQueueRef.current?.enqueue(message.messageId, delta, agentReplyEffectRef.current);
+    }
+  }
+
   useEffect(() => () => assistantReplyQueueRef.current?.dispose(), []);
   useEffect(() => {
     if (agentReplyEffect === "off") assistantReplyQueueRef.current?.flush();
@@ -374,6 +332,7 @@ export function ChatRuntimeWindow({
 
   function setDraft(nextValue: SetStateAction<string>) {
     const next = typeof nextValue === "function" ? nextValue(draftRef.current) : nextValue;
+    draftSkillsRef.current = requestedSkillsFromDraft(next, config.inputSuggestions ?? [], draftSkillsRef.current);
     draftRef.current = next;
     if (controlledDraft === undefined) setInternalDraft(next);
     onDraftChange?.(next);
@@ -631,13 +590,16 @@ export function ChatRuntimeWindow({
     activeSession: ChatSession,
     content: string,
     attachments: ChatMessageAttachment[] = [],
+    requestedSkills = requestedSkillsFromDraft(content, config.inputSuggestions ?? [], draftSkillsRef.current),
   ): SendChatMessageInput | null {
     if (createSendInputOverride) {
-      return createSendInputOverride(activeSession, content, attachments);
+      const input = createSendInputOverride(activeSession, content, attachments);
+      return input ? { ...input, requestedSkills } : null;
     }
     const input: SendChatMessageInput = {
       clientCapabilities: { userInputRequests: true },
       content,
+      requestedSkills,
     };
     if (attachments.length) input.attachments = attachments;
     return input;
@@ -1078,13 +1040,6 @@ export function ChatRuntimeWindow({
     }
   }
 
-  async function handleAttachmentFileInputChange(event: ChangeEvent<HTMLInputElement>) {
-    const file = event.currentTarget.files?.item(0);
-    event.currentTarget.value = "";
-    if (!file) return;
-    await handleAttachmentUpload(file);
-  }
-
   async function runMessage(
     activeSession: ChatSession,
     sendInput: SendChatMessageInput,
@@ -1125,6 +1080,10 @@ export function ChatRuntimeWindow({
     const optimisticCreatedAt = new Date().toISOString();
     const optimisticUserCode = `LOCAL-${optimisticKey}-USER`;
     const optimisticAssistantCode = `LOCAL-${optimisticKey}-ASSISTANT`;
+    const textStream = new AssistantMessageStream(activeSession);
+    const flushTurnText = () => {
+      for (const id of [optimisticAssistantCode, ...textStream.messageIds]) assistantReplyQueueRef.current?.flush(id);
+    };
     setStreamingAssistantMessageCode(optimisticAssistantCode);
     setSendingState(true);
     setLiveAguiPending(aguiEnabled);
@@ -1136,6 +1095,7 @@ export function ChatRuntimeWindow({
         channel: "conversation",
         content,
         attachments: submittedAttachments,
+        requestedSkills: sendInput.requestedSkills ?? [],
         createdAt: optimisticCreatedAt,
         id: -Date.now() - optimisticMessageSequenceRef.current,
         messageId: optimisticUserCode,
@@ -1182,6 +1142,7 @@ export function ChatRuntimeWindow({
               activeRunCodeRef.current = runId;
               setActiveRunCode(runId);
             }
+            receiveAssistantMessage(textStream, event, optimisticAssistantCode);
             if (!aguiEnabled) return;
             setLiveAguiEvents((current) => [...current, event]);
             if (runId) {
@@ -1198,6 +1159,7 @@ export function ChatRuntimeWindow({
           },
           onDelta: (delta) => {
             if (abortRef.current !== abortController) return;
+            if (textStream.identified) return;
             setLiveAguiPending(false);
             assistantReplyQueueRef.current?.enqueue(
               optimisticAssistantCode,
@@ -1224,7 +1186,7 @@ export function ChatRuntimeWindow({
       }
       // The product result acknowledges execution and persistence. Animation
       // and replay reads must not keep the completed executor in the composer.
-      assistantReplyQueueRef.current?.flush(optimisticAssistantCode);
+      flushTurnText();
       presentationEpoch = acknowledgeCompletedTurn(result.session.sessionId, result.run.runId);
       streamSucceeded = true;
       shouldRestoreSourceSubmission = false;
@@ -1237,7 +1199,7 @@ export function ChatRuntimeWindow({
           pendingUserInputRequest,
         ]);
       }
-      setMessages((current) => mergeChatMessagesChronologically(
+      setMessages((current) => textStream.settle(
         current, result.messages, [optimisticUserCode, optimisticAssistantCode],
       ));
       completedSession = result.session;
@@ -1245,15 +1207,23 @@ export function ChatRuntimeWindow({
       completed = currentStreamAbortReason(abortController) === "none"
         && autoDrainEpochRef.current === autoDrainEpoch;
     } catch (error) {
-      assistantReplyQueueRef.current?.flush(optimisticAssistantCode);
+      flushTurnText();
       const abortReason = currentStreamAbortReason(abortController);
       const runConflict = error instanceof ChatAdapterError
         && error.code === "RUN_ALREADY_ACTIVE";
       runConflictDetected = runConflict;
+      const admissionRejected = error instanceof ChatAdapterError && error.rejectedBeforeAdmission === true;
       const stillViewingSession = activeSessionCodeRef.current === activeSession.sessionId;
+      if (admissionRejected && stillViewingSession) {
+        shouldRestoreSourceSubmission = Boolean(sourceSubmission);
+        if (!sourceSubmission && !draftRef.current) {
+          draftSkillsRef.current = sendInput.requestedSkills ?? [];
+          setDraft(content);
+        }
+      }
       if (stillViewingSession) {
         setMessages((current) => current.filter((message) => (
-          runConflict
+          runConflict || admissionRejected
             ? message.messageId !== optimisticUserCode
               && message.messageId !== optimisticAssistantCode
             : message.messageId !== optimisticAssistantCode
@@ -1297,10 +1267,11 @@ export function ChatRuntimeWindow({
         }
       }
     } finally {
-      assistantReplyQueueRef.current?.flush(optimisticAssistantCode);
+      flushTurnText();
+      setMessages(current => current.filter(message => !textStream.messageIds.includes(message.messageId) || Boolean(message.content.trim()) || Boolean(message.a2ui)));
       const ownsObserver = abortRef.current === abortController;
       setStreamingAssistantMessageCode((current) => (
-        current === optimisticAssistantCode ? null : current
+        current === optimisticAssistantCode || textStream.messageIds.includes(current ?? "") ? null : current
       ));
       if (ownsObserver) {
         setSendingState(false);
@@ -1349,13 +1320,15 @@ export function ChatRuntimeWindow({
     setSendingState(true);
     setSubmissionError(null);
     const input = a2uiSession.prepareAction(message, metadata, context.surface);
+    const textStream = new AssistantMessageStream(activeSession);
     void activeAdapter.sendA2uiActionStream(activeSession, input, {
-      onAguiEvent: event => { if (abortRef.current !== controller || activeSessionCodeRef.current !== activeSession.sessionId) return; receiveA2ui(event); if (event.runId) { activeRunCodeRef.current = event.runId; setActiveRunCode(event.runId); } setLiveAguiEvents(current => [...current, event]); },
+      onAguiEvent: event => { if (abortRef.current !== controller || activeSessionCodeRef.current !== activeSession.sessionId) return; receiveA2ui(event); receiveAssistantMessage(textStream, event); if (event.runId) { activeRunCodeRef.current = event.runId; setActiveRunCode(event.runId); } setLiveAguiEvents(current => [...current, event]); },
     }, controller.signal).then(result => {
       a2uiSession.completeAction(input.actionId);
       if (activeSessionCodeRef.current !== activeSession.sessionId) return;
       const epoch = acknowledgeCompletedTurn(result.session.sessionId, result.run.runId);
-      setMessages(current => mergeChatMessagesChronologically(current, result.messages));
+      assistantReplyQueueRef.current?.flush();
+      setMessages(current => textStream.settle(current, result.messages));
       setSession(result.session);
       setUserInputRequest(result.userInputRequest?.status === "Pending" ? result.userInputRequest : null);
       onA2UIAction?.(message, metadata, context);
@@ -1366,6 +1339,7 @@ export function ChatRuntimeWindow({
       setSubmissionError(String(error)); onError(String(error), "A2UI action failed");
     }).finally(() => {
       if (abortRef.current !== controller || activeSessionCodeRef.current !== activeSession.sessionId) return;
+      assistantReplyQueueRef.current?.flush(); setStreamingAssistantMessageCode(null);
       abortRef.current = null; activeRunCodeRef.current = ""; setSendingState(false); setActiveRunCode("");
     });
   };
@@ -1374,6 +1348,7 @@ export function ChatRuntimeWindow({
     if (!session || !userInputRequest || !activeAdapter.answerUserInputRequestStream) return;
     const submittedRequest = userInputRequest;
     const submittedSessionId = session.sessionId;
+    const textStream = new AssistantMessageStream(session);
     const markAnswered = () => {
       if (activeSessionCodeRef.current !== submittedSessionId) return;
       if (submittedRequest.nativeInteraction) answeredNativeInteractionsRef.current.add(submittedRequest.requestId);
@@ -1392,6 +1367,7 @@ export function ChatRuntimeWindow({
     setSendingState(true);
     setLiveAguiPending(aguiEnabled);
     setLiveAguiPendingAnchorMessageCode(continuationAnchorMessageCode);
+    setProtocolEvents(current => mergeTranscriptAguiEvents(current, liveAguiEvents) as ChatAguiStreamEvent[]);
     setLiveAguiEvents([]);
     setLiveAguiAnchorMessageCodes({});
     try {
@@ -1408,6 +1384,7 @@ export function ChatRuntimeWindow({
               if (event.runId) { activeRunCodeRef.current = event.runId; setActiveRunCode(event.runId); }
             }
             receiveA2ui(event);
+            receiveAssistantMessage(textStream, event);
             if (!aguiEnabled) return;
             setLiveAguiEvents((current) => [...current, event]);
             const runId = String(event.runId ?? event.runId ?? "");
@@ -1422,7 +1399,8 @@ export function ChatRuntimeWindow({
       if (activeSessionCodeRef.current !== submittedSessionId) return;
       markAnswered();
       presentationEpoch = acknowledgeCompletedTurn(result.session.sessionId, result.run.runId);
-      setMessages((current) => mergeChatMessagesChronologically(current, result.messages));
+      assistantReplyQueueRef.current?.flush();
+      setMessages((current) => textStream.settle(current, result.messages));
       setSession(result.session);
       setUserInputRequest(result.userInputRequest?.status === "Pending" ? result.userInputRequest : null);
       setUserInputRequests((current) => current.map((request) => (
@@ -1438,6 +1416,7 @@ export function ChatRuntimeWindow({
       onError(error instanceof Error ? error.message : "Chat answer failed", "Chat answer failed");
     } finally {
         if (activeSessionCodeRef.current !== submittedSessionId) return;
+        assistantReplyQueueRef.current?.flush(); setStreamingAssistantMessageCode(null);
         activeRunCodeRef.current = "";
         setActiveRunCode("");
         setSendingState(false);
@@ -1453,12 +1432,13 @@ export function ChatRuntimeWindow({
     // input changes must not alter the message being admitted.
     const content = draft.trim();
     const attachments = pendingAttachments;
+    const requestedSkills = requestedSkillsFromDraft(content, config.inputSuggestions ?? [], draftSkillsRef.current);
     if (!content && !attachments.length) return;
     const submission = Symbol("initial-submission");
     initialSubmitPendingRef.current = submission;
     try {
       const activeSession = await ensureSession();
-      const sendInput = createSendInput(activeSession, content, attachments);
+      const sendInput = createSendInput(activeSession, content, attachments, requestedSkills);
       if (!sendInput) return;
       setDraft("");
       setPendingAttachments([]);
@@ -1565,6 +1545,12 @@ export function ChatRuntimeWindow({
       } else if (observerDetached || stopped) {
         onInfo?.("Steer delivery was not confirmed and was not retried", "Steer not retried");
       } else {
+        if (error instanceof ChatAdapterError && error.rejectedBeforeAdmission
+          && activeSessionCodeRef.current === activeSession.sessionId && !draftRef.current) {
+          draftSkillsRef.current = sendInput.requestedSkills ?? [];
+          setDraft(content);
+          setPendingAttachments(current => [...(sendInput.attachments ?? []), ...current]);
+        }
         onError(
           error instanceof Error ? error.message : "Chat steer failed",
           "Chat steer failed",
@@ -1591,11 +1577,17 @@ export function ChatRuntimeWindow({
     await handleSend();
   }
 
+  function handleEditMessage(content: string, message?: ChatMessage) {
+    draftSkillsRef.current = message?.requestedSkills ?? [];
+    setDraft(content);
+  }
+
   function handleEditQueuedMessage(id: string, content: string) {
     const submission = queuedSubmissionsRef.current.find((item) => item.id === id);
     replaceQueuedSubmissions(
       removeQueuedChatSubmission(queuedSubmissionsRef.current, id),
     );
+    draftSkillsRef.current = submission?.input.requestedSkills ?? [];
     setDraft(content);
     setPendingAttachments(submission?.input.attachments ?? []);
   }
@@ -1716,48 +1708,8 @@ export function ChatRuntimeWindow({
     return (attachment: ChatMessageAttachment) =>
       activeAdapter.downloadAttachment!(session, attachment);
   }, [activeAdapter, session]);
-  const pendingAttachmentHeader = pendingAttachments.length ? (
-    <div className="ef-chat__runtime-attachments ef-chat__runtime-attachments--pending">
-      {pendingAttachments.map((attachment) => (
-        <PendingAttachmentCard
-          attachment={attachment}
-          downloadAttachment={attachmentDownloader}
-          key={attachment.id}
-          onRemove={(attachmentId) => setPendingAttachments((current) => (
-            current.filter((item) => item.id !== attachmentId)
-          ))}
-        />
-      ))}
-    </div>
-  ) : null;
-  const runtimeFooterAddon = (
-    <div className="ef-chat__runtime-footer-addon">
-      {showAttachmentControl && activeAdapter.uploadAttachment ? (
-        <div className="ef-chat__runtime-attachments">
-          <input
-            className="ef-chat__runtime-attachment-input"
-            ref={attachmentFileInputRef}
-            type="file"
-            onChange={(event) => { void handleAttachmentFileInputChange(event); }}
-          />
-          <button
-            aria-label="Attach file"
-            className="ef-chat__icon-button"
-            disabled={Boolean(config.disabledInput) || attachmentUploadPending}
-            title={attachmentUploadPending ? "Uploading attachment" : "Attach file"}
-            type="button"
-            onClick={() => attachmentFileInputRef.current?.click()}
-          >
-            <Paperclip size={16} />
-          </button>
-        </div>
-      ) : null}
-      {footerAddon}
-    </div>
-  );
-
   const composerFeedback = <>
-    {composerHeader ?? pendingAttachmentHeader}
+    {composerHeader}
     {errorDisplay === "inline" && submissionError ? <div className="ef-chat__run-notice ef-chat__run-notice--error" role="alert">
       <div className="ef-chat__run-notice-content"><div className="ef-chat__run-notice-detail">{submissionError}</div></div>
     </div> : null}
@@ -1778,11 +1730,17 @@ export function ChatRuntimeWindow({
       draft={draft}
       emptyDescription={emptyDescription ?? "Create a session to start chatting."}
       emptyTitle={emptyTitle}
-      footerAddon={runtimeFooterAddon}
+      footerAddon={footerAddon}
+      pendingAttachments={pendingAttachments}
+      onRemoveAttachment={(id) => setPendingAttachments(current => current.filter(item => item.id !== id))}
+      onAttachFile={handleAttachmentUpload}
+      showAttachmentControl={showAttachmentControl && Boolean(activeAdapter.uploadAttachment)}
+      attachmentUploadPending={attachmentUploadPending}
       formatAnnotationCount={formatAnnotationCount}
       headerContent={headerContent}
       inputPlaceholder={config.inputPlaceholder}
       inputSuggestions={config.inputSuggestions}
+      skillSuggestionTriggers={config.skillSuggestionTriggers}
       inputSuggestionLabels={config.inputSuggestionLabels}
       queuedInputPlaceholder={config.queuedInputPlaceholder}
       steeringInputPlaceholder={config.steeringInputPlaceholder}
@@ -1799,7 +1757,7 @@ export function ChatRuntimeWindow({
       onNewSession={handleNewSession}
       onDraftChange={setDraft}
       onPasteAttachment={onPasteAttachment ?? handleAttachmentUpload}
-      onEditMessage={setDraft}
+      onEditMessage={handleEditMessage}
       onEditQueuedMessage={handleEditQueuedMessage}
       onRemoveQueuedMessage={handleRemoveQueuedMessage}
       onSend={(mode) => { void handleSubmit(mode); }}
@@ -1848,10 +1806,16 @@ export function ChatRuntimeWindow({
         draft={draft}
         emptyDescription={emptyDescription ?? "Create a session to start chatting."}
         emptyTitle={emptyTitle}
-        footerAddon={runtimeFooterAddon}
+        footerAddon={footerAddon}
+        pendingAttachments={pendingAttachments}
+        onRemoveAttachment={(id) => setPendingAttachments(current => current.filter(item => item.id !== id))}
+        onAttachFile={handleAttachmentUpload}
+        showAttachmentControl={showAttachmentControl && Boolean(activeAdapter.uploadAttachment)}
+        attachmentUploadPending={attachmentUploadPending}
         formatAnnotationCount={formatAnnotationCount}
         inputPlaceholder={config.inputPlaceholder}
         inputSuggestions={config.inputSuggestions}
+      skillSuggestionTriggers={config.skillSuggestionTriggers}
         inputSuggestionLabels={config.inputSuggestionLabels}
       queuedInputPlaceholder={config.queuedInputPlaceholder}
       steeringInputPlaceholder={config.steeringInputPlaceholder}
@@ -1868,7 +1832,7 @@ export function ChatRuntimeWindow({
         onNewSession={handleNewSession}
         onDraftChange={setDraft}
         onPasteAttachment={onPasteAttachment ?? handleAttachmentUpload}
-        onEditMessage={setDraft}
+        onEditMessage={handleEditMessage}
         onEditQueuedMessage={handleEditQueuedMessage}
         onRemoveQueuedMessage={handleRemoveQueuedMessage}
         onSend={(mode) => { void handleSubmit(mode); }}

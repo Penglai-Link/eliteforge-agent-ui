@@ -225,8 +225,8 @@ describe("ChatPanel submit controls", () => {
     ];
     const props = { draft: "", onDraftChange: () => undefined, onSend: () => undefined, session: activeSession(), messages: [user] };
     const { rerender } = render(<ChatPanel {...props} liveAguiEvents={events} />);
-    expect(screen.getAllByRole("status")).toHaveLength(1);
-    expect(screen.getByRole("status").textContent).toBe("Compacting context…");
+    expect(screen.getByText("Compacting context…")).toBeTruthy();
+    expect(screen.getByText("Working")).toBeTruthy();
     expect(screen.queryByText("Thinking…")).toBeNull();
     rerender(<ChatPanel {...props} protocolEvents={[
       ...events,
@@ -288,10 +288,9 @@ describe("ChatPanel submit controls", () => {
     };
     const { rerender } = render(<ChatPanel {...panelProps} protocolEvents={activeEvents} />);
 
-    const summaryButton = screen.getByRole("button", { name: /Working for/ });
+    expect(screen.queryByRole("button", { name: /Working for/ })).toBeNull();
     expect(screen.getByText("Inspecting the implementation.")).toBeTruthy();
-    fireEvent.click(summaryButton);
-    expect(summaryButton.getAttribute("aria-expanded")).toBe("true");
+    expect(screen.getByText("Working")).toBeTruthy();
 
     rerender(
       <ChatPanel
@@ -789,8 +788,8 @@ it("folds structured work when the run completes and keeps final text visible", 
     run: { id: "r", sessionId: "SESSION-1", rootRunId: "r", parentRunId: null, status: "Running", startedAtMs: 100, finishedAtMs: null, error: null },
   } } satisfies ChatMessage;
   const view = renderPanel({ messages: [running] });
-  fireEvent.click(screen.getByRole("button", { name: "Thinking…" }));
-  expect(document.querySelector("[data-history-work] button")?.getAttribute("aria-expanded")).toBe("true");
+  expect(screen.queryByRole("button", { name: "Thinking…" })).toBeNull();
+  expect(screen.getByText("Internal thought")).toBeTruthy();
   const completed: ChatMessage = { ...running, history: { ...running.history, message: { ...running.history.message, status: "Completed" }, run: { ...running.history.run, status: "Completed", finishedAtMs: 200 } } };
   view.rerender(<ChatPanel allowDraftSession messages={[completed]} draft="" onDraftChange={() => undefined} onSend={() => undefined} />);
   const summary = screen.getByRole("button", { name: /Worked for/ });
@@ -818,8 +817,9 @@ it("keeps pending questions adjacent to work without empty history sections", ()
   expect(screen.getByRole("group", { name: "What should I be called?" })).toBeTruthy();
   expect(container.querySelectorAll(".ef-chat__history-details")).toHaveLength(0);
   expect(container.querySelectorAll(".ef-chat__turn > *")).toHaveLength(2); // User and one grouped work rail.
-  fireEvent.click(screen.getByRole("button", { name: "Thinking…" }));
-  expect(container.querySelectorAll(".ef-chat__history-details")).toHaveLength(6);
+  expect(screen.queryByRole("button", { name: "Thinking…" })).toBeNull();
+  for (let index = 0; index < 6; index++) expect(screen.getByText(`Work ${index}`)).toBeTruthy();
+  expect(container.querySelectorAll(".ef-chat__history-details")).toHaveLength(0);
   expect(container.querySelectorAll(".ef-chat__turn > *")).toHaveLength(2);
 });
 

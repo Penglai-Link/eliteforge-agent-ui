@@ -1,3 +1,4 @@
+import type { ComposerVueProps } from "@eliteforge/agent-ui-composer-vue";
 import type { MessageSender } from "@eliteforge/agent-ui-chat-core";
 import type { ChatA2uiActionHandler as ActionHandler, ChatA2uiSession } from "@eliteforge/agent-ui-chat-core";
 import type {
@@ -24,14 +25,14 @@ import type {
   ChatWorkRailLabels,
 } from "@eliteforge/agent-ui-chat-core";
 
-export interface ChatPanelProps {
+export interface ChatPanelProps extends Pick<ComposerVueProps, "pendingAttachments" | "showAttachmentControl" | "attachmentUploadPending" | "onAttachFile" | "onRemoveAttachment" | "attachLabel" | "uploadingLabel" | "removeAttachmentLabel" | "editQueuedLabel" | "removeQueuedLabel" | "queuedInputPlaceholder" | "steeringInputPlaceholder"> {
   a2uiSession?: ChatA2uiSession;
   a2uiDisabled?: boolean;
   onA2UIAction?: ActionHandler;
   attachmentDownloader?: (attachment: ChatMessageAttachment) => Promise<Blob>;
   attachmentLabels?: ChatAttachmentLabels;
   autoFocusComposer?: boolean;
-  composerHeader?: unknown;
+  composerHeader?: ComposerVueProps["composerHeader"];
   createSessionLabel?: string;
   currentUserDisplayName?: string;
   currentSender?: MessageSender;
@@ -43,6 +44,7 @@ export interface ChatPanelProps {
   formatAnnotationCount?: (count: number) => string;
   inputPlaceholder?: string;
   inputSuggestions?: ChatInputSuggestion[];
+  skillSuggestionTriggers?: Array<"$" | "/">;
   inputSuggestionLabels?: ChatInputSuggestionLabels;
   liveAguiAnchorMessageCodes?: Record<string, string>;
   liveAguiEvents?: ChatAguiStreamEvent[];
@@ -57,7 +59,7 @@ export interface ChatPanelProps {
   onNewSession?: () => void;
   onDraftChange: (value: string) => void;
   onPasteAttachment?: (file: File) => void | Promise<void>;
-  onEditMessage?: (content: string) => void;
+  onEditMessage?: (content: string, message?: ChatMessage) => void;
   onEditQueuedMessage?: (id: string, content: string) => void;
   onRemoveQueuedMessage?: (id: string) => void;
   onSend: (mode?: ChatSubmitMode) => void;
@@ -99,7 +101,7 @@ export interface ChatRuntimeWindowProps {
   attachmentLabels?: ChatAttachmentLabels;
   autoFocusComposer?: boolean;
   config: ChatClientConfig;
-  composerHeader?: unknown;
+  composerHeader?: ComposerVueProps["composerHeader"];
   currentUserDisplayName?: string;
   currentSender?: MessageSender;
   draft?: string;

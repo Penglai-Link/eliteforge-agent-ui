@@ -27,8 +27,9 @@ watch(
 </script>
 
 <template>
+  <ToolCard v-if="toolCards.length === 1" :card="toolCards[0]" :labels="props.labels" :nested="true" />
   <section
-    v-if="toolCards.length"
+    v-else-if="toolCards.length > 1"
     :aria-label="props.labels?.tool?.ariaLabel ?? 'Tool run steps'"
     class="ef-chat__rail-entry"
   >

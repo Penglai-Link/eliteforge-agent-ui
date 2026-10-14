@@ -1,3 +1,4 @@
+import { Composer, type ComposerReactProps } from "@eliteforge/agent-ui-composer-react";
 import { messageActorName, messageSenderIsHuman, messageSenderAvatar } from "@eliteforge/agent-ui-chat-core";
 import { interactionMessages, historyWorkGroups, historyWorkCompleted, historyCoversAguiWork, currentAguiTerminalEvent, interactionToolSummary } from "@eliteforge/agent-ui-chat-core";
 import { ToolResultView } from "./ToolResultView";
@@ -17,7 +18,6 @@ import {
   LoaderCircle,
   MessageSquareText,
   Pencil,
-  Send,
   Square,
   Terminal,
   UserRound,
@@ -34,12 +34,14 @@ import {
   buildAguiUserWorkCards,
   buildAguiRunNotices,
   buildTranscriptPresentation,
+  buildTranscriptWorkTimeline,
+  workTimelineElapsedMilliseconds,
+  type TranscriptWorkRun,
   historyToolResult, historyBlockUrl,
   defaultHistoryLabels,
   type ChatHistoryLabels,
   type ChatInputSuggestion,
   type ChatInputSuggestionLabels,
-  currentAguiWorkSnapshot,
   describeDebugEvent,
   formatJsonBlockValue,
   formatTime,
@@ -75,11 +77,9 @@ import {
   useContext,
   useEffect,
   useId,
-  useLayoutEffect,
   useMemo,
   useRef,
   useState,
-  type ClipboardEvent,
   type ReactNode,
 } from "react";
 import "github-markdown-css/github-markdown.css";
@@ -87,19 +87,10 @@ import { ChatHistoryRail } from "./ChatHistoryRail";
 import { ChatUserInputCard } from "./ChatUserInputCard";
 import { buildChatHistoryTurns } from "./chatHistory";
 import { isImageAttachment, useAttachmentImageSource } from "./chatAttachments";
+import { MarkdownSourceContext, MermaidPre } from "./MermaidBlock";
 
 function cx(...values: Array<string | false | null | undefined>) {
   return values.filter(Boolean).join(" ");
-}
-
-function insertNewlineAtCursor(textarea: HTMLTextAreaElement) {
-  const start = textarea.selectionStart;
-  const end = textarea.selectionEnd;
-  const nextValue = `${textarea.value.slice(0, start)}\n${textarea.value.slice(end)}`;
-  textarea.value = nextValue;
-  textarea.selectionStart = start + 1;
-  textarea.selectionEnd = start + 1;
-  return nextValue;
 }
 
 async function copyPlainText(value: string) {
@@ -118,17 +109,6 @@ async function copyPlainText(value: string) {
   document.body.removeChild(textarea);
 }
 
-function composerOverlayContent(draft: string, suggestions: ChatInputSuggestion[]) {
-  const skills = new Map(suggestions.filter((item) => item.kind === "skill").map((item) => [item.name, item] as const));
-  return draft.split(/(\$[\w.-]+)/gu).map((part, index) => (
-    part.startsWith("$") && skills.has(part.slice(1))
-      ? <span className="ef-chat__skill-token" key={index}>
-          <span className="ef-chat__skill-token-label">{skills.get(part.slice(1))?.displayName ?? skills.get(part.slice(1))?.description ?? part.slice(1)}</span>
-        </span>
-      : <Fragment key={index}>{part}</Fragment>
-  ));
-}
-
 export interface ChatMarkdownLinkProps {
   children?: ReactNode;
   href?: string;
@@ -143,20 +123,24 @@ const MarkdownLinkRendererContext = createContext<ChatMarkdownLinkRenderer | und
 function MarkdownBlock({
   content,
   emptyMessage,
+  streaming = false,
 }: {
   content: string;
   emptyMessage: string;
+  streaming?: boolean;
 }) {
   const renderLink = useContext(MarkdownLinkRendererContext);
 
   return (
     <div className="markdown-body">
+      <MarkdownSourceContext.Provider value={{ content: content || emptyMessage, streaming }}>
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
-        components={renderLink ? { a: renderLink } : undefined}
+        components={{ pre: MermaidPre, ...(renderLink ? { a: renderLink } : {}) }}
       >
         {content || emptyMessage}
       </ReactMarkdown>
+      </MarkdownSourceContext.Provider>
     </div>
   );
 }
@@ -469,7 +453,7 @@ function ChatBubble({
   a2uiSession?: ChatA2uiSession;
   a2uiDisabled?: boolean;
   onA2UIAction?: ActionHandler;
-  onEditMessage?: (content: string) => void;
+  onEditMessage?: (content: string, message?: ChatMessage) => void;
 }) {
   const isUser = message.role === "USER";
   const actorName = messageActorName(message, currentUserDisplayName);
@@ -483,6 +467,7 @@ function ChatBubble({
     >
       <article
         className={cx("ef-chat__message", isUser && "ef-chat__message--user")}
+        data-message-id={message.messageId}
         data-theme-anchor="chat-message"
         data-theme-part={isUser ? "chat-message-user" : "chat-message-assistant"}
         data-streaming={isStreaming ? "true" : undefined}
@@ -500,6 +485,7 @@ function ChatBubble({
         ) : (
           <MarkdownBlock
             content={message.content}
+            streaming={isStreaming}
             emptyMessage={message.a2ui ? "" : emptyAssistantMessage}
           />
         )}
@@ -516,7 +502,7 @@ function ChatBubble({
             className="ef-chat__icon-button"
             type="button"
             aria-label="Edit message"
-            onClick={() => onEditMessage(message.content)}
+            onClick={() => onEditMessage(message.content, message)}
           >
             <Pencil size={14} />
           </button>
@@ -624,11 +610,13 @@ function ToolCard({
   labels = defaultWorkRailLabels,
   nested = false,
   statusLabel,
+  compact = false,
 }: {
   statusLabel?: string;
   card: ToolWorkCard;
   labels?: ChatWorkRailLabels;
   nested?: boolean;
+  compact?: boolean;
 }) {
   const complete = card.ended || Boolean(card.result);
   const failed = toolResultFailed(card.result);
@@ -711,7 +699,7 @@ function ToolCard({
                   nested && "ef-chat__tool-title--nested",
                 )}
               >
-                {nested ? nestedToolLabel : toolLabel}
+                {nested || compact && nestedToolLabel !== toolName ? nestedToolLabel : toolLabel}
               </span>
               {nested || complete || failed ? null : (
                 <span
@@ -845,6 +833,7 @@ function ToolGroupCard({ card, labels = defaultWorkRailLabels }: { card: ToolGro
   }, [hasRunningTool]);
 
   if (!toolCards.length) return null;
+  if (toolCards.length === 1) return <ToolCard card={toolCards[0]} labels={labels} nested />;
 
   return (
     <section className="ef-chat__rail-entry" aria-label={toolCopy.ariaLabel}>
@@ -885,9 +874,11 @@ function ToolGroupCard({ card, labels = defaultWorkRailLabels }: { card: ToolGro
 function ReasoningCard({
   card,
   labels = defaultWorkRailLabels,
+  unfolded = false,
 }: {
   card: Extract<AguiUserWorkCard, { kind: "reasoning" }>["value"];
   labels?: ChatWorkRailLabels;
+  unfolded?: boolean;
 }) {
   const toolCopy = { ...defaultToolWorkLabels, ...labels.tool };
   const hasRunningTool = card.toolCards.some(
@@ -898,6 +889,13 @@ function ReasoningCard({
     (card.ended ? toolCopy.reasoningCaptured : toolCopy.reasoningThinking);
   const detail = card.summary;
   const [expanded, setExpanded] = useState(false);
+
+  if (unfolded) return <section className="ef-chat__rail-entry" aria-label={toolCopy.reasoningAria}>
+    <div className="ef-chat__rail-entry-main ef-chat__reasoning-inline">
+      <BrainCircuit size={15} className={card.ended ? undefined : "animate-pulse"} />
+      <div className="ef-chat__rail-detail"><MarkdownBlock content={detail || summary} emptyMessage={toolCopy.emptyReasoning} streaming={!card.ended} /></div>
+    </div>
+  </section>;
 
   return (
     <section className="ef-chat__rail-entry" aria-label={toolCopy.reasoningAria}>
@@ -1057,6 +1055,9 @@ function AguiRunWorkRail({
   labels = defaultWorkRailLabels,
   messageId,
   userInputRequests = [],
+  timeline,
+  renderMessage,
+  historyLabels = defaultHistoryLabels,
 }: {
   historyCovered?: boolean;
   debugEvents: string[];
@@ -1064,11 +1065,17 @@ function AguiRunWorkRail({
   labels?: ChatWorkRailLabels;
   messageId?: string;
   userInputRequests?: ChatUserInputRequest[];
+  timeline?: TranscriptWorkRun;
+  renderMessage?: (message: ChatMessage) => ReactNode;
+  historyLabels?: ChatHistoryLabels;
 }) {
-  const notices = useMemo(() => buildAguiRunNotices(events), [events]);
-  const compacting = notices.some((notice) => (
-    notice.kind === "compaction" && (notice.status === "requested" || notice.status === "started")
-  ));
+  const notices = useMemo(() => {
+    const notices = buildAguiRunNotices(events);
+    const error = timeline?.messages.find(message => message.history?.run?.error)?.history?.run?.error;
+    if (error && !notices.some(notice => notice.kind === "runError" && notice.code !== "AGENT_AGUI_REPLAY_INCOMPLETE"))
+      notices.push({ kind: "runError", code: "HISTORY_RUN_ERROR", message: error });
+    return notices;
+  }, [events, timeline]);
   const userCards = useMemo<AguiUserWorkCard[]>(() => buildAguiUserWorkCards(events), [events]);
   const matchingUserInputRequests = useMemo(() => {
     const runCodes = new Set(events.map((event) => aguiEventRunId(event)));
@@ -1105,19 +1112,10 @@ function AguiRunWorkRail({
   const displayedTerminalSummary = terminalSummary;
   const [expanded, setExpanded] = useState(false);
   const [now, setNow] = useState(() => Date.now());
-  const completed = historyCovered || Boolean(displayedTerminalSummary) && !pendingUserInputRequest;
-  const duration = completed
+  const completed = timeline?.completed ?? (historyCovered || Boolean(displayedTerminalSummary) && !pendingUserInputRequest);
+  const duration = timeline ? formatAguiDuration(workTimelineElapsedMilliseconds(timeline, now)) : completed
     ? displayedTerminalSummary?.duration ?? "<1s"
     : formatAguiDuration(aguiWorkElapsedMilliseconds(events, now));
-  const currentSummary = useMemo(() => {
-    const snapshot = currentAguiWorkSnapshot(events);
-    if (snapshot?.summary) return snapshot.summary;
-    const activity = snapshot?.activity;
-    if (activity === "PREPARING") return labels.preparing;
-    if (activity === "RESPONDING") return labels.responding;
-    return labels.thinking;
-  }, [events, labels.preparing, labels.responding, labels.thinking]);
-
   useEffect(() => {
     if (completed) return;
     setNow(Date.now());
@@ -1129,17 +1127,17 @@ function AguiRunWorkRail({
     if (completed) setExpanded(false);
   }, [completed]);
 
-  if (historyCovered && !debugEvents.length) return notices.length
+  if (!timeline && historyCovered && !debugEvents.length) return notices.length
     ? <section className="ef-chat__rail" aria-label={labels.ariaLabel}><AguiRunStatus notices={notices} labels={labels} /></section> : null;
 
-  if (!displayedTerminalSummary && !events.length && !orderedWorkItems.length && !debugEvents.length)
+  if (!timeline && !displayedTerminalSummary && !events.length && !orderedWorkItems.length && !debugEvents.length)
     return null;
   const onlyPresentationHealth = notices.length > 0 && !displayedTerminalSummary
     && events.every((event) => event.type === "CUSTOM" && event.name === "agent.presentation.incomplete");
   if (onlyPresentationHealth) {
     return <section className="ef-chat__rail" aria-label={labels.ariaLabel}><AguiRunStatus notices={notices} labels={labels} /></section>;
   }
-  const hasDetails = orderedWorkItems.length > 0 || debugEvents.length > 0;
+  const hasDetails = (timeline ? timeline.items.length > 0 : orderedWorkItems.length > 0) || debugEvents.length > 0;
   const presentationClosedWithoutOutcome = !displayedTerminalSummary && events.some(isAguiPresentationFailureEvent);
   let summary = presentationClosedWithoutOutcome
     ? labels.notices?.presentationIncomplete ?? defaultWorkRailLabels.notices.presentationIncomplete
@@ -1159,7 +1157,7 @@ function AguiRunWorkRail({
   );
   return (
     <section className="ef-chat__rail" aria-label={labels.ariaLabel}>
-      {hasDetails ? (
+      {hasDetails && completed ? (
         <button
           className="ef-chat__rail-summary"
           type="button"
@@ -1171,32 +1169,18 @@ function AguiRunWorkRail({
         </button>
       ) : <div className="ef-chat__rail-summary ef-chat__rail-summary--static">{summaryContent}</div>}
       <AguiRunStatus notices={notices} labels={labels} />
-      {!completed && !compacting && !presentationClosedWithoutOutcome ? (
-        <div className="ef-chat__rail-current" aria-live="polite">
-          {pendingUserInputRequest ? (
-            <>
-              <MessageSquareText className="ef-chat__rail-current-icon animate-pulse" size={15} />
-              <span className="ef-chat__rail-current-text">
-                {labels.askingQuestions?.(pendingUserInputRequest.questions.length) ?? "Asking questions"}
-                <span className="ef-chat__rail-current-subtext">
-                  {labels.waitingForAnswer ?? "Waiting for your answer"}
-                </span>
-              </span>
-            </>
-          ) : (
-            <>
-              <BrainCircuit className="ef-chat__rail-current-icon animate-pulse" size={15} />
-              <span className="ef-chat__rail-current-text">{currentSummary}</span>
-            </>
-          )}
-        </div>
-      ) : null}
-      {expanded && hasDetails ? (
+      {(!completed || expanded) && hasDetails ? (
         <div
           className="ef-chat__rail-stack"
           style={{ marginTop: 8 }}
         >
-          {orderedWorkItems.length ? (
+          {timeline ? <section className="ef-chat__rail" aria-label="Agent work rail" style={{ maxWidth: "none", paddingLeft: 0 }}>
+            <div className="ef-chat__rail-card-list">{timeline.items.map(item => <div key={item.id} data-work-item={item.kind} data-work-item-id={item.id}>
+              {item.kind === "message" ? renderMessage?.(item.message) : item.kind === "reasoning"
+                ? <ReasoningCard card={item.value} labels={labels} unfolded />
+                : <ToolCard card={item.value} labels={labels} compact statusLabel={item.historyStatus ? historyLabels.statuses[item.historyStatus] : undefined} />}
+            </div>)}</div>
+          </section> : orderedWorkItems.length ? (
             <section
               className="ef-chat__rail"
               aria-label="Agent work rail"
@@ -1233,6 +1217,10 @@ function AguiRunWorkRail({
           ) : null}
         </div>
       ) : null}
+      {!completed && !presentationClosedWithoutOutcome ? <div className="ef-chat__rail-current ef-chat__rail-current--working" role="status">
+        <Bot className="ef-chat__rail-current-icon" size={15} aria-hidden="true" />
+        <span className="ef-chat__rail-current-text">{labels.working ?? (/^[\u3400-\u9fff]/.test(labels.thinking) ? "工作中" : "Working")}</span>
+      </div> : null}
     </section>
   );
 }
@@ -1252,7 +1240,7 @@ function WaitingRail({ labels = defaultWorkRailLabels }: { labels?: ChatWorkRail
   );
 }
 
-export interface ChatPanelProps {
+export interface ChatPanelProps extends Pick<ComposerReactProps, "pendingAttachments" | "showAttachmentControl" | "attachmentUploadPending" | "onAttachFile" | "onRemoveAttachment" | "attachLabel" | "uploadingLabel" | "removeAttachmentLabel" | "editQueuedLabel" | "removeQueuedLabel"> {
   /** Show the composer before a persisted session exists. */
   allowDraftSession?: boolean;
   attachmentDownloader?: (attachment: ChatMessageAttachment) => Promise<Blob>;
@@ -1272,6 +1260,7 @@ export interface ChatPanelProps {
   headerContent?: ReactNode;
   inputPlaceholder?: string;
   inputSuggestions?: ChatInputSuggestion[];
+  skillSuggestionTriggers?: Array<"$" | "/">;
   inputSuggestionLabels?: ChatInputSuggestionLabels;
   queuedInputPlaceholder?: string;
   steeringInputPlaceholder?: string;
@@ -1291,7 +1280,7 @@ export interface ChatPanelProps {
   a2uiSession?: ChatA2uiSession;
   a2uiDisabled?: boolean;
   onA2UIAction?: ActionHandler;
-  onEditMessage?: (content: string) => void;
+  onEditMessage?: (content: string, message?: ChatMessage) => void;
   onEditQueuedMessage?: (id: string, content: string) => void;
   onRemoveQueuedMessage?: (id: string) => void;
   onSend: (mode?: ChatSubmitMode) => void;
@@ -1324,6 +1313,7 @@ export interface ChatPanelProps {
 }
 
 export function ChatPanel({
+  pendingAttachments, showAttachmentControl, attachmentUploadPending, onAttachFile, onRemoveAttachment, attachLabel, uploadingLabel, removeAttachmentLabel, editQueuedLabel, removeQueuedLabel,
   allowDraftSession = false,
   attachmentDownloader,
   attachmentLabels = defaultAttachmentLabels,
@@ -1342,6 +1332,7 @@ export function ChatPanel({
   headerContent,
   inputPlaceholder = "Enter to send, Shift+Enter for newline",
   inputSuggestions = [],
+  skillSuggestionTriggers,
   inputSuggestionLabels = { commands: "Commands", skills: "Skills", commandsAndSkills: "Commands and skills" },
   queuedInputPlaceholder = "Enter to queue · Shift+Enter for newline",
   steeringInputPlaceholder = "Enter to queue · ⌘/Ctrl+Enter to steer · Shift+Enter for newline",
@@ -1393,75 +1384,9 @@ export function ChatPanel({
   renderMarkdownLink,
 }: ChatPanelProps) {
   const transcriptRef = useRef<HTMLElement | null>(null);
-  const composerElementRef = useRef<HTMLTextAreaElement | null>(null);
-  const [composerCaretAtEnd, setComposerCaretAtEnd] = useState(false);
-  const [activeSuggestion, setActiveSuggestion] = useState(0);
-  const [suggestionsDismissed, setSuggestionsDismissed] = useState(false);
-  const suggestionQuery = useMemo(() => {
-    const match = draft.match(/(?:^|\s)([/$])([^\s]*)$/);
-    return match ? { trigger: match[1], query: match[2] } : null;
-  }, [draft]);
-  const visibleSuggestions = useMemo(() => {
-    if (!suggestionQuery) return [];
-    const kind = suggestionQuery.trigger === "$" ? "skill" : null;
-    const query = suggestionQuery.query.toLocaleLowerCase();
-    return inputSuggestions.filter((item) => (!kind || item.kind === kind)
-      && (item.name.toLocaleLowerCase().includes(query)
-        || item.description?.toLocaleLowerCase().includes(query)
-        || item.category?.toLocaleLowerCase().includes(query)));
-  }, [inputSuggestions, suggestionQuery]);
-  const suggestionGroups = useMemo(() => {
-    const commands = visibleSuggestions.filter((item) => item.kind === "command");
-    const skills = visibleSuggestions.filter((item) => item.kind === "skill");
-    return [
-      ...(commands.length ? [[inputSuggestionLabels.commands, commands] as const] : []),
-      ...(skills.length ? [[inputSuggestionLabels.skills, skills] as const] : []),
-    ];
-  }, [inputSuggestionLabels, visibleSuggestions]);
-  const flatSuggestions = useMemo(() => suggestionGroups.flatMap(([, items]) => items), [suggestionGroups]);
-  const suggestionsOpen = !suggestionsDismissed;
-  useEffect(() => { setActiveSuggestion(0); setSuggestionsDismissed(false); }, [draft]);
-  function chooseSuggestion(item: ChatInputSuggestion) {
-    const textarea = composerElementRef.current;
-    if (!textarea || !suggestionQuery) return;
-    const match = draft.match(/(?:^|\s)([/$])([^\s]*)$/)!;
-    const start = draft.length - match[0].length;
-    const prefix = match[0].startsWith(" ") ? " " : "";
-    const replacement = `${prefix}${item.kind === "skill" ? "$" : "/"}${item.name} `;
-    const next = `${draft.slice(0, start)}${replacement}`;
-    onDraftChange(next);
-    requestAnimationFrame(() => {
-      textarea.focus();
-      const position = start + replacement.length;
-      textarea.setSelectionRange(position, position);
-      setComposerCaretAtEnd(true);
-    });
-  }
-  function updateComposerCaret(textarea: HTMLTextAreaElement) {
-    setComposerCaretAtEnd(
-      textarea.selectionStart === textarea.value.length
-      && textarea.selectionEnd === textarea.value.length,
-    );
-  }
   const [showJumpButton, setShowJumpButton] = useState(false);
   const [previewImage, setPreviewImage] = useState<{ alt: string; source: string } | null>(null);
   const autoStickToBottomRef = useRef(true);
-  const canQueueWhileRunning = runningSubmitModes.includes("queue");
-  const canSteerWhileRunning = runningSubmitModes.includes("steer");
-  const composerPlaceholder = sending && canQueueWhileRunning
-    ? canSteerWhileRunning
-      ? steeringInputPlaceholder
-      : queuedInputPlaceholder
-    : inputPlaceholder;
-  const primarySubmitMode: ChatSubmitMode | null = !sending
-    ? "send"
-    : canQueueWhileRunning
-      ? "queue"
-      : null;
-  const primarySubmitDisabled = disabledInput
-    || (primarySubmitMode === "queue"
-        ? queueDisabled
-        : Boolean(sendDisabled));
   const streamingAssistantMessageCode = useMemo(() => {
     if (activeStreamingAssistantMessageCode !== undefined) {
       return activeStreamingAssistantMessageCode || undefined;
@@ -1516,6 +1441,8 @@ export function ChatPanel({
     () => buildChatHistoryTurns(transcriptMessages, presentation),
     [transcriptMessages, presentation],
   );
+  const workTimeline = useMemo(() => buildTranscriptWorkTimeline(transcriptMessages, presentation, userInputRequests),
+    [transcriptMessages, presentation, userInputRequests]);
   const turnByMessageCode = useMemo(() => {
     const next = new Map<string, string>();
     historyTurns.forEach((turn) => {
@@ -1539,6 +1466,20 @@ export function ChatPanel({
     });
     return next;
   }, [historyTurns, transcriptMessages, turnByMessageCode]);
+
+  function renderProcessMessage(message: ChatMessage) {
+    return <>
+      <StructuredMessageDetails message={message} labels={workRailLabels} historyLabels={historyLabels} hasRunError={workTimeline.managedMessageIds.has(message.messageId) || displayedErrorRuns.has(message.runId ?? "") || lastHistoryErrorByRun.get(message.runId) !== message.messageId} />
+      {message.content.trim() || message.a2ui ? <ChatBubble currentUserDisplayName={currentUserDisplayName}
+        isStreaming={message.messageId === streamingAssistantMessageCode} message={message} a2uiSession={a2uiSession}
+        a2uiDisabled={a2uiDisabled} onA2UIAction={onA2UIAction} onEditMessage={onEditMessage} /> : null}
+    </>;
+  }
+  function renderWorkRun(run: TranscriptWorkRun) {
+    return <AguiRunWorkRail key={run.id} timeline={run} renderMessage={renderProcessMessage} historyLabels={historyLabels}
+      events={run.events as ChatAguiStreamEvent[]} labels={workRailLabels} userInputRequests={userInputRequests}
+      debugEvents={(presentation.debugEventsByRunCode.get(run.runId) ?? []).map(describeDebugEvent)} />;
+  }
 
   function scrollToBottom(behavior: ScrollBehavior = "auto") {
     const element = transcriptRef.current;
@@ -1566,44 +1507,6 @@ export function ChatPanel({
     autoStickToBottomRef.current = true;
     setShowJumpButton(false);
   }, [session?.sessionId]);
-
-  useLayoutEffect(() => {
-    if (!autoFocusComposer || !session?.sessionId) return;
-    composerElementRef.current?.focus();
-  }, [autoFocusComposer, session?.sessionId]);
-
-  function setComposerNode(node: HTMLTextAreaElement | null) {
-    composerElementRef.current = node;
-    if (!composerRef) return;
-    if (typeof composerRef === "function") {
-      composerRef(node);
-      return;
-    }
-    composerRef.current = node;
-  }
-
-  function handleComposerPaste(event: ClipboardEvent<HTMLTextAreaElement>) {
-    if (disabledInput || !onPasteAttachment) return;
-    const imageItem = Array.from(event.clipboardData.items).find(
-      (item) => item.kind === "file" && item.type.startsWith("image/"),
-    );
-    const file = imageItem?.getAsFile();
-    if (!file) return;
-    event.preventDefault();
-    const fileName = file.name.trim() || `pasted-image-${Date.now()}.${file.type.split("/")[1] || "png"}`;
-    const normalizedFile = file.name.trim()
-      ? file
-      : new File([file], fileName, { type: file.type || "image/png" });
-    void onPasteAttachment(normalizedFile);
-  }
-
-  function handleStopSubmit() {
-    if (onStop) {
-      onStop();
-      return;
-    }
-    onSend("send");
-  }
 
   return (
     <MarkdownLinkRendererContext.Provider value={renderMarkdownLink}>
@@ -1667,7 +1570,9 @@ export function ChatPanel({
                     >
                       {(messagesByTurnId.get(turn.id) ?? []).map((message) => (
                         <Fragment key={message.messageId}>
-                          {historyWork.has(message.messageId) ? <HistoryWorkRail messages={historyWork.get(message.messageId)!} labels={workRailLabels} historyLabels={historyLabels} /> : null}
+                          {showAgui ? workTimeline.before.get(message.messageId)?.map(renderWorkRun) : null}
+                          {!showAgui || !workTimeline.processMessageIds.has(message.messageId) ? <>
+                          {!workTimeline.managedMessageIds.has(message.messageId) && historyWork.has(message.messageId) ? <HistoryWorkRail messages={historyWork.get(message.messageId)!} labels={workRailLabels} historyLabels={historyLabels} /> : null}
                           <StructuredMessageDetails message={message} labels={workRailLabels} historyLabels={historyLabels} hasRunError={displayedErrorRuns.has(message.runId ?? "") || lastHistoryErrorByRun.get(message.runId) !== message.messageId} />
                           {message.role === "USER" ? (
                             <div className="ef-chat__user-message-group">
@@ -1699,32 +1604,13 @@ export function ChatPanel({
                                   onEditMessage={onEditMessage}
                             />
                           )}
+                          </> : null}
                           {showAgui &&
                             message.messageId ===
                             presentation.waitingForModelAnchorMessageCode ? (
                             <WaitingRail labels={workRailLabels} />
                           ) : null}
-                          {showAgui
-                            ? (
-                              presentation.workRailsByMessageCode.get(
-                                message.messageId,
-                              ) ?? []
-                            ).map((run) => (
-                              <AguiRunWorkRail
-                                historyCovered={historyCoversAguiWork(transcriptMessages, run.events)}
-                                debugEvents={(
-                                  presentation.debugEventsByRunCode.get(
-                                    run.runId,
-                                  ) ?? []
-                                ).map(describeDebugEvent)}
-                                events={run.events as ChatAguiStreamEvent[]}
-                                key={run.runId}
-                                labels={workRailLabels}
-                                messageId={message.messageId}
-                                userInputRequests={userInputRequests}
-                              />
-                            ))
-                            : null}
+                          {showAgui ? workTimeline.after.get(message.messageId)?.map(renderWorkRun) : null}
                         </Fragment>
                       ))}
                     </section>
@@ -1762,188 +1648,48 @@ export function ChatPanel({
                 <ArrowDown size={16} />
               </button>
             ) : null}
-            {queuedMessages.length ? (
-              <section
-                aria-label={queuedLabel}
-                className="ef-chat__queued-messages"
-              >
-                <div className="ef-chat__queued-messages-header">
-                  <span>{queuedLabel}</span>
-                  <span className="ef-chat__queued-messages-count">
-                    {queuedMessages.length}
-                  </span>
-                </div>
-                <ol className="ef-chat__queued-messages-list">
-                  {queuedMessages.map((queuedMessage) => (
-                    <li
-                      className="ef-chat__queued-message"
-                      key={queuedMessage.id}
-                    >
-                      <span className="ef-chat__queued-message-content">
-                        {queuedMessage.input.content}
-                      </span>
-                      <span className="ef-chat__queued-message-actions">
-                        {onEditQueuedMessage ? (
-                          <button
-                            aria-label="Edit queued message"
-                            className="ef-chat__icon-button"
-                            title="Edit queued message"
-                            type="button"
-                            onClick={() => onEditQueuedMessage(
-                              queuedMessage.id,
-                              queuedMessage.input.content,
-                            )}
-                          >
-                            <Pencil size={14} />
-                          </button>
-                        ) : null}
-                        {onRemoveQueuedMessage ? (
-                          <button
-                            aria-label="Remove queued message"
-                            className="ef-chat__icon-button"
-                            title="Remove queued message"
-                            type="button"
-                            onClick={() => onRemoveQueuedMessage(queuedMessage.id)}
-                          >
-                            <X size={15} />
-                          </button>
-                        ) : null}
-                      </span>
-                    </li>
-                  ))}
-                </ol>
-              </section>
-            ) : null}
-            <div className="ef-chat__composer">
-              {suggestionQuery && suggestionsOpen && flatSuggestions.length ? (
-                <div className="ef-chat__suggestions" role="listbox" aria-label={suggestionQuery.trigger === "$" ? inputSuggestionLabels.skills : inputSuggestionLabels.commandsAndSkills}>
-                  {suggestionGroups.map(([group, items]) => <section className="ef-chat__suggestion-group" key={group}>
-                    <div className="ef-chat__suggestion-heading">{group}</div>
-                    {items.map((item) => {
-                      const index = flatSuggestions.indexOf(item);
-                      return <button className="ef-chat__suggestion" data-active={index === activeSuggestion} key={`${item.kind}:${item.name}`} role="option" aria-selected={index === activeSuggestion} type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => chooseSuggestion(item)}>
-                        <span className="ef-chat__suggestion-name">{item.kind === "command" ? "/" : "$"}{item.name}</span>
-                        {item.description ? <span className="ef-chat__suggestion-description">{item.description}</span> : null}
-                      </button>;
-                    })}
-                  </section>)}
-                </div>
-              ) : null}
-              {composerHeader ? (
-                <div className="ef-chat__composer-header">
-                  {composerHeader}
-                </div>
-              ) : null}
-              <div className="ef-chat__composer-editor" data-caret-at-end={composerCaretAtEnd ? "true" : undefined}>
-                <div className="ef-chat__composer-overlay" aria-hidden="true">
-                  {composerOverlayContent(draft, inputSuggestions)}
-                  {composerCaretAtEnd ? <span className="ef-chat__composer-overlay-caret" /> : null}
-                </div>
-                <textarea
-                  autoFocus={autoFocusComposer}
-                  key={session?.sessionId ?? "composer"}
-                  ref={setComposerNode}
-                  className="ef-chat__textarea"
-                  data-theme-part="chat-input" data-theme-anchor="chat-input"
-                  disabled={disabledInput}
-                  placeholder={composerPlaceholder}
-                  value={draft}
-                  onChange={(event) => {
-                    updateComposerCaret(event.currentTarget);
-                    onDraftChange(event.target.value);
-                  }}
-                  onClick={(event) => updateComposerCaret(event.currentTarget)}
-                  onFocus={(event) => updateComposerCaret(event.currentTarget)}
-                  onBlur={() => setComposerCaretAtEnd(false)}
-                  onKeyUp={(event) => updateComposerCaret(event.currentTarget)}
-                  onSelect={(event) => updateComposerCaret(event.currentTarget)}
-                  onScroll={(event) => {
-                    const overlay = event.currentTarget.previousElementSibling;
-                    if (overlay instanceof HTMLElement) overlay.scrollTop = event.currentTarget.scrollTop;
-                  }}
-                  onPaste={handleComposerPaste}
-                  onKeyDown={(event) => {
-                  if (event.nativeEvent.isComposing) return;
-                  if (suggestionsOpen && visibleSuggestions.length && event.key === "ArrowDown") {
-                    event.preventDefault();
-                    setActiveSuggestion((index) => (index + 1) % flatSuggestions.length);
-                    return;
-                  }
-                  if (suggestionsOpen && visibleSuggestions.length && event.key === "ArrowUp") {
-                    event.preventDefault();
-                    setActiveSuggestion((index) => (index - 1 + flatSuggestions.length) % flatSuggestions.length);
-                    return;
-                  }
-                  if (suggestionsOpen && visibleSuggestions.length && event.key === "Escape") {
-                    setSuggestionsDismissed(true);
-                    return;
-                  }
-                  if (suggestionsOpen && visibleSuggestions.length && event.key === "Enter" && !event.shiftKey) {
-                    event.preventDefault();
-                    chooseSuggestion(flatSuggestions[activeSuggestion < 0 ? 0 : activeSuggestion]);
-                    return;
-                  }
-                  if (event.key === "Enter" && event.shiftKey) {
-                    event.preventDefault();
-                    onDraftChange(insertNewlineAtCursor(event.currentTarget));
-                    return;
-                  }
-                  const commandShortcut = event.metaKey || event.ctrlKey;
-                  if (
-                    sending
-                    && commandShortcut
-                    && event.key === "Enter"
-                  ) {
-                    event.preventDefault();
-                    if (
-                      canSteerWhileRunning
-                      && !disabledInput
-                      && !steerDisabled
-                    ) {
-                      onSend("steer");
-                    }
-                    return;
-                  }
-                  if (event.key !== "Enter") return;
-                  event.preventDefault();
-                  if (primarySubmitMode && !primarySubmitDisabled) {
-                    onSend(primarySubmitMode);
-                  }
-                  }}
-                  aria-keyshortcuts={sending && canSteerWhileRunning
-                    ? "Meta+Enter Control+Enter"
-                    : undefined}
-                />
-              </div>
-              <div className="ef-chat__composer-row">
-                <div className="ef-chat__composer-addon">{footerAddon}</div>
-                <div className="ef-chat__composer-actions">
-                  {sending && showStop ? (
-                    <button
-                      aria-label={stopLabel}
-                      className="ef-chat__button ef-chat__button_send ef-chat__button--danger"
-                      title={stopLabel}
-                      type="button"
-                      onClick={handleStopSubmit}
-                    >
-                      <Square size={14} />
-                    </button>
-                  ) : null}
-                  {!sending ? (
-                    <button
-                      aria-label={sendLabel}
-                      className="ef-chat__button ef-chat__button_send"
-                      disabled={disabledInput || Boolean(sendDisabled)}
-                      title={sendLabel}
-                      type="button"
-                      onClick={() => onSend("send")}
-                    >
-                      <Send size={15} />
-                    </button>
-                  ) : null}
-                </div>
-              </div>
-            </div>
+            <Composer
+              composerKey={session?.sessionId}
+              autoFocusComposer={autoFocusComposer}
+              composerRef={composerRef}
+              composerHeader={composerHeader}
+              disabledInput={disabledInput}
+              draft={draft}
+              footerAddon={footerAddon}
+              inputPlaceholder={inputPlaceholder}
+              inputSuggestions={inputSuggestions}
+              skillSuggestionTriggers={skillSuggestionTriggers}
+              inputSuggestionLabels={inputSuggestionLabels}
+              queuedInputPlaceholder={queuedInputPlaceholder}
+              steeringInputPlaceholder={steeringInputPlaceholder}
+              onDraftChange={onDraftChange}
+              onPasteAttachment={onPasteAttachment}
+              onEditQueuedMessage={onEditQueuedMessage}
+              onRemoveQueuedMessage={onRemoveQueuedMessage}
+              onSend={onSend}
+              onStop={onStop}
+              queueDisabled={queueDisabled}
+              queuedLabel={queuedLabel}
+              queuedMessages={queuedMessages}
+              runningSubmitModes={runningSubmitModes}
+              sendDisabled={sendDisabled}
+              sendLabel={sendLabel}
+              sending={sending}
+              showStop={showStop}
+              steerDisabled={steerDisabled}
+              stopLabel={stopLabel}
+              pendingAttachments={pendingAttachments}
+              attachmentDownloader={attachmentDownloader}
+              showAttachmentControl={showAttachmentControl}
+              attachmentUploadPending={attachmentUploadPending}
+              onAttachFile={onAttachFile}
+              onRemoveAttachment={onRemoveAttachment}
+              attachLabel={attachLabel}
+              uploadingLabel={uploadingLabel}
+              removeAttachmentLabel={removeAttachmentLabel}
+              editQueuedLabel={editQueuedLabel}
+              removeQueuedLabel={removeQueuedLabel}
+            />
           </footer>
         </>
       ) : (

@@ -96,8 +96,8 @@ it.each(["healthy", "native-error", "explicit-incomplete", "no-terminal"] as con
     expect(await screen.findByText("展示回放不完整")).toBeTruthy();
     await waitFor(() => expect(onError).toHaveBeenCalledWith("Temporary replay read failure", "Chat load failed"));
     expect(screen.getByRole("button", { name: "Approve" })).toBeTruthy();
-    const work = screen.getByRole("button", { name: /^(Done|Executing)/ });
-    if (work.getAttribute("aria-expanded") !== "true") fireEvent.click(work);
+    const work = screen.queryByRole("button", { name: /^(Done|Executing)/ });
+    if (work && work.getAttribute("aria-expanded") !== "true") fireEvent.click(work);
     expect(screen.getByText("Unpersisted live evidence.")).toBeTruthy();
     recovered = true;
     const replayReads = vi.mocked(adapter.loadProtocolEvents!).mock.calls.length;
@@ -111,8 +111,8 @@ it.each(["healthy", "native-error", "explicit-incomplete", "no-terminal"] as con
       else expect(screen.getByText("展示回放不完整")).toBeTruthy();
     });
     expect(screen.getByRole("button", { name: "Approve" })).toBeTruthy();
-    const recoveredWork = screen.getByRole("button", { name: /^(Done|Executing)/ });
-    if (recoveredWork.getAttribute("aria-expanded") !== "true") fireEvent.click(recoveredWork);
+    const recoveredWork = screen.queryByRole("button", { name: /^(Done|Executing)/ });
+    if (recoveredWork && recoveredWork.getAttribute("aria-expanded") !== "true") fireEvent.click(recoveredWork);
     expect(screen.getByText("Unpersisted live evidence.")).toBeTruthy();
     expect(adapter.streamMessage).toHaveBeenCalledTimes(1);
   },

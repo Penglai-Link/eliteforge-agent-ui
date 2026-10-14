@@ -1,7 +1,9 @@
 <script setup lang="ts">
-import { ArrowDown, Bot, Pencil, Send, Square, X } from "lucide-vue-next";
+import { Composer } from "@eliteforge/agent-ui-composer-vue";
+import { ArrowDown, Bot, X } from "lucide-vue-next";
 import {
   buildTranscriptPresentation,
+  buildTranscriptWorkTimeline,
   interactionMessages,
   historyWorkGroups,
   historyCoversAguiWork,
@@ -9,13 +11,11 @@ import {
   describeDebugEvent,
   type ChatAttachmentLabels,
   type ChatMessage,
-  type ChatInputSuggestion,
   type ChatInputSuggestionLabels,
   type ChatSubmitMode,
-  type ChatUserInputRequest,
 } from "@eliteforge/agent-ui-chat-core";
 import { computed, nextTick, onMounted, ref, watch } from "vue";
-import { cx, insertNewlineAtCursor } from "../utils";
+import { cx } from "../utils";
 import ChatBubble from "./ChatBubble.vue";
 import HistoryWorkRail from "./HistoryWorkRail.vue";
 import StructuredMessageDetails from "./StructuredMessageDetails.vue";
@@ -54,6 +54,8 @@ const props = withDefaults(defineProps<ChatPanelProps>(), {
   onPasteAttachment: undefined,
   onStop: undefined,
   protocolEvents: () => [],
+  queuedInputPlaceholder: "Enter 加入队列 · Shift+Enter 换行",
+  steeringInputPlaceholder: "Enter 加入队列 · ⌘/Ctrl+Enter 立即调整当前回复 · Shift+Enter 换行",
   queueDisabled: false,
   queuedLabel: "Queued",
   queuedMessages: () => [],
@@ -80,7 +82,7 @@ const emit = defineEmits<{
   "create-session": [];
   "new-session": [];
   "draft-change": [value: string];
-  "edit-message": [value: string];
+  "edit-message": [value: string, message?: ChatMessage];
   "edit-queued-message": [id: string, content: string];
   "remove-queued-message": [id: string];
   send: [mode?: ChatSubmitMode];
@@ -88,76 +90,10 @@ const emit = defineEmits<{
 }>();
 
 const transcriptRef = ref<HTMLElement | null>(null);
-const composerRef = ref<HTMLTextAreaElement | null>(null);
+
 const showJumpButton = ref(false);
 const autoStickToBottom = ref(true);
 const previewImage = ref<{ alt: string; source: string } | null>(null);
-const activeSuggestion = ref(0);
-const suggestionsDismissed = ref(false);
-const composerCaretAtEnd = ref(false);
-const suggestionQuery = computed(() => {
-  const match = props.draft.match(/(?:^|\s)([/$])([^\s]*)$/);
-  return match ? { trigger: match[1], query: match[2] } : null;
-});
-const visibleSuggestions = computed(() => {
-  if (!suggestionQuery.value) return [];
-  const query = suggestionQuery.value.query.toLocaleLowerCase();
-  return props.inputSuggestions.filter((item: ChatInputSuggestion) =>
-    (suggestionQuery.value?.trigger !== "$" || item.kind === "skill")
-    && (item.name.toLocaleLowerCase().includes(query)
-      || item.description?.toLocaleLowerCase().includes(query)
-      || item.category?.toLocaleLowerCase().includes(query)),
-  );
-});
-const suggestionGroups = computed(() => {
-  const commands = visibleSuggestions.value.filter((item) => item.kind === "command");
-  const skills = visibleSuggestions.value.filter((item) => item.kind === "skill");
-  return [
-    ...(commands.length ? [[props.inputSuggestionLabels.commands, commands] as const] : []),
-    ...(skills.length ? [[props.inputSuggestionLabels.skills, skills] as const] : []),
-  ];
-});
-const flatSuggestions = computed(() => suggestionGroups.value.flatMap(([, items]) => items));
-const composerOverlayParts = computed(() => {
-  const skills = new Map(props.inputSuggestions.filter((item) => item.kind === "skill").map((item) => [item.name, item] as const));
-  return props.draft.split(/(\$[\w.-]+)/gu).map((text) => ({
-    text,
-    displayName: text.startsWith("$")
-      ? skills.get(text.slice(1))?.displayName ?? skills.get(text.slice(1))?.description ?? text.slice(1)
-      : null,
-  }));
-});
-watch(() => props.draft, () => { activeSuggestion.value = 0; suggestionsDismissed.value = false; });
-
-function chooseSuggestion(item: ChatInputSuggestion) {
-  const match = props.draft.match(/(?:^|\s)([/$])([^\s]*)$/);
-  const textarea = composerRef.value;
-  if (!match || !textarea) return;
-  const start = props.draft.length - match[0].length;
-  const prefix = match[0].startsWith(" ") ? " " : "";
-  const replacement = `${prefix}${item.kind === "skill" ? "$" : "/"}${item.name} `;
-  emit("draft-change", `${props.draft.slice(0, start)}${replacement}`);
-  void nextTick(() => {
-    textarea.focus();
-    textarea.setSelectionRange(start + replacement.length, start + replacement.length);
-    updateComposerCaret(textarea);
-  });
-}
-
-function syncComposerOverlayScroll(event: Event) {
-  const textarea = event.currentTarget as HTMLTextAreaElement;
-  const overlay = textarea.previousElementSibling;
-  if (overlay instanceof HTMLElement) overlay.scrollTop = textarea.scrollTop;
-}
-
-function updateComposerCaret(eventOrTextarea: Event | HTMLTextAreaElement) {
-  const textarea = eventOrTextarea instanceof HTMLTextAreaElement
-    ? eventOrTextarea
-    : eventOrTextarea.currentTarget as HTMLTextAreaElement;
-  composerCaretAtEnd.value = textarea.selectionStart === textarea.value.length
-    && textarea.selectionEnd === textarea.value.length;
-}
-
 function openImagePreview(source: string, alt: string) {
   previewImage.value = { alt, source };
 }
@@ -175,30 +111,6 @@ watch(previewImage, (image, _, onCleanup) => {
   onCleanup(() => document.removeEventListener("keydown", handleKeyDown));
 });
 
-const canQueueWhileRunning = computed(() =>
-  props.runningSubmitModes.includes("queue"),
-);
-const canSteerWhileRunning = computed(() =>
-  props.runningSubmitModes.includes("steer"),
-);
-const composerPlaceholder = computed(() => {
-  if (!props.sending || !canQueueWhileRunning.value) {
-    return props.inputPlaceholder;
-  }
-  return canSteerWhileRunning.value
-    ? "Enter 加入队列 · ⌘/Ctrl+Enter 立即调整当前回复 · Shift+Enter 换行"
-    : "Enter 加入队列 · Shift+Enter 换行";
-});
-const primarySubmitMode = computed<ChatSubmitMode | null>(() => {
-  if (!props.sending) return "send";
-  if (canQueueWhileRunning.value) return "queue";
-  return null;
-});
-const primarySubmitDisabled = computed(() => {
-  if (props.disabledInput) return true;
-  if (primarySubmitMode.value === "queue") return props.queueDisabled;
-  return props.sendDisabled;
-});
 const streamingAssistantMessageCode = computed(() => {
   if (props.streamingAssistantMessageCode !== undefined) {
     return props.streamingAssistantMessageCode || undefined;
@@ -227,6 +139,7 @@ const presentation = computed(() =>
     sessionId: props.session?.sessionId ?? "",
   }),
 );
+const workTimeline = computed(() => buildTranscriptWorkTimeline(transcriptMessages.value, presentation.value, props.userInputRequests));
 
 function scrollToBottom(behavior: ScrollBehavior = "auto") {
   const element = transcriptRef.value;
@@ -245,84 +158,9 @@ function handleScroll() {
   showJumpButton.value = distanceFromBottom > 160;
 }
 
-function handleKeydown(event: KeyboardEvent) {
-  if (event.isComposing) return;
-  if (!suggestionsDismissed.value && flatSuggestions.value.length && event.key === "ArrowDown") {
-    event.preventDefault();
-    activeSuggestion.value = (activeSuggestion.value + 1) % flatSuggestions.value.length;
-    return;
-  }
-  if (!suggestionsDismissed.value && flatSuggestions.value.length && event.key === "ArrowUp") {
-    event.preventDefault();
-    activeSuggestion.value = (activeSuggestion.value - 1 + flatSuggestions.value.length) % flatSuggestions.value.length;
-    return;
-  }
-  if (!suggestionsDismissed.value && flatSuggestions.value.length && event.key === "Escape") {
-    suggestionsDismissed.value = true;
-    return;
-  }
-  if (!suggestionsDismissed.value && flatSuggestions.value.length && event.key === "Enter" && !event.shiftKey) {
-    event.preventDefault();
-    chooseSuggestion(flatSuggestions.value[activeSuggestion.value]);
-    return;
-  }
-  if (event.key === "Enter" && event.shiftKey) {
-    event.preventDefault();
-    emit(
-      "draft-change",
-      insertNewlineAtCursor(event.currentTarget as HTMLTextAreaElement),
-    );
-    return;
-  }
-  const commandShortcut = event.metaKey || event.ctrlKey;
-  if (
-    props.sending &&
-    commandShortcut &&
-    event.key === "Enter"
-  ) {
-    event.preventDefault();
-    if (
-      canSteerWhileRunning.value &&
-      !props.disabledInput &&
-      !props.steerDisabled
-    ) {
-      emit("send", "steer");
-    }
-    return;
-  }
-  if (event.key !== "Enter") return;
-  event.preventDefault();
-  if (primarySubmitMode.value && !primarySubmitDisabled.value) {
-    emit("send", primarySubmitMode.value);
-  }
-}
-
-function handleStopSubmit() {
-  if (props.onStop) {
-    props.onStop();
-    return;
-  }
-  emit("stop");
-}
-
-function handleComposerPaste(event: ClipboardEvent) {
-  if (props.disabledInput || !props.onPasteAttachment) return;
-  const imageItem = Array.from(event.clipboardData?.items ?? []).find(
-    (item) => item.kind === "file" && item.type.startsWith("image/"),
-  );
-  const file = imageItem?.getAsFile();
-  if (!file) return;
-  event.preventDefault();
-  const fileName = file.name.trim() || `pasted-image-${Date.now()}.${file.type.split("/")[1] || "png"}`;
-  const normalizedFile = file.name.trim()
-    ? file
-    : new File([file], fileName, { type: file.type || "image/png" });
-  void props.onPasteAttachment(normalizedFile);
-}
-
-function workRailsForMessage(message: ChatMessage) {
+function workRailsForMessage(message: ChatMessage, before = false) {
   return (
-    presentation.value.workRailsByMessageCode.get(message.messageId) ?? []
+    (before ? workTimeline.value.before : workTimeline.value.after).get(message.messageId) ?? []
   );
 }
 
@@ -346,16 +184,13 @@ watch(
   async () => {
     autoStickToBottom.value = true;
     showJumpButton.value = false;
-    if (props.autoFocusComposer) {
-      await nextTick();
-      composerRef.value?.focus();
-    }
+
   },
 );
 
 onMounted(() => {
   scrollToBottom("auto");
-  if (props.autoFocusComposer) composerRef.value?.focus();
+
 });
 </script>
 
@@ -420,7 +255,21 @@ onMounted(() => {
           <button v-if="!props.historyLoading && props.onLoadOlderHistory" type="button" :disabled="props.historyLoadingOlder" @click="props.onLoadOlderHistory">{{ props.historyLoadingOlder ? (props.historyLabels ?? defaultHistoryLabels).loading : (props.historyLabels ?? defaultHistoryLabels).loadOlder }}</button>
           <div v-if="!props.historyLoading && transcriptMessages.length" class="ef-chat__transcript-inner">
             <template v-for="message in transcriptMessages" :key="message.messageId">
-              <HistoryWorkRail v-if="historyWork.has(message.messageId)" :messages="historyWork.get(message.messageId)!" :labels="props.workRailLabels" :history-labels="props.historyLabels" />
+              <template v-if="showAgui">
+                <AguiRunWorkRail v-for="run in workRailsForMessage(message, true)" :key="run.id"
+                  :timeline="run" :events="run.events" :debug-events="debugEventsForRun(run.runId)"
+                  :labels="props.workRailLabels" :history-labels="props.historyLabels" :user-input-requests="props.userInputRequests">
+                  <template #message="{ message: processMessage }">
+                    <StructuredMessageDetails :message="processMessage" :labels="props.historyLabels" hide-run-error />
+                    <ChatBubble v-if="processMessage.content.trim() || processMessage.a2ui" :message="processMessage"
+                      :current-user-display-name="currentUserDisplayName" :is-streaming="processMessage.messageId === streamingAssistantMessageCode"
+                      :on-a2-u-i-action="props.onA2UIAction" :a2ui-session="props.a2uiSession" :a2ui-disabled="props.a2uiDisabled"
+                      @edit-message="(content: string, message: ChatMessage) => emit('edit-message', content, message)" />
+                  </template>
+                </AguiRunWorkRail>
+              </template>
+              <template v-if="!showAgui || !workTimeline.processMessageIds.has(message.messageId)">
+              <HistoryWorkRail v-if="!workTimeline.managedMessageIds.has(message.messageId) && historyWork.has(message.messageId)" :messages="historyWork.get(message.messageId)!" :labels="props.workRailLabels" :history-labels="props.historyLabels" />
               <StructuredMessageDetails :message="message" :labels="props.historyLabels" />
               <ChatBubble
                 v-if="(!message.history || message.a2ui || message.content.trim())"
@@ -429,7 +278,7 @@ onMounted(() => {
                 :message="message"
                 :on-a2-u-i-action="props.onA2UIAction" :a2ui-session="props.a2uiSession" :a2ui-disabled="props.a2uiDisabled"
                 @edit-message="
-                  (content: string) => emit('edit-message', content)
+                  (content: string, message: ChatMessage) => emit('edit-message', content, message)
                 "
               />
               <ChatAttachments
@@ -440,6 +289,7 @@ onMounted(() => {
                 :format-annotation-count="formatAnnotationCount"
                 @preview-image="openImagePreview"
               />
+              </template>
               <WaitingRail
                 v-if="
                   showAgui &&
@@ -450,14 +300,23 @@ onMounted(() => {
               <template v-if="showAgui">
                 <AguiRunWorkRail
                   v-for="run in workRailsForMessage(message)"
-                  :key="run.runId"
+                  :key="run.id"
                   :debug-events="debugEventsForRun(run.runId)"
                   :events="run.events"
-                  :history-covered="historyCoversAguiWork(transcriptMessages, run.events)"
+                  :timeline="run"
                   :labels="props.workRailLabels"
+                  :history-labels="props.historyLabels"
                   :message-id="message.messageId"
                   :user-input-requests="props.userInputRequests"
-                />
+                >
+                  <template #message="{ message: processMessage }">
+                    <StructuredMessageDetails :message="processMessage" :labels="props.historyLabels" hide-run-error />
+                    <ChatBubble v-if="processMessage.content.trim() || processMessage.a2ui" :message="processMessage"
+                      :current-user-display-name="currentUserDisplayName" :is-streaming="processMessage.messageId === streamingAssistantMessageCode"
+                      :on-a2-u-i-action="props.onA2UIAction" :a2ui-session="props.a2uiSession" :a2ui-disabled="props.a2uiDisabled"
+                      @edit-message="(content: string, message: ChatMessage) => emit('edit-message', content, message)" />
+                  </template>
+                </AguiRunWorkRail>
               </template>
             </template>
           </div>
@@ -491,152 +350,49 @@ onMounted(() => {
         >
           <ArrowDown :size="16" />
         </button>
-        <section
-          v-if="queuedMessages.length"
-          :aria-label="queuedLabel"
-          class="ef-chat__queued-messages"
+        <Composer
+          :composer-key="session?.sessionId"
+          :auto-focus-composer="props.autoFocusComposer"
+          :composer-header="props.composerHeader"
+          :disabled-input="props.disabledInput"
+          :draft="props.draft"
+          :input-placeholder="props.inputPlaceholder"
+          :input-suggestions="props.inputSuggestions"
+          :skill-suggestion-triggers="props.skillSuggestionTriggers"
+          :input-suggestion-labels="props.inputSuggestionLabels"
+          :queued-input-placeholder="props.queuedInputPlaceholder"
+          :steering-input-placeholder="props.steeringInputPlaceholder"
+          :on-paste-attachment="props.onPasteAttachment"
+          :onEditQueuedMessage="props.onEditQueuedMessage ? (id, content) => emit('edit-queued-message', id, content) : undefined"
+          :onRemoveQueuedMessage="props.onRemoveQueuedMessage ? (id) => emit('remove-queued-message', id) : undefined"
+          :queue-disabled="props.queueDisabled"
+          :queued-label="props.queuedLabel"
+          :queued-messages="props.queuedMessages"
+          :running-submit-modes="props.runningSubmitModes"
+          :send-disabled="props.sendDisabled"
+          :send-label="props.sendLabel"
+          :sending="props.sending"
+          :show-stop="props.showStop"
+          :steer-disabled="props.steerDisabled"
+          :stop-label="props.stopLabel"
+          :pending-attachments="props.pendingAttachments"
+          :attachment-downloader="props.attachmentDownloader"
+          :show-attachment-control="props.showAttachmentControl"
+          :attachment-upload-pending="props.attachmentUploadPending"
+          :on-attach-file="props.onAttachFile"
+          :onRemoveAttachment="props.onRemoveAttachment"
+          :attach-label="props.attachLabel"
+          :uploading-label="props.uploadingLabel"
+          :remove-attachment-label="props.removeAttachmentLabel"
+          :edit-queued-label="props.editQueuedLabel"
+          :remove-queued-label="props.removeQueuedLabel"
+          @draft-change="emit('draft-change', $event)"
+          @send="emit('send', $event)"
+          @stop="props.onStop ? props.onStop() : emit('stop')"
         >
-          <div class="ef-chat__queued-messages-header">
-            <span>{{ queuedLabel }}</span>
-            <span class="ef-chat__queued-messages-count">{{
-              queuedMessages.length
-            }}</span>
-          </div>
-          <ol class="ef-chat__queued-messages-list">
-            <li
-              v-for="queuedMessage in queuedMessages"
-              :key="queuedMessage.id"
-              class="ef-chat__queued-message"
-            >
-              <span class="ef-chat__queued-message-content">{{
-                queuedMessage.input.content
-              }}</span>
-              <span class="ef-chat__queued-message-actions">
-                <button
-                  v-if="onEditQueuedMessage"
-                  aria-label="Edit queued message"
-                  class="ef-chat__icon-button"
-                  title="Edit queued message"
-                  type="button"
-                  @click="
-                    emit(
-                      'edit-queued-message',
-                      queuedMessage.id,
-                      queuedMessage.input.content,
-                    )
-                  "
-                >
-                  <Pencil :size="14" />
-                </button>
-                <button
-                  v-if="onRemoveQueuedMessage"
-                  aria-label="Remove queued message"
-                  class="ef-chat__icon-button"
-                  title="Remove queued message"
-                  type="button"
-                  @click="emit('remove-queued-message', queuedMessage.id)"
-                >
-                  <X :size="15" />
-                </button>
-              </span>
-            </li>
-          </ol>
-        </section>
-        <div class="ef-chat__composer">
-          <div
-            v-if="suggestionQuery && !suggestionsDismissed && flatSuggestions.length"
-            class="ef-chat__suggestions"
-            role="listbox"
-            :aria-label="suggestionQuery.trigger === '$' ? inputSuggestionLabels.skills : inputSuggestionLabels.commandsAndSkills"
-          >
-            <section v-for="[group, items] in suggestionGroups" :key="group" class="ef-chat__suggestion-group">
-              <div class="ef-chat__suggestion-heading">{{ group }}</div>
-              <button
-                v-for="item in items"
-                :key="`${item.kind}:${item.name}`"
-                class="ef-chat__suggestion"
-                :data-active="flatSuggestions.indexOf(item) === activeSuggestion"
-                role="option"
-                :aria-selected="flatSuggestions.indexOf(item) === activeSuggestion"
-                type="button"
-                @mousedown.prevent
-                @click="chooseSuggestion(item)"
-              >
-                <span class="ef-chat__suggestion-name">{{ item.kind === "command" ? "/" : "$" }}{{ item.name }}</span>
-                <span v-if="item.description" class="ef-chat__suggestion-description">{{ item.description }}</span>
-              </button>
-            </section>
-          </div>
-          <div v-if="composerHeader" class="ef-chat__composer-header">
-            <component :is="composerHeader" />
-          </div>
-          <div class="ef-chat__composer-editor" :data-caret-at-end="composerCaretAtEnd ? 'true' : undefined">
-            <div class="ef-chat__composer-overlay" aria-hidden="true">
-              <span
-                v-for="(part, index) in composerOverlayParts"
-                :key="index"
-                :class="{ 'ef-chat__skill-token': part.displayName !== null }"
-              ><template v-if="part.displayName"><span class="ef-chat__skill-token-label">{{ part.displayName }}</span></template><template v-else>{{ part.text }}</template></span>
-              <span v-if="composerCaretAtEnd" class="ef-chat__composer-overlay-caret" />
-            </div>
-            <textarea
-              ref="composerRef"
-              class="ef-chat__textarea"
-              data-theme-part="chat-input" data-theme-anchor="chat-input"
-              :autofocus="autoFocusComposer"
-              :disabled="disabledInput"
-              :placeholder="composerPlaceholder"
-              :value="draft"
-              :aria-keyshortcuts="
-                sending && canSteerWhileRunning
-                  ? 'Meta+Enter Control+Enter'
-                  : undefined
-              "
-              @input="
-                (e: Event) => {
-                  updateComposerCaret(e);
-                  emit('draft-change', (e.target as HTMLTextAreaElement).value);
-                }
-              "
-              @click="updateComposerCaret"
-              @focus="updateComposerCaret"
-              @blur="composerCaretAtEnd = false"
-              @keyup="updateComposerCaret"
-              @select="updateComposerCaret"
-              @scroll="syncComposerOverlayScroll"
-              @paste="handleComposerPaste"
-              @keydown="handleKeydown"
-            />
-          </div>
-          <div class="ef-chat__composer-row">
-            <div class="ef-chat__composer-addon">
-              <slot name="footerAddon" />
-            </div>
-            <div class="ef-chat__composer-actions">
-              <button
-                v-if="sending && showStop"
-                :aria-label="stopLabel"
-                class="ef-chat__button ef-chat__button_send ef-chat__button--danger"
-                :title="stopLabel"
-                type="button"
-                @click="handleStopSubmit"
-              >
-                <Square :size="14" />
-              </button>
-              <button
-                v-if="!sending"
-                :aria-label="sendLabel"
-                class="ef-chat__button ef-chat__button_send"
-                :disabled="disabledInput || sendDisabled"
-                :title="sendLabel"
-                type="button"
-                @click="emit('send', 'send')"
-              >
-                <Send :size="15" />
-              </button>
-            </div>
-          </div>
-        </div>
+          <template v-if="$slots.composerHeader" #composerHeader><slot name="composerHeader" /></template>
+          <template #footerAddon><slot name="footerAddon" /></template>
+        </Composer>
       </footer>
     </template>
 

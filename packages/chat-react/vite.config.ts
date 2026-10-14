@@ -26,7 +26,7 @@ export default defineConfig({
         formats: ["es"],
       },
       rollupOptions: {
-        external: [
+        external: ["@eliteforge/agent-ui-composer-react",
           "@eliteforge/agent-ui-motion-react",
           "@eliteforge/agent-ui-a2ui-core",
           "@eliteforge/agent-ui-a2ui-react",
