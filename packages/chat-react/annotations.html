@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>对话选区评论</title>
+  <style>
+    html, body, #root { height: 100%; margin: 0; }
+    body.annotation-preview {
+      color-scheme: light;
+      background: #f7f7f8;
+      color: #111;
+      --color-on-surface: #111;
+      --color-on-surface-variant: #444;
+      --color-surface-container-lowest: #fff;
+      --color-surface-container-low: #f7f7f8;
+      --color-surface-container: #f1f1f3;
+      --color-background: #f7f7f8;
+      --color-elevated-surface: #fff;
+      --agent-ui-chat-text: #111;
+      --agent-ui-chat-text-muted: #444;
+    }
+    #root { max-width: 1100px; margin: auto; }
+    .annotation-preview .markdown-body {
+      color: #111;
+      --fgColor-default: #111;
+      --fgColor-muted: #444;
+    }
+    .annotation-preview .ef-chat__message-body,
+    .annotation-preview .ef-chat__textarea,
+    .annotation-preview .ef-chat__composer-overlay,
+    .annotation-preview .ef-chat__annotation-tooltip,
+    .annotation-preview .ef-chat__selection-comment { color: #111; }
+  </style>
+</head>
+<body class="annotation-preview">
+  <div id="root"></div>
+  <script type="module" src="/test/annotations.tsx"></script>
+</body>
+</html>

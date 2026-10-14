@@ -1,3 +1,4 @@
+@import "../../chat-core/src/annotations.css";
 @import "../../composer-vue/dist/styles.css";
 @import "../../chat-core/dist/mermaid.css";
 .ef-chat,

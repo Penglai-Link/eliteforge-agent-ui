@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { chatAnnotationTooltip, defaultChatAnnotationLabels, type ChatAnnotationLabels, type ChatAnnotation } from "@eliteforge/agent-ui-chat-core";
 import ChatA2UI from "./ChatA2UI.vue";
 import type { ChatA2uiActionHandler as ActionHandler, ChatA2uiSession } from "@eliteforge/agent-ui-chat-core";
 import { Bot, Pencil, UserRound } from "lucide-vue-next";
@@ -14,6 +15,9 @@ const props = defineProps<{
   emptyAssistantMessage?: string;
   isStreaming?: boolean;
   message: ChatMessage;
+  annotations?: ChatAnnotation[];
+  annotationLabels?: ChatAnnotationLabels;
+  formatAnnotationCount?: (count: number) => string;
   onA2UIAction?: ActionHandler;
   a2uiSession?: ChatA2uiSession;
   a2uiDisabled?: boolean;
@@ -61,16 +65,27 @@ const actorName = computed(() =>
         <span v-if="!message.interactionResponse || message.interactionResponse.answeredAt != null" class="ef-chat__message-time">{{ formatTime(props.message.createdAt) }}</span>
       </div>
     </div>
-    <div v-if="isUser" class="ef-chat__message-body" :data-history-interaction-id="message.interactionResponse?.requestId">
+    <div v-if="isUser && (message.annotations ?? []).length" class="ef-chat__text-annotations">
+      <span class="ef-chat__annotation-reference ef-chat__inspection-count" tabindex="0" role="note" :data-annotation-tooltip="(message.annotations ?? []).map(item => chatAnnotationTooltip(item, annotationLabels)).join('\n\n')">{{ formatAnnotationCount?.((message.annotations ?? []).length) ?? `${(message.annotations ?? []).length} annotations` }}</span>
+    </div>
+    <div v-if="isUser" :data-chat-annotation-source="message.interactionResponse ? undefined : 'true'" class="ef-chat__message-body" :data-history-interaction-id="message.interactionResponse?.requestId">
       <dl v-if="message.interactionResponse" class="ef-chat__interaction-summary"><div v-for="(row, index) in message.interactionResponse.rows" :key="index"><dt>{{ row.label }}</dt><dd>{{ row.value }}</dd></div></dl>
       <template v-else>{{ props.message.content }}</template>
     </div>
     <MarkdownBlock
       v-else
       :content="props.message.content"
+      :annotations="annotations"
+      :annotation-labels="annotationLabels ?? defaultChatAnnotationLabels"
+      data-chat-annotation-source="true"
       :streaming="isStreaming"
       :empty-message="message.a2ui ? '' : props.emptyAssistantMessage"
     />
+    <div v-if="!isUser && annotations?.length" class="ef-chat__reply-annotations">
+      <template v-for="(annotation, index) in annotations" :key="annotation.id">
+        <span v-if="!message.content.includes(`#chat-annotation-${annotation.id}`)" role="button" :data-annotation-source-id="annotation.messageId" tabindex="0" class="ef-chat__annotation-reference" :data-annotation-tooltip="chatAnnotationTooltip(annotation, annotationLabels)">{{ (annotationLabels ?? defaultChatAnnotationLabels).annotation(index + 1) }}</span>
+      </template>
+    </div>
     <ChatA2UI v-if="message.a2ui" :message="message" :on-action="onA2UIAction" :runtime="a2uiSession" :disabled="a2uiDisabled" />
   </article>
 </template>

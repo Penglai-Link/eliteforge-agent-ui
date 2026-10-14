@@ -1,3 +1,4 @@
+import type { ChatAnnotation } from "@eliteforge/agent-ui-chat-core";
 import { ChatA2uiSession, AGENT_CATALOG_ID, type ChatA2uiActionHandler as ActionHandler } from "@eliteforge/agent-ui-chat-core";
 import {
   chatErrorPresentation,
@@ -101,6 +102,8 @@ export interface ChatRuntimeWindowProps {
   onPasteAttachment?: (file: File) => void | Promise<void>;
   onRunStateChange?: (state: ChatRuntimeRunState) => void;
   onSessionChange?: (session: ChatSession | null) => void;
+  pendingAnnotations?: ChatAnnotation[];
+  onPendingAnnotationsChange?: (annotations: ChatAnnotation[]) => void;
   pendingAttachments?: ChatMessageAttachment[];
   createSendInput?: (
     session: ChatSession,
@@ -178,6 +181,8 @@ export function ChatRuntimeWindow({
   onPasteAttachment,
   onRunStateChange,
   onSessionChange,
+  pendingAnnotations: controlledPendingAnnotations,
+  onPendingAnnotationsChange,
   pendingAttachments: controlledPendingAttachments,
   createSendInput: createSendInputOverride,
   showAttachmentControl = true,
@@ -279,6 +284,17 @@ export function ChatRuntimeWindow({
   const pendingAttachmentsRef = useRef<ChatMessageAttachment[]>(controlledPendingAttachments ?? []);
   const draft = controlledDraft ?? internalDraft;
   const pendingAttachments = controlledPendingAttachments ?? internalPendingAttachments;
+  const [internalPendingAnnotations, setInternalPendingAnnotations] = useState<ChatAnnotation[]>([]);
+  const pendingAnnotations = controlledPendingAnnotations ?? internalPendingAnnotations;
+  const pendingAnnotationsRef = useRef(pendingAnnotations);
+  pendingAnnotationsRef.current = pendingAnnotations;
+  function setPendingAnnotations(nextValue: SetStateAction<ChatAnnotation[]>) {
+    const next = typeof nextValue === "function" ? nextValue(pendingAnnotationsRef.current) : nextValue;
+    pendingAnnotationsRef.current = next;
+    if (controlledPendingAnnotations === undefined) setInternalPendingAnnotations(next);
+    onPendingAnnotationsChange?.(next);
+  }
+
 
   const agentReplyEffectRef = useRef(agentReplyEffect);
   const agentReplySpeedRef = useRef(agentReplySpeed);
@@ -591,14 +607,16 @@ export function ChatRuntimeWindow({
     content: string,
     attachments: ChatMessageAttachment[] = [],
     requestedSkills = requestedSkillsFromDraft(content, config.inputSuggestions ?? [], draftSkillsRef.current),
+    annotations = pendingAnnotations,
   ): SendChatMessageInput | null {
     if (createSendInputOverride) {
       const input = createSendInputOverride(activeSession, content, attachments);
-      return input ? { ...input, requestedSkills } : null;
+      return input ? { ...input, requestedSkills, annotations } : null;
     }
     const input: SendChatMessageInput = {
       clientCapabilities: { userInputRequests: true },
       content,
+      annotations,
       requestedSkills,
     };
     if (attachments.length) input.attachments = attachments;
@@ -686,6 +704,7 @@ export function ChatRuntimeWindow({
       setLiveAguiAnchorMessageCodes({});
       setLiveAguiPendingAnchorMessageCode("");
       setPendingAttachments([]);
+      setPendingAnnotations([]);
     }
     activeSessionCodeRef.current = nextSessionCode;
     onSessionChange?.(session);
@@ -984,12 +1003,12 @@ export function ChatRuntimeWindow({
 
   const sendDisabled = useMemo(() => {
     if (loading || creatingSession || config.disabledInput || userInputRequest || userInputAnswerPending) return true;
-    if (!draft.trim() && !pendingAttachments.length) return true;
+    if (!draft.trim() && !pendingAttachments.length && !pendingAnnotations.length) return true;
     return false;
-  }, [config.disabledInput, creatingSession, draft, loading, pendingAttachments.length, session, userInputAnswerPending, userInputRequest]);
+  }, [config.disabledInput, creatingSession, draft, loading, pendingAttachments.length, pendingAnnotations.length, session, userInputAnswerPending, userInputRequest]);
   const queueDisabled = useMemo(
-    () => loading || Boolean(config.disabledInput) || Boolean(userInputRequest) || userInputAnswerPending || (!draft.trim() && !pendingAttachments.length) || !session,
-    [config.disabledInput, draft, loading, pendingAttachments.length, session, userInputAnswerPending, userInputRequest],
+    () => loading || Boolean(config.disabledInput) || Boolean(userInputRequest) || userInputAnswerPending || (!draft.trim() && !pendingAttachments.length && !pendingAnnotations.length) || !session,
+    [config.disabledInput, draft, loading, pendingAttachments.length, pendingAnnotations.length, session, userInputAnswerPending, userInputRequest],
   );
   const steerDisabled = queueDisabled || steering || !canSteer;
 
@@ -1060,7 +1079,7 @@ export function ChatRuntimeWindow({
     }
     sendInput = { ...sendInput, clientCapabilities: { ...sendInput.clientCapabilities, a2ui: { version: "v0.9.1", catalogIds: [AGENT_CATALOG_ID] } }, a2uiMetadata: a2uiSession.metadata(sendInput.metadata?.agentId as string | undefined ?? "main-agent") };
     const content = sendInput.content.trim();
-    if (!content && !(sendInput.attachments?.length)) {
+    if (!content && !(sendInput.attachments?.length) && !(sendInput.annotations?.length)) {
       restoreSourceSubmission();
       return false;
     }
@@ -1094,6 +1113,7 @@ export function ChatRuntimeWindow({
         provenance: { sender: currentSender ?? { kind: "user", displayName: currentUserDisplayName || "User" } },
         channel: "conversation",
         content,
+        annotations: sendInput.annotations ?? [],
         attachments: submittedAttachments,
         requestedSkills: sendInput.requestedSkills ?? [],
         createdAt: optimisticCreatedAt,
@@ -1247,6 +1267,7 @@ export function ChatRuntimeWindow({
       } else if (abortReason === "detach") {
         shouldRestoreSourceSubmission = false;
       } else {
+        if (!sourceSubmission && sendInput.annotations?.length) setPendingAnnotations(current => [...sendInput.annotations!, ...current]);
         if (!sourceSubmission && submittedAttachments.length) {
           setPendingAttachments((current) => [...submittedAttachments, ...current]);
         }
@@ -1432,16 +1453,18 @@ export function ChatRuntimeWindow({
     // input changes must not alter the message being admitted.
     const content = draft.trim();
     const attachments = pendingAttachments;
+    const annotations = pendingAnnotations;
     const requestedSkills = requestedSkillsFromDraft(content, config.inputSuggestions ?? [], draftSkillsRef.current);
-    if (!content && !attachments.length) return;
+    if (!content && !attachments.length && !annotations.length) return;
     const submission = Symbol("initial-submission");
     initialSubmitPendingRef.current = submission;
     try {
       const activeSession = await ensureSession();
-      const sendInput = createSendInput(activeSession, content, attachments, requestedSkills);
+      const sendInput = createSendInput(activeSession, content, attachments, requestedSkills, annotations);
       if (!sendInput) return;
       setDraft("");
       setPendingAttachments([]);
+      setPendingAnnotations([]);
       if (remoteActiveRunRef.current) {
         enqueueSubmission(activeSession, sendInput);
         return;
@@ -1460,11 +1483,12 @@ export function ChatRuntimeWindow({
     const activeSession = await ensureSession();
     if (!activeSession) return;
     const content = draft.trim();
-    if (!content && !pendingAttachments.length) return;
+    if (!content && !pendingAttachments.length && !pendingAnnotations.length) return;
     const sendInput = createSendInput(activeSession, content, pendingAttachments);
     if (!sendInput) return;
     setDraft("");
     setPendingAttachments([]);
+    setPendingAnnotations([]);
     if (sendingRef.current || remoteActiveRunRef.current) {
       enqueueSubmission(activeSession, sendInput);
       return;
@@ -1477,7 +1501,7 @@ export function ChatRuntimeWindow({
     const activeSession = session;
     if (!activeSession) return;
     const content = draft.trim();
-    if (!content && !pendingAttachments.length) return;
+    if (!content && !pendingAttachments.length && !pendingAnnotations.length) return;
     const sendInput = createSendInput(activeSession, content, pendingAttachments);
     if (!sendInput) return;
     const expectedRunId = activeRunCodeRef.current
@@ -1487,6 +1511,7 @@ export function ChatRuntimeWindow({
     const autoDrainEpoch = autoDrainEpochRef.current;
     setDraft("");
     setPendingAttachments([]);
+    setPendingAnnotations([]);
     if (
       !expectedRunId
       || !activeAdapter.capabilities.supportsSteer
@@ -1550,6 +1575,7 @@ export function ChatRuntimeWindow({
           draftSkillsRef.current = sendInput.requestedSkills ?? [];
           setDraft(content);
           setPendingAttachments(current => [...(sendInput.attachments ?? []), ...current]);
+          setPendingAnnotations(current => [...(sendInput.annotations ?? []), ...current]);
         }
         onError(
           error instanceof Error ? error.message : "Chat steer failed",
@@ -1579,6 +1605,7 @@ export function ChatRuntimeWindow({
 
   function handleEditMessage(content: string, message?: ChatMessage) {
     draftSkillsRef.current = message?.requestedSkills ?? [];
+    setPendingAnnotations(message?.annotations ?? []);
     setDraft(content);
   }
 
@@ -1590,6 +1617,7 @@ export function ChatRuntimeWindow({
     draftSkillsRef.current = submission?.input.requestedSkills ?? [];
     setDraft(content);
     setPendingAttachments(submission?.input.attachments ?? []);
+    setPendingAnnotations(submission?.input.annotations ?? []);
   }
 
   function handleRemoveQueuedMessage(id: string) {
@@ -1666,6 +1694,7 @@ export function ChatRuntimeWindow({
     setLiveAguiPendingAnchorMessageCode("");
     setLiveAguiAnchorMessageCodes({});
     setPendingAttachments([]);
+    setPendingAnnotations([]);
     activeRunCodeRef.current = "";
     setActiveRunCode("");
     setActiveRunSupportsSteer(null);
@@ -1732,11 +1761,14 @@ export function ChatRuntimeWindow({
       emptyTitle={emptyTitle}
       footerAddon={footerAddon}
       pendingAttachments={pendingAttachments}
+      pendingAnnotations={pendingAnnotations}
+      onPendingAnnotationsChange={setPendingAnnotations}
       onRemoveAttachment={(id) => setPendingAttachments(current => current.filter(item => item.id !== id))}
       onAttachFile={handleAttachmentUpload}
       showAttachmentControl={showAttachmentControl && Boolean(activeAdapter.uploadAttachment)}
       attachmentUploadPending={attachmentUploadPending}
       formatAnnotationCount={formatAnnotationCount}
+      annotationLabels={config.annotationLabels}
       headerContent={headerContent}
       inputPlaceholder={config.inputPlaceholder}
       inputSuggestions={config.inputSuggestions}
@@ -1808,11 +1840,14 @@ export function ChatRuntimeWindow({
         emptyTitle={emptyTitle}
         footerAddon={footerAddon}
         pendingAttachments={pendingAttachments}
+      pendingAnnotations={pendingAnnotations}
+      onPendingAnnotationsChange={setPendingAnnotations}
         onRemoveAttachment={(id) => setPendingAttachments(current => current.filter(item => item.id !== id))}
         onAttachFile={handleAttachmentUpload}
         showAttachmentControl={showAttachmentControl && Boolean(activeAdapter.uploadAttachment)}
         attachmentUploadPending={attachmentUploadPending}
         formatAnnotationCount={formatAnnotationCount}
+      annotationLabels={config.annotationLabels}
         inputPlaceholder={config.inputPlaceholder}
         inputSuggestions={config.inputSuggestions}
       skillSuggestionTriggers={config.skillSuggestionTriggers}

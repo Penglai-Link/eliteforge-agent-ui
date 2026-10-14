@@ -1,10 +1,21 @@
 <script setup lang="ts">
+import { chatAnnotationForHref, chatAnnotationTooltip, type ChatAnnotationLabels, type ChatAnnotation } from "@eliteforge/agent-ui-chat-core";
 import { computed, nextTick, onBeforeUnmount, ref, watch } from "vue";
 import { MermaidDiagram, mermaidFenceClosed } from "@eliteforge/agent-ui-chat-core";
 import "github-markdown-css/github-markdown.css";
 import MarkdownIt from "markdown-it";
 
 const md = new MarkdownIt({ html: false, linkify: true, typographer: true });
+const defaultLink = md.renderer.rules.link_open ?? ((tokens, index, options, env, renderer) => renderer.renderToken(tokens, index, options));
+md.renderer.rules.link_open = (tokens, index, options, env, renderer) => {
+  const annotation = chatAnnotationForHref(tokens[index].attrGet('href') ?? undefined, env.annotations ?? []);
+  if (annotation) {
+    tokens[index].attrSet('class', 'ef-chat__annotation-reference');
+    tokens[index].attrSet('data-annotation-source-id', annotation.messageId);
+    tokens[index].attrSet('data-annotation-tooltip', chatAnnotationTooltip(annotation, env.annotationLabels));
+  }
+  return defaultLink(tokens, index, options, env, renderer);
+};
 const defaultFence = md.renderer.rules.fence!;
 md.renderer.rules.fence = (tokens, index, options, env, renderer) => {
   const token = tokens[index];
@@ -21,13 +32,15 @@ const props = withDefaults(defineProps<{
   content?: string;
   emptyMessage?: string;
   streaming?: boolean;
+  annotations?: ChatAnnotation[];
+  annotationLabels?: ChatAnnotationLabels;
 }>(), { content: "", emptyMessage: "No assistant response was produced.", streaming: false });
 
 const element = ref<HTMLDivElement>();
 const diagrams = new Map<number, MermaidDiagram>();
 const compiled = computed(() => {
   const content = props.content || props.emptyMessage;
-  const env = { blocks: [] as Array<{ source: string; ready: boolean }>, lines: content.split(/\r?\n/), streaming: props.streaming };
+  const env = { annotations: props.annotations, annotationLabels: props.annotationLabels, blocks: [] as Array<{ source: string; ready: boolean }>, lines: content.split(/\r?\n/), streaming: props.streaming };
   return { html: md.render(content, env), blocks: env.blocks };
 });
 watch(compiled, async ({ blocks }) => {

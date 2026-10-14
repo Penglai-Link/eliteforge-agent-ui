@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { chatAnnotationsByMessage, chatAnnotationTooltip, mountChatAnnotationSelection, mountChatAnnotationPreviews, openChatAnnotationEditor, type ChatAnnotation, defaultChatAnnotationLabels } from "@eliteforge/agent-ui-chat-core";
 import { Composer } from "@eliteforge/agent-ui-composer-vue";
 import { ArrowDown, Bot, X } from "lucide-vue-next";
 import {
@@ -14,7 +15,7 @@ import {
   type ChatInputSuggestionLabels,
   type ChatSubmitMode,
 } from "@eliteforge/agent-ui-chat-core";
-import { computed, nextTick, onMounted, ref, watch } from "vue";
+import { computed, nextTick, onMounted, onBeforeUnmount, ref, watch } from "vue";
 import { cx } from "../utils";
 import ChatBubble from "./ChatBubble.vue";
 import HistoryWorkRail from "./HistoryWorkRail.vue";
@@ -26,6 +27,7 @@ import ChatAttachments from "./ChatAttachments.vue";
 import { ChatPanelProps } from "../types";
 
 const props = withDefaults(defineProps<ChatPanelProps>(), {
+  annotationLabels: () => defaultChatAnnotationLabels,
   attachmentDownloader: undefined,
   attachmentLabels: (): ChatAttachmentLabels => ({
     annotationPreview: "Annotation preview",
@@ -82,6 +84,7 @@ const emit = defineEmits<{
   "create-session": [];
   "new-session": [];
   "draft-change": [value: string];
+  "pending-annotations-change": [annotations: ChatAnnotation[]];
   "edit-message": [value: string, message?: ChatMessage];
   "edit-queued-message": [id: string, content: string];
   "remove-queued-message": [id: string];
@@ -89,7 +92,34 @@ const emit = defineEmits<{
   stop: [];
 }>();
 
+const annotationRootRef = ref<HTMLElement | null>(null);
+watch(annotationRootRef, (root, _, onCleanup) => { if (root) onCleanup(mountChatAnnotationPreviews(root)); }, { flush: 'post' });
 const transcriptRef = ref<HTMLElement | null>(null);
+let disposeAnnotationEditor: (() => void) | undefined;
+onBeforeUnmount(() => disposeAnnotationEditor?.());
+watch([() => props.session?.sessionId, () => props.session?.status, () => props.disabledInput], () => disposeAnnotationEditor?.());
+function editPendingAnnotation(annotation: ChatAnnotation, event: MouseEvent) {
+  disposeAnnotationEditor?.();
+  disposeAnnotationEditor = openChatAnnotationEditor(event.currentTarget as HTMLElement, annotation, updated => {
+    changeAnnotations(annotations.value.map(item => item.id === updated.id ? updated : item));
+  }, props.annotationLabels);
+}
+const internalAnnotations = ref<ChatAnnotation[]>([]);
+const annotations = computed(() => props.pendingAnnotations ?? internalAnnotations.value);
+const annotationDraft = computed(() => ({content: props.draft, annotations: annotations.value}));
+const annotationMap = computed(() => chatAnnotationsByMessage(props.messages));
+function changeAnnotations(next: ChatAnnotation[]) {
+  if (props.pendingAnnotations === undefined) internalAnnotations.value = next;
+  emit('pending-annotations-change', next);
+}
+function changeAnnotatedDraft(value: string) { emit('draft-change', value); }
+watch(() => props.session?.sessionId, () => { internalAnnotations.value = []; });
+watch([transcriptRef, () => props.session?.sessionId, () => props.session?.status, () => props.disabledInput, () => props.annotationLabels], (_, __, onCleanup) => {
+  if (!transcriptRef.value || props.disabledInput || props.session?.status === 'ARCHIVED') return;
+  onCleanup(mountChatAnnotationSelection(transcriptRef.value, annotation => {
+    changeAnnotations([...annotations.value, annotation]);
+  }, props.annotationLabels));
+}, { flush: 'post' });
 
 const showJumpButton = ref(false);
 const autoStickToBottom = ref(true);
@@ -195,7 +225,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="ef-chat" data-theme-part="chat" data-theme-anchor="chat">
+  <div ref="annotationRootRef" class="ef-chat" data-theme-part="chat" data-theme-anchor="chat">
     <span
       aria-hidden="true"
       class="ef-chat__theme-effect-layer"
@@ -261,7 +291,7 @@ onMounted(() => {
                   :labels="props.workRailLabels" :history-labels="props.historyLabels" :user-input-requests="props.userInputRequests">
                   <template #message="{ message: processMessage }">
                     <StructuredMessageDetails :message="processMessage" :labels="props.historyLabels" hide-run-error />
-                    <ChatBubble v-if="processMessage.content.trim() || processMessage.a2ui" :message="processMessage"
+                    <ChatBubble v-if="processMessage.content.trim() || processMessage.a2ui" :annotation-labels="props.annotationLabels" :format-annotation-count="formatAnnotationCount" :annotations="annotationMap.get(processMessage.messageId)" :message="processMessage"
                       :current-user-display-name="currentUserDisplayName" :is-streaming="processMessage.messageId === streamingAssistantMessageCode"
                       :on-a2-u-i-action="props.onA2UIAction" :a2ui-session="props.a2uiSession" :a2ui-disabled="props.a2uiDisabled"
                       @edit-message="(content: string, message: ChatMessage) => emit('edit-message', content, message)" />
@@ -275,6 +305,7 @@ onMounted(() => {
                 v-if="(!message.history || message.a2ui || message.content.trim())"
                 :current-user-display-name="currentUserDisplayName"
                 :is-streaming="message.messageId === streamingAssistantMessageCode"
+                :annotation-labels="props.annotationLabels" :format-annotation-count="formatAnnotationCount" :annotations="annotationMap.get(message.messageId)"
                 :message="message"
                 :on-a2-u-i-action="props.onA2UIAction" :a2ui-session="props.a2uiSession" :a2ui-disabled="props.a2uiDisabled"
                 @edit-message="
@@ -311,7 +342,7 @@ onMounted(() => {
                 >
                   <template #message="{ message: processMessage }">
                     <StructuredMessageDetails :message="processMessage" :labels="props.historyLabels" hide-run-error />
-                    <ChatBubble v-if="processMessage.content.trim() || processMessage.a2ui" :message="processMessage"
+                    <ChatBubble v-if="processMessage.content.trim() || processMessage.a2ui" :annotation-labels="props.annotationLabels" :format-annotation-count="formatAnnotationCount" :annotations="annotationMap.get(processMessage.messageId)" :message="processMessage"
                       :current-user-display-name="currentUserDisplayName" :is-streaming="processMessage.messageId === streamingAssistantMessageCode"
                       :on-a2-u-i-action="props.onA2UIAction" :a2ui-session="props.a2uiSession" :a2ui-disabled="props.a2uiDisabled"
                       @edit-message="(content: string, message: ChatMessage) => emit('edit-message', content, message)" />
@@ -350,12 +381,18 @@ onMounted(() => {
         >
           <ArrowDown :size="16" />
         </button>
+        <div v-if="annotationDraft.annotations.length" class="ef-chat__pending-annotations" :aria-label="props.annotationLabels.pendingAnnotations">
+          <div v-for="(annotation, index) in annotationDraft.annotations" :key="annotation.id">
+            <button type="button" class="ef-chat__pending-annotation-edit ef-chat__annotation-reference" :disabled="props.disabledInput || session?.status === 'ARCHIVED'" @click="editPendingAnnotation(annotation, $event)" :data-annotation-tooltip="chatAnnotationTooltip(annotation, props.annotationLabels)">{{ props.annotationLabels.annotation(index + 1) }}: {{ annotation.comment }}</button>
+            <button type="button" :aria-label="props.annotationLabels.removeAnnotation(index + 1)" @click="changeAnnotations(annotations.filter(item => item.id !== annotation.id))">×</button>
+          </div>
+        </div>
         <Composer
           :composer-key="session?.sessionId"
           :auto-focus-composer="props.autoFocusComposer"
           :composer-header="props.composerHeader"
           :disabled-input="props.disabledInput"
-          :draft="props.draft"
+          :draft="annotationDraft.content"
           :input-placeholder="props.inputPlaceholder"
           :input-suggestions="props.inputSuggestions"
           :skill-suggestion-triggers="props.skillSuggestionTriggers"
@@ -363,11 +400,11 @@ onMounted(() => {
           :queued-input-placeholder="props.queuedInputPlaceholder"
           :steering-input-placeholder="props.steeringInputPlaceholder"
           :on-paste-attachment="props.onPasteAttachment"
-          :onEditQueuedMessage="props.onEditQueuedMessage ? (id, content) => emit('edit-queued-message', id, content) : undefined"
+          :onEditQueuedMessage="props.onEditQueuedMessage ? (id, content) => emit('edit-queued-message', id, props.queuedMessages.find(item => item.id === id)?.input.content ?? content) : undefined"
           :onRemoveQueuedMessage="props.onRemoveQueuedMessage ? (id) => emit('remove-queued-message', id) : undefined"
           :queue-disabled="props.queueDisabled"
           :queued-label="props.queuedLabel"
-          :queued-messages="props.queuedMessages"
+          :queued-messages="props.queuedMessages.map(item => ({ ...item, input: { ...item.input, content: item.input.content || (item.input.annotations ?? []).map(annotation => annotation.comment).join('; ') } }))"
           :running-submit-modes="props.runningSubmitModes"
           :send-disabled="props.sendDisabled"
           :send-label="props.sendLabel"
@@ -386,7 +423,7 @@ onMounted(() => {
           :remove-attachment-label="props.removeAttachmentLabel"
           :edit-queued-label="props.editQueuedLabel"
           :remove-queued-label="props.removeQueuedLabel"
-          @draft-change="emit('draft-change', $event)"
+          @draft-change="changeAnnotatedDraft"
           @send="emit('send', $event)"
           @stop="props.onStop ? props.onStop() : emit('stop')"
         >

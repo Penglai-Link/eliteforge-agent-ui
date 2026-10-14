@@ -333,6 +333,11 @@
   );
 }
 
+:where(.ef-composer) .ef-chat__textarea:focus::placeholder {
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+}
+
 :where(.ef-composer) .ef-chat__composer-row {
   display: flex;
   flex-wrap: wrap;

@@ -29,3 +29,5 @@ export * from "./workTimeline";
 export * from "./messageProvenance";
 
 export { requestedSkillsFromDraft } from "@eliteforge/agent-ui-composer-core";
+
+export * from "./annotations";

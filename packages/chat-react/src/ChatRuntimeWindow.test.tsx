@@ -1392,3 +1392,18 @@ it("unmount detaches the transport without stopping a host-owned run", async () 
   expect(signal?.aborted).toBe(true);
   expect(stopRun).not.toHaveBeenCalled();
 });
+
+it.each(["Explain", ""])("delivers native annotation metadata separately from the body (%s)", async (content) => {
+  const { adapter } = createAdapter();
+  adapter.streamMessage = vi.fn().mockResolvedValue(completedResult("annotation-run"));
+  const annotation = {id: "a-1", messageId: "source", selectedText: "Quoted original", comment: "Why?"};
+  const encoded = content;
+  render(<ChatRuntimeWindow adapter={adapter} config={{floating: false}} initialSession={restoredSession()} draft={encoded} pendingAnnotations={[annotation]} onError={vi.fn()} />);
+  await waitFor(() => expect(adapter.loadMessages).toHaveBeenCalled());
+  expect((screen.getByRole('textbox') as HTMLTextAreaElement).value).toBe(content);
+  fireEvent.click(screen.getByRole('button', {name: 'Send'}));
+  await waitFor(() => expect(adapter.streamMessage).toHaveBeenCalled());
+  const delivered = vi.mocked(adapter.streamMessage).mock.calls[0][1];
+  expect(delivered.content).toBe(content);
+  expect(delivered.annotations).toEqual([annotation]);
+});

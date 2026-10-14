@@ -251,7 +251,8 @@ export function Composer({
   }
   function updateComposerCaret(textarea: HTMLTextAreaElement) {
     setComposerCaretAtEnd(
-      textarea.selectionStart === textarea.value.length &&
+      textarea.value.length > 0 &&
+        textarea.selectionStart === textarea.value.length &&
         textarea.selectionEnd === textarea.value.length
     );
   }

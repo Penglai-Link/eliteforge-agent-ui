@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import type { ChatAnnotation } from "@eliteforge/agent-ui-chat-core";
 import {
   AssistantReplyQueue,
   AssistantMessageStream,
@@ -186,6 +187,14 @@ const pendingAttachments = computed({
   set: (value: ChatMessageAttachment[]) => {
     if (props.pendingAttachments === undefined) internalPendingAttachments.value = value;
     props.onPendingAttachmentsChange?.(value);
+  },
+});
+const internalPendingAnnotations = ref<ChatAnnotation[]>([]);
+const pendingAnnotations = computed({
+  get: () => props.pendingAnnotations ?? internalPendingAnnotations.value,
+  set: (value: ChatAnnotation[]) => {
+    if (props.pendingAnnotations === undefined) internalPendingAnnotations.value = value;
+    props.onPendingAnnotationsChange?.(value);
   },
 });
 const attachmentUploadPending = ref(false);
@@ -397,11 +406,12 @@ function createSendInput(
 ): SendChatMessageInput | null {
   if (props.createSendInput) {
     const input = props.createSendInput(activeSession, content, attachments);
-    return input ? { ...input, requestedSkills: requestedSkillsFromDraft(content, props.config.inputSuggestions ?? [], draftSkills.value) } : null;
+    return input ? { ...input, annotations: pendingAnnotations.value, requestedSkills: requestedSkillsFromDraft(content, props.config.inputSuggestions ?? [], draftSkills.value) } : null;
   }
   const input: SendChatMessageInput = {
     clientCapabilities: { userInputRequests: true },
     content,
+    annotations: pendingAnnotations.value,
     requestedSkills: requestedSkillsFromDraft(content, props.config.inputSuggestions ?? [], draftSkills.value),
   };
   if (attachments.length) input.attachments = attachments;
@@ -562,6 +572,7 @@ watch(
       activeRunCode.value = "";
       activeRunSupportsSteer.value = null;
       pendingAttachments.value = [];
+  pendingAnnotations.value = [];
     }
     activeSessionCodeRef.value = nextSession?.sessionId ?? "";
     props.onSessionChange?.(nextSession);
@@ -775,7 +786,7 @@ watch(
 
 const sendDisabled = computed(() => {
   if (loading.value || props.config.disabledInput || userInputRequest.value) return true;
-  if (!draft.value.trim() && !pendingAttachments.value.length) return true;
+  if (!draft.value.trim() && !pendingAttachments.value.length && !pendingAnnotations.value.length) return true;
   return false;
 });
 const queueDisabled = computed(
@@ -783,7 +794,7 @@ const queueDisabled = computed(
     loading.value ||
     Boolean(props.config.disabledInput) ||
     Boolean(userInputRequest.value) ||
-    (!draft.value.trim() && !pendingAttachments.value.length) ||
+    (!draft.value.trim() && !pendingAttachments.value.length && !pendingAnnotations.value.length) ||
     !session.value,
 );
 const steerDisabled = computed(
@@ -856,7 +867,7 @@ async function runMessage(
   }
   sendInput = {...sendInput, clientCapabilities: {...sendInput.clientCapabilities, a2ui: {version: "v0.9.1", catalogIds: [AGENT_CATALOG_ID]}}, a2uiMetadata: a2uiSession.value.metadata(sendInput.metadata?.agentId as string | undefined ?? "main-agent")};
   const content = sendInput.content.trim();
-  if (!content && !sendInput.attachments?.length) {
+  if (!content && !sendInput.attachments?.length && !sendInput.annotations?.length) {
     restoreSourceSubmission(sourceSubmission, queueGeneration);
     return false;
   }
@@ -889,6 +900,7 @@ async function runMessage(
       actor: props.currentSender?.displayName ?? props.currentUserDisplayName ?? "User",
       provenance: { sender: props.currentSender ?? { kind: "user", displayName: props.currentUserDisplayName || "User" } },
       channel: "conversation",
+      annotations: sendInput.annotations ?? [],
       content,
       createdAt: optimisticCreatedAt,
       id: -Date.now() - optimisticMessageSequenceRef.value,
@@ -1113,6 +1125,7 @@ async function runMessage(
         draftSkills.value = sendInput.requestedSkills ?? [];
         draft.value = content;
         pendingAttachments.value = [...(sendInput.attachments ?? []), ...pendingAttachments.value];
+        pendingAnnotations.value = [...(sendInput.annotations ?? []), ...pendingAnnotations.value];
       }
     }
     if (settlement.canCommit && !isRunAlreadyActiveError(error)) {
@@ -1171,11 +1184,12 @@ async function handleSend() {
   if (!activeSession) return;
   const content = draft.value.trim();
   const attachments = pendingAttachments.value;
-  if (!content && !attachments.length) return;
+  if (!content && !attachments.length && !pendingAnnotations.value.length) return;
   const sendInput = createSendInput(activeSession, content, attachments);
   if (!sendInput) return;
   draft.value = "";
   pendingAttachments.value = [];
+  pendingAnnotations.value = [];
   if (runActive.value) {
     enqueueSubmission(activeSession, sendInput);
     return;
@@ -1189,11 +1203,12 @@ async function handleQueue() {
   if (!activeSession) return;
   const content = draft.value.trim();
   const attachments = pendingAttachments.value;
-  if (!content && !attachments.length) return;
+  if (!content && !attachments.length && !pendingAnnotations.value.length) return;
   const sendInput = createSendInput(activeSession, content, attachments);
   if (!sendInput) return;
   draft.value = "";
   pendingAttachments.value = [];
+  pendingAnnotations.value = [];
   if (runActive.value) {
     enqueueSubmission(activeSession, sendInput);
     return;
@@ -1207,7 +1222,7 @@ async function handleSteer() {
   if (!activeSession) return;
   const content = draft.value.trim();
   const attachments = pendingAttachments.value;
-  if (!content && !attachments.length) return;
+  if (!content && !attachments.length && !pendingAnnotations.value.length) return;
   const sendInput = createSendInput(activeSession, content, attachments);
   if (!sendInput) return;
   const expectedRunId = effectiveActiveRunCode.value;
@@ -1215,6 +1230,7 @@ async function handleSteer() {
   const queueGeneration = queueGenerationRef.value;
   draft.value = "";
   pendingAttachments.value = [];
+  pendingAnnotations.value = [];
   if (
     !runActive.value ||
     !expectedRunId ||
@@ -1281,6 +1297,7 @@ async function handleSteer() {
         draftSkills.value = sendInput.requestedSkills ?? [];
         draft.value = content;
         pendingAttachments.value = attachments;
+        pendingAnnotations.value = sendInput.annotations ?? [];
       }
       const message =
         error instanceof Error ? error.message : "Chat steer failed";
@@ -1447,6 +1464,7 @@ function handleEditQueuedMessage(id: string, content: string) {
   const input = queuedSubmissions.value.find(item => item.id === id)?.input;
   draftSkills.value = input?.requestedSkills ?? [];
   pendingAttachments.value = input?.attachments ?? [];
+  pendingAnnotations.value = input?.annotations ?? [];
   replaceQueuedSubmissions(
     removeQueuedChatSubmission(queuedSubmissions.value, id),
   );
@@ -1551,6 +1569,7 @@ function handleNewSession() {
   liveAguiAnchorMessageCodes.value = {};
   liveAguiPendingAnchorMessageCode.value = "";
   pendingAttachments.value = [];
+  pendingAnnotations.value = [];
   activeSessionCodeRef.value = "";
   activeRunCode.value = "";
   activeRunSupportsSteer.value = null;
@@ -1618,6 +1637,7 @@ function handleDraftChange(value: string) {
 
 function handleEditMessage(content: string, message?: ChatMessage) {
   draftSkills.value = message?.requestedSkills ?? [];
+  pendingAnnotations.value = message?.annotations ?? [];
   draft.value = content;
 }
 
@@ -1646,6 +1666,8 @@ const panelCommonProps = computed(() => ({
   autoFocusComposer: props.autoFocusComposer,
   composerHeader: props.composerHeader,
   pendingAttachments: pendingAttachments.value,
+  pendingAnnotations: pendingAnnotations.value,
+  onPendingAnnotationsChange: (value: ChatAnnotation[]) => { pendingAnnotations.value = value; },
   onRemoveAttachment: (id: string) => { pendingAttachments.value = pendingAttachments.value.filter(item => item.id !== id); },
   onAttachFile: handleAttachmentUpload,
   showAttachmentControl: props.showAttachmentControl && Boolean(activeAdapter.value.uploadAttachment),
@@ -1658,6 +1680,7 @@ const panelCommonProps = computed(() => ({
   emptyDescription: props.emptyDescription ?? "Create a session to start chatting.",
   emptyTitle: props.emptyTitle,
   formatAnnotationCount: props.formatAnnotationCount,
+  annotationLabels: props.config.annotationLabels,
   inputPlaceholder: props.config.inputPlaceholder,
   inputSuggestions: props.config.inputSuggestions,
   skillSuggestionTriggers: props.config.skillSuggestionTriggers,

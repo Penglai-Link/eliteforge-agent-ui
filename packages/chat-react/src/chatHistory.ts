@@ -47,7 +47,7 @@ export function buildChatHistoryTurns(
         id: `turn-${message.messageId}`,
         messageCodes: [message.messageId],
         userMessageCode: message.messageId,
-        userPreview: messagePreview(message.content, 72) || message.provenance?.sender.displayName || message.actor || "User",
+        userPreview: messagePreview(message.content || (message.annotations ?? []).map(item => item.comment).join("; "), 72) || message.provenance?.sender.displayName || message.actor || "User",
       };
       return;
     }

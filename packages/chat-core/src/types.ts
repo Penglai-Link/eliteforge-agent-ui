@@ -1,3 +1,4 @@
+import type { ChatAnnotation, ChatAnnotationLabels } from "./annotations";
 import type { ComposerRunningSubmitMode, ComposerSubmitMode, ComposerAttachmentKind, ComposerAttachment, ComposerSuggestion, ComposerSuggestionLabels } from "@eliteforge/agent-ui-composer-core";
 import type { ActionMetadata } from "@eliteforge/agent-ui-a2ui-core";
 import type { ChatA2uiState, ChatA2uiActionInput } from "./a2ui";
@@ -92,6 +93,7 @@ export interface MessageProvenance {
 }
 
 export interface ChatMessage {
+  annotations?: ChatAnnotation[];
   /** Display-only response to an interaction; never sent as another chat turn. */
   interactionResponse?: { requestId: string; answeredAt?: number; rows: { label: string; value: string }[] };
   provenance?: MessageProvenance;
@@ -281,6 +283,7 @@ export interface ChatWorkRailLabels {
 }
 
 export interface SendChatMessageInput {
+  annotations?: ChatAnnotation[];
   content: string;
   requestedSkills?: string[];
   pageContext?: {
@@ -500,6 +503,7 @@ export interface ChatFloatingState {
 }
 
 export interface ChatClientConfig {
+  annotationLabels?: ChatAnnotationLabels;
   inputSuggestions?: ChatInputSuggestion[];
   skillSuggestionTriggers?: Array<"$" | "/">;
   inputSuggestionLabels?: ChatInputSuggestionLabels;

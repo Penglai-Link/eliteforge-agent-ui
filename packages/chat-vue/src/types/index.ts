@@ -5,6 +5,8 @@ import type {
   AssistantReplyEffect,
   ChatAdapter,
   ChatAttachmentLabels,
+  ChatAnnotationLabels,
+  ChatAnnotation,
   ChatAguiStreamEvent,
   ChatClientConfig,
   ChatDebugOptions,
@@ -26,6 +28,9 @@ import type {
 } from "@eliteforge/agent-ui-chat-core";
 
 export interface ChatPanelProps extends Pick<ComposerVueProps, "pendingAttachments" | "showAttachmentControl" | "attachmentUploadPending" | "onAttachFile" | "onRemoveAttachment" | "attachLabel" | "uploadingLabel" | "removeAttachmentLabel" | "editQueuedLabel" | "removeQueuedLabel" | "queuedInputPlaceholder" | "steeringInputPlaceholder"> {
+  pendingAnnotations?: ChatAnnotation[];
+  onPendingAnnotationsChange?: (annotations: ChatAnnotation[]) => void;
+  annotationLabels?: ChatAnnotationLabels;
   a2uiSession?: ChatA2uiSession;
   a2uiDisabled?: boolean;
   onA2UIAction?: ActionHandler;
@@ -91,6 +96,8 @@ export interface ChatPanelProps extends Pick<ComposerVueProps, "pendingAttachmen
 export type ToastLikeCallback = (message: string, title?: string) => void;
 
 export interface ChatRuntimeWindowProps {
+  pendingAnnotations?: ChatAnnotation[];
+  onPendingAnnotationsChange?: (annotations: ChatAnnotation[]) => void;
   /** Forward A2UI actions to the host transport. */
   a2uiSession?: ChatA2uiSession;
   a2uiDisabled?: boolean;

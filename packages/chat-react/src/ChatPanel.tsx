@@ -1,3 +1,4 @@
+import { chatAnnotationsByMessage, chatAnnotationForHref, chatAnnotationTooltip, mountChatAnnotationSelection, mountChatAnnotationPreviews, openChatAnnotationEditor, defaultChatAnnotationLabels, type ChatAnnotationLabels, type ChatAnnotation } from "@eliteforge/agent-ui-chat-core";
 import { Composer, type ComposerReactProps } from "@eliteforge/agent-ui-composer-react";
 import { messageActorName, messageSenderIsHuman, messageSenderAvatar } from "@eliteforge/agent-ui-chat-core";
 import { interactionMessages, historyWorkGroups, historyWorkCompleted, historyCoversAguiWork, currentAguiTerminalEvent, interactionToolSummary } from "@eliteforge/agent-ui-chat-core";
@@ -116,6 +117,24 @@ export interface ChatMarkdownLinkProps {
 
 export type ChatMarkdownLinkRenderer = (props: ChatMarkdownLinkProps) => ReactNode;
 
+const AnnotationLabelsContext = createContext(defaultChatAnnotationLabels);
+const AnnotationContext = createContext<ChatAnnotation[]>([]);
+
+function AnnotationLink({ href, children }: { href?: string; children?: ReactNode }) {
+  const annotations = useContext(AnnotationContext);
+  const renderer = useContext(MarkdownLinkRendererContext);
+  const labels = useContext(AnnotationLabelsContext);
+  const annotation = chatAnnotationForHref(href, annotations);
+  if (annotation) return <span className="ef-chat__annotation-reference" tabIndex={0} role="button" data-annotation-source-id={annotation.messageId} data-annotation-tooltip={chatAnnotationTooltip(annotation, labels)}>{children}</span>;
+  return renderer ? renderer({ href, children }) : <a href={href}>{children}</a>;
+}
+
+function AnnotationBadges({ annotations, formatCount }: { annotations: ChatAnnotation[]; formatCount: (n: number) => string }) {
+  const labels = useContext(AnnotationLabelsContext);
+  if (!annotations.length) return null;
+  return <div className="ef-chat__text-annotations"><span className="ef-chat__annotation-reference ef-chat__inspection-count" tabIndex={0} role="note" data-annotation-tooltip={annotations.map(item => chatAnnotationTooltip(item, labels)).join("\n\n")}><MessageSquareText size={16} /> {formatCount(annotations.length)}</span></div>;
+}
+
 const MarkdownLinkRendererContext = createContext<ChatMarkdownLinkRenderer | undefined>(
   undefined,
 );
@@ -129,14 +148,12 @@ function MarkdownBlock({
   emptyMessage: string;
   streaming?: boolean;
 }) {
-  const renderLink = useContext(MarkdownLinkRendererContext);
-
   return (
-    <div className="markdown-body">
+    <div className="markdown-body" data-chat-annotation-source="true">
       <MarkdownSourceContext.Provider value={{ content: content || emptyMessage, streaming }}>
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
-        components={{ pre: MermaidPre, ...(renderLink ? { a: renderLink } : {}) }}
+        components={{ pre: MermaidPre, a: AnnotationLink }}
       >
         {content || emptyMessage}
       </ReactMarkdown>
@@ -456,6 +473,9 @@ function ChatBubble({
   onEditMessage?: (content: string, message?: ChatMessage) => void;
 }) {
   const isUser = message.role === "USER";
+  const turnAnnotations = useContext(AnnotationContext);
+  const annotationLabels = useContext(AnnotationLabelsContext);
+  const missingCitations = isUser ? [] : turnAnnotations.filter(annotation => !message.content.includes(`#chat-annotation-${annotation.id}`));
   const actorName = messageActorName(message, currentUserDisplayName);
   const senderAvatar = messageSenderAvatar(message);
   return (
@@ -479,7 +499,7 @@ function ChatBubble({
           </div>
         </div>
         {isUser ? (
-          <div className="ef-chat__message-body" data-history-interaction-id={message.interactionResponse?.requestId}>
+          <div className="ef-chat__message-body" data-chat-annotation-source={message.interactionResponse ? undefined : "true"} data-history-interaction-id={message.interactionResponse?.requestId}>
             {message.interactionResponse ? <dl className="ef-chat__interaction-summary">{message.interactionResponse.rows.map((row, index) => <div key={index}><dt>{row.label}</dt><dd>{row.value}</dd></div>)}</dl> : message.content}
           </div>
         ) : (
@@ -489,6 +509,7 @@ function ChatBubble({
             emptyMessage={message.a2ui ? "" : emptyAssistantMessage}
           />
         )}
+        {missingCitations.length ? <div className="ef-chat__reply-annotations">{missingCitations.map(annotation => <span key={annotation.id} role="button" data-annotation-source-id={annotation.messageId} tabIndex={0} className="ef-chat__annotation-reference" data-annotation-tooltip={chatAnnotationTooltip(annotation, annotationLabels)}>{annotationLabels.annotation(turnAnnotations.indexOf(annotation) + 1)}</span>)}</div> : null}
         {message.a2ui ? <ChatA2UI message={message} runtime={a2uiSession} disabled={a2uiDisabled} onAction={onA2UIAction} /> : null}
       </article>
       <div className="ef-chat__message-actions ef-chat__message-actions--outside">
@@ -1241,6 +1262,9 @@ function WaitingRail({ labels = defaultWorkRailLabels }: { labels?: ChatWorkRail
 }
 
 export interface ChatPanelProps extends Pick<ComposerReactProps, "pendingAttachments" | "showAttachmentControl" | "attachmentUploadPending" | "onAttachFile" | "onRemoveAttachment" | "attachLabel" | "uploadingLabel" | "removeAttachmentLabel" | "editQueuedLabel" | "removeQueuedLabel"> {
+  pendingAnnotations?: ChatAnnotation[];
+  onPendingAnnotationsChange?: (annotations: ChatAnnotation[]) => void;
+  annotationLabels?: ChatAnnotationLabels;
   /** Show the composer before a persisted session exists. */
   allowDraftSession?: boolean;
   attachmentDownloader?: (attachment: ChatMessageAttachment) => Promise<Blob>;
@@ -1314,6 +1338,9 @@ export interface ChatPanelProps extends Pick<ComposerReactProps, "pendingAttachm
 
 export function ChatPanel({
   pendingAttachments, showAttachmentControl, attachmentUploadPending, onAttachFile, onRemoveAttachment, attachLabel, uploadingLabel, removeAttachmentLabel, editQueuedLabel, removeQueuedLabel,
+  pendingAnnotations: controlledPendingAnnotations,
+  onPendingAnnotationsChange,
+  annotationLabels = defaultChatAnnotationLabels,
   allowDraftSession = false,
   attachmentDownloader,
   attachmentLabels = defaultAttachmentLabels,
@@ -1383,7 +1410,39 @@ export function ChatPanel({
   onAnswerUserInput,
   renderMarkdownLink,
 }: ChatPanelProps) {
+  const [internalAnnotations, setInternalAnnotations] = useState<ChatAnnotation[]>([]);
+  const annotations = controlledPendingAnnotations ?? internalAnnotations;
+  const annotationsRef = useRef(annotations);
+  annotationsRef.current = annotations;
+  const changeAnnotationsRef = useRef((next: ChatAnnotation[]) => {});
+  changeAnnotationsRef.current = next => {
+    annotationsRef.current = next;
+    if (controlledPendingAnnotations === undefined) setInternalAnnotations(next);
+    onPendingAnnotationsChange?.(next);
+  };
+  const annotationDraft = { content: draft, annotations };
+  const annotationEditorRef = useRef<(() => void) | null>(null);
+  useEffect(() => {
+    setInternalAnnotations([]);
+    return () => { annotationEditorRef.current?.(); };
+  }, [session?.sessionId]);
+  useEffect(() => () => { annotationEditorRef.current?.(); }, [session?.status, disabledInput]);
+  function editPendingAnnotation(annotation: ChatAnnotation, anchor: HTMLElement) {
+    annotationEditorRef.current?.();
+    annotationEditorRef.current = openChatAnnotationEditor(anchor, annotation, updated => {
+      changeAnnotationsRef.current(annotationsRef.current.map(item => item.id === updated.id ? updated : item));
+    }, annotationLabels);
+  }
+  const annotationMap = useMemo(() => chatAnnotationsByMessage(messages), [messages]);
+  const annotationRootRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => annotationRootRef.current ? mountChatAnnotationPreviews(annotationRootRef.current) : undefined, []);
   const transcriptRef = useRef<HTMLElement | null>(null);
+  useEffect(() => {
+    if (!transcriptRef.current || disabledInput || session?.status === "ARCHIVED") return;
+    return mountChatAnnotationSelection(transcriptRef.current, annotation => {
+      changeAnnotationsRef.current([...annotationsRef.current, annotation]);
+    }, annotationLabels);
+  }, [session?.sessionId, session?.status, disabledInput, annotationLabels, allowDraftSession]);
   const [showJumpButton, setShowJumpButton] = useState(false);
   const [previewImage, setPreviewImage] = useState<{ alt: string; source: string } | null>(null);
   const autoStickToBottomRef = useRef(true);
@@ -1509,8 +1568,9 @@ export function ChatPanel({
   }, [session?.sessionId]);
 
   return (
+    <AnnotationLabelsContext.Provider value={annotationLabels}>
     <MarkdownLinkRendererContext.Provider value={renderMarkdownLink}>
-    <div className="ef-chat" data-theme-part="chat" data-theme-anchor="chat">
+    <div ref={annotationRootRef} className="ef-chat" data-theme-part="chat" data-theme-anchor="chat">
       <span
         aria-hidden="true"
         className="ef-chat__theme-effect-layer"
@@ -1569,13 +1629,14 @@ export function ChatPanel({
                       key={turn.id}
                     >
                       {(messagesByTurnId.get(turn.id) ?? []).map((message) => (
-                        <Fragment key={message.messageId}>
+                        <AnnotationContext.Provider key={message.messageId} value={annotationMap.get(message.messageId) ?? []}>
                           {showAgui ? workTimeline.before.get(message.messageId)?.map(renderWorkRun) : null}
                           {!showAgui || !workTimeline.processMessageIds.has(message.messageId) ? <>
                           {!workTimeline.managedMessageIds.has(message.messageId) && historyWork.has(message.messageId) ? <HistoryWorkRail messages={historyWork.get(message.messageId)!} labels={workRailLabels} historyLabels={historyLabels} /> : null}
                           <StructuredMessageDetails message={message} labels={workRailLabels} historyLabels={historyLabels} hasRunError={displayedErrorRuns.has(message.runId ?? "") || lastHistoryErrorByRun.get(message.runId) !== message.messageId} />
                           {message.role === "USER" ? (
                             <div className="ef-chat__user-message-group">
+                              <AnnotationBadges annotations={message.annotations ?? []} formatCount={formatAnnotationCount} />
                               <ChatAttachments
                                 attachments={message.attachments}
                                 attachmentLabels={attachmentLabels}
@@ -1611,7 +1672,7 @@ export function ChatPanel({
                             <WaitingRail labels={workRailLabels} />
                           ) : null}
                           {showAgui ? workTimeline.after.get(message.messageId)?.map(renderWorkRun) : null}
-                        </Fragment>
+                        </AnnotationContext.Provider>
                       ))}
                     </section>
                   ))
@@ -1648,13 +1709,19 @@ export function ChatPanel({
                 <ArrowDown size={16} />
               </button>
             ) : null}
+            {annotationDraft.annotations.length ? <div className="ef-chat__pending-annotations" aria-label={annotationLabels.pendingAnnotations}>
+              {annotationDraft.annotations.map((annotation, index) => <div key={annotation.id}>
+                <button type="button" className="ef-chat__pending-annotation-edit ef-chat__annotation-reference" disabled={disabledInput || session?.status === "ARCHIVED"} onClick={event => editPendingAnnotation(annotation, event.currentTarget)} data-annotation-tooltip={chatAnnotationTooltip(annotation, annotationLabels)}>{annotationLabels.annotation(index + 1)}: {annotation.comment}</button>
+                <button type="button" aria-label={annotationLabels.removeAnnotation(index + 1)} onClick={() => changeAnnotationsRef.current(annotations.filter(item => item.id !== annotation.id))}>×</button>
+              </div>)}
+            </div> : null}
             <Composer
               composerKey={session?.sessionId}
               autoFocusComposer={autoFocusComposer}
               composerRef={composerRef}
               composerHeader={composerHeader}
               disabledInput={disabledInput}
-              draft={draft}
+              draft={annotationDraft.content}
               footerAddon={footerAddon}
               inputPlaceholder={inputPlaceholder}
               inputSuggestions={inputSuggestions}
@@ -1664,13 +1731,13 @@ export function ChatPanel({
               steeringInputPlaceholder={steeringInputPlaceholder}
               onDraftChange={onDraftChange}
               onPasteAttachment={onPasteAttachment}
-              onEditQueuedMessage={onEditQueuedMessage}
+              onEditQueuedMessage={onEditQueuedMessage ? (id, content) => onEditQueuedMessage(id, queuedMessages.find(item => item.id === id)?.input.content ?? content) : undefined}
               onRemoveQueuedMessage={onRemoveQueuedMessage}
               onSend={onSend}
               onStop={onStop}
               queueDisabled={queueDisabled}
               queuedLabel={queuedLabel}
-              queuedMessages={queuedMessages}
+              queuedMessages={queuedMessages.map(item => ({ ...item, input: { ...item.input, content: item.input.content || (item.input.annotations ?? []).map(annotation => annotation.comment).join("; ") } }))}
               runningSubmitModes={runningSubmitModes}
               sendDisabled={sendDisabled}
               sendLabel={sendLabel}
@@ -1727,5 +1794,6 @@ export function ChatPanel({
       )}
     </div>
     </MarkdownLinkRendererContext.Provider>
+    </AnnotationLabelsContext.Provider>
   );
 }

@@ -832,3 +832,75 @@ it("retains structured result content beside text without adding empty history s
   expect(container.querySelector(".ef-chat__history-details pre")?.textContent).toContain('"answer": 42');
   expect(screen.getByText("Result")).toBeTruthy();
 });
+
+it("restores native annotation metadata and previews reply citations", () => {
+  const annotation = { id: "a-1", messageId: "old", selectedText: "Original text", comment: "Explain the check" };
+  const encoded = "Please explain";
+  renderPanel({draft: encoded, pendingAnnotations: [annotation], messages: [{...message("USER", encoded), annotations: [annotation], messageId: "annotation-user"}, {...message("ASSISTANT", "[Annotation 1](#chat-annotation-a-1) Here is why."), messageId: "annotation-assistant"}]});
+  expect(document.querySelector(".ef-chat__message-body")?.textContent).toBe("Please explain");
+  expect(document.body.textContent).not.toContain("eliteforge-chat-annotations:v1");
+  const citation = screen.getByText("Annotation 1");
+  fireEvent.mouseOver(citation);
+  expect(screen.getByRole("tooltip").textContent).toContain("Original text");
+  expect(screen.getByRole("tooltip").textContent).toContain("Explain the check");
+  fireEvent.keyDown(document, {key: "Escape"});
+  expect(screen.queryByRole("tooltip")).toBeNull();
+  fireEvent.focus(citation);
+  expect(screen.getByRole("tooltip")).toBeTruthy();
+  fireEvent.keyDown(document, {key: "Escape"});
+  expect(screen.queryByRole("tooltip")).toBeNull();
+});
+
+it("keeps both comment references available when the assistant omits inline citations", () => {
+  const annotations = [
+    {id: "a-1", messageId: "source", selectedText: "First selection", comment: "First comment"},
+    {id: "a-2", messageId: "source", selectedText: "Second selection", comment: "Second comment"},
+  ];
+  renderPanel({draft: "", showHistoryRail: false, messages: [
+    {...message("USER", "Explain"), annotations, messageId: "annotated-user"},
+    {...message("ASSISTANT", "An answer without citation markup."), messageId: "annotated-reply"},
+  ]});
+  fireEvent.focus(screen.getByText("Annotation 2"));
+  expect(screen.getByRole('tooltip').textContent).toContain('Second selection');
+  expect(screen.getByRole('tooltip').textContent).toContain('Second comment');
+});
+
+it("edits only an unsent comment, retaining its quote and identity; cancel leaves it unchanged", () => {
+  const annotation = {id: 'a-edit', messageId: 'source', selectedText: 'Selected source', comment: 'Original comment'};
+  const onDraftChange = vi.fn();
+  renderPanel({draft: 'Follow up', pendingAnnotations: [annotation], onPendingAnnotationsChange: onDraftChange});
+  fireEvent.click(screen.getByRole('button', {name: 'Annotation 1: Original comment'}));
+  const editor = screen.getByRole('dialog', {name: 'Comment'});
+  const input = within(editor).getByRole('textbox') as HTMLTextAreaElement;
+  expect(input.value).toBe('Original comment');
+  expect(editor.textContent).toContain('Selected source');
+  fireEvent.input(input, {target: {value: 'Updated comment'}});
+  fireEvent.click(within(editor).getByRole('button', {name: 'Save'}));
+  expect(onDraftChange.mock.calls[0][0]).toEqual([{...annotation, comment: 'Updated comment'}]);
+  onDraftChange.mockClear();
+  fireEvent.click(screen.getByRole('button', {name: 'Annotation 1: Original comment'}));
+  fireEvent.input(screen.getByRole('dialog').querySelector('textarea')!, {target: {value: 'Discard this'}});
+  fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', {name: 'Cancel'}));
+  expect(onDraftChange).not.toHaveBeenCalled();
+  expect(screen.queryByRole('dialog')).toBeNull();
+});
+
+it("jumps from a reply annotation to its source message with click or keyboard", () => {
+  const annotation = {id: 'a-jump', messageId: 'source-message', selectedText: 'Original source', comment: 'Explain'};
+  const view = renderPanel({showHistoryRail: false, messages: [
+    {...message('ASSISTANT', 'Original source'), messageId: 'source-message'},
+    {...message('USER', 'Question'), annotations: [annotation], messageId: 'question'},
+    {...message('ASSISTANT', '[Annotation 1](#chat-annotation-a-jump) Answer'), messageId: 'reply'},
+  ]});
+  const source = document.querySelector('[data-message-id="source-message"]') as HTMLElement;
+  source.scrollIntoView = vi.fn();
+  const reference = screen.getByRole('button', {name: 'Annotation 1'});
+  fireEvent.click(reference);
+  expect(source.scrollIntoView).toHaveBeenCalledWith({behavior: 'smooth', block: 'center', inline: 'nearest'});
+  expect(source.classList.contains('ef-chat__annotation-source-highlight')).toBe(true);
+  expect(document.activeElement).toBe(source);
+  fireEvent.keyDown(reference, {key: 'Enter'});
+  expect(source.scrollIntoView).toHaveBeenCalledTimes(2);
+  view.unmount();
+  expect(source.classList.contains('ef-chat__annotation-source-highlight')).toBe(false);
+});

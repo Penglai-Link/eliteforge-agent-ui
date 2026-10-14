@@ -143,3 +143,23 @@ it("reports loading while restoring history, then reports the authoritative idle
   await act(async () => resolve(page()));
   expect(onRunStateChange.mock.lastCall?.[0]).toMatchObject({ loading: false, active: false, sessionId: "S" });
 });
+
+it("restores native annotation metadata when reopening a historical conversation", async () => {
+  const adapter = host();
+  const snapshot = page("S", "[Annotation 1](#chat-annotation-a-native) Answer");
+  const annotation = {id: "a-native", messageId: "source-native", selectedText: "Original quote", comment: "Saved comment"};
+  snapshot.records.messages[0].annotations = [annotation];
+  snapshot.records.messages.unshift({id: "source-native", runId: "R", stepId: null, role: "Assistant", content: [{type: "Text", text: "Original quote"}], structured: null, status: "Completed", createdAtMs: 0, annotations: []});
+  vi.mocked(adapter.loadHistory!).mockImplementation(async () => JSON.parse(JSON.stringify(snapshot)));
+  const view = render(<ChatRuntimeWindow adapter={adapter} initialSession={session} config={{floating: false}} onError={vi.fn()} />);
+  await screen.findByText("Original user", {selector: '.ef-chat__message-body'});
+  view.unmount();
+  render(<ChatRuntimeWindow adapter={adapter} initialSession={session} config={{floating: false}} onError={vi.fn()} />);
+  const citation = await screen.findByRole('button', {name: 'Annotation 1'});
+  expect(document.querySelector('.ef-chat__message-body')?.textContent).toBe('Original user');
+  fireEvent.mouseOver(citation);
+  expect(screen.getByRole('tooltip').textContent).toContain('Original quote');
+  expect(screen.getByRole('tooltip').textContent).toContain('Saved comment');
+  expect(adapter.loadMessages).not.toHaveBeenCalled();
+  expect(adapter.loadProtocolEvents).not.toHaveBeenCalled();
+});

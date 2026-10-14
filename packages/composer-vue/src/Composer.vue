@@ -141,6 +141,7 @@ function updateComposerCaret(eventOrTextarea: Event | HTMLTextAreaElement) {
       ? eventOrTextarea
       : (eventOrTextarea.currentTarget as HTMLTextAreaElement);
   composerCaretAtEnd.value =
+    textarea.value.length > 0 &&
     textarea.selectionStart === textarea.value.length &&
     textarea.selectionEnd === textarea.value.length;
 }

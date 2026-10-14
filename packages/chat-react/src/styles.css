@@ -1,3 +1,4 @@
+@import "../../chat-core/src/annotations.css";
 @import "../../composer-react/dist/styles.css";
 @import "../../chat-core/dist/mermaid.css";
 @import "../../chat-theme/src/primitives.css";
@@ -152,6 +153,7 @@
 }
 
 .ef-chat__transcript {
+  min-width: 0;
   flex: 1;
   overflow: auto;
   background: var(--agent-ui-chat-transcript-bg, var(--agent-ui-chat-surface-muted));
@@ -773,7 +775,8 @@
 }
 
 .ef-chat__rail {
-  max-width: 920px;
+  min-width: 0;
+  max-width: min(920px, 100%);
   padding-left: 0;
 }
 
@@ -911,7 +914,8 @@
 }
 
 .ef-chat__rail-stack {
-  max-width: 920px;
+  min-width: 0;
+  max-width: min(920px, 100%);
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -963,6 +967,7 @@
 
 .ef-chat__rail-card-list {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 4px;
 }
 
@@ -1643,3 +1648,37 @@
 .ef-chat__rail-current--working .ef-chat__rail-current-text { animation: ef-chat-working 1.5s ease-in-out infinite; }
 @keyframes ef-chat-working { 0%, 100% { opacity: 1; } 50% { opacity: .35; } }
 @media (prefers-reduced-motion: reduce) { .ef-chat__rail-current--working .ef-chat__rail-current-text { animation: none; } }
+
+/* Keep long transcript content inside its panel, including delegated tool tasks. */
+.ef-chat__turn,
+.ef-chat__message-entry,
+.ef-chat__message,
+.ef-chat__rail-entry,
+.ef-chat__rail-entry-main,
+.ef-chat__rail-entry-summary,
+.ef-chat__tool,
+.ef-chat__tool-toggle-main,
+.ef-chat__tool-toggle-text,
+.ef-chat__reasoning-inline .markdown-body {
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.ef-chat__message,
+.ef-chat__rail-entry-summary,
+.ef-chat__rail-summary-label,
+.ef-chat__rail-entry-label,
+.ef-chat .markdown-body {
+  overflow-wrap: anywhere;
+}
+
+.ef-chat__rail-entry-summary,
+.ef-chat__rail-entry-summary .markdown-body {
+  white-space: normal;
+}
+
+.ef-chat .markdown-body pre {
+  max-width: 100%;
+  overflow-x: auto;
+}
