@@ -86,12 +86,17 @@ export function historyMessages(page: SessionHistory, labels?: ChatUserInputLabe
   const messages: ChatMessage[] = page.records.messages.map((message) => {
     const step = message.stepId ? steps.get(message.stepId) ?? null : null;
     const text = historyText(message.content);
+    // Older hosts delivered detached child completion through user steering.
+    // Restore its host attribution when replaying those durable records.
+    const provenance = message.role === "User" && /^后台子执行已完成（childRunId=[^，]+，status=/.test(text)
+      ? { sender: { kind: "SYSTEM", displayName: "系统通知" }, source: "ChildRunCompletion" }
+      : message.provenance;
     // Some failed attempts store the run diagnostic as assistant text as well.
     // Render that through the error view once, preserving the source record.
     const isRunDiagnostic = message.role === "Assistant" && text === runs.get(message.runId)?.error;
     return {
       id: message.id, messageId: message.id, sessionId: page.sessionId, runId: message.runId,
-      role: message.role === "User" ? "USER" : "ASSISTANT", channel: "history", actor: message.provenance?.sender.displayName ?? (message.role === "User" ? "User" : "Assistant"), provenance: message.provenance,
+      role: message.role === "User" ? "USER" : "ASSISTANT", channel: "history", actor: provenance?.sender.displayName ?? (message.role === "User" ? "User" : "Assistant"), provenance,
       requestedSkills: message.requestedSkills ?? [], annotations: message.annotations ?? [],
       content: isRunDiagnostic ? "" : text, inputTokens: step?.usage?.inputTokens, outputTokens: step?.usage?.outputTokens,
       totalTokens: step?.usage ? step.usage.inputTokens + step.usage.outputTokens : null,

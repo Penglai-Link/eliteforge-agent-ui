@@ -82,6 +82,14 @@
   padding: var(--agent-ui-composer-queue-padding, 6px 8px);
 }
 
+:where(.ef-composer) .ef-chat__queued-message[draggable="true"] {
+  cursor: grab;
+}
+
+:where(.ef-composer) .ef-chat__queued-message[data-dragging="true"] {
+  opacity: 0.5;
+}
+
 :where(.ef-composer) .ef-chat__queued-message-content {
   min-width: 0;
   flex: 1;
@@ -248,26 +256,9 @@
   pointer-events: none;
 }
 
-:where(.ef-composer)
-  .ef-chat__composer-editor[data-caret-at-end="true"]
-  .ef-chat__textarea {
-  caret-color: transparent;
-}
-
-:where(.ef-composer) .ef-chat__composer-overlay-caret {
-  display: inline-block;
-  height: var(--agent-ui-composer-caret-height, 1em);
-  border-left: var(--agent-ui-composer-caret-width, 1px) solid currentColor;
-  margin-left: calc(-1 * var(--agent-ui-composer-caret-width, 1px));
-  vertical-align: text-bottom;
-  animation: ef-chat-composer-caret-blink
-    var(--agent-ui-composer-caret-duration, 1s) steps(2, start) infinite;
-}
-
-@keyframes ef-chat-composer-caret-blink {
-  to {
-    visibility: hidden;
-  }
+:where(.ef-composer) .ef-chat__composer-editor:not([data-has-tokens="true"])
+  .ef-chat__composer-overlay {
+  display: none;
 }
 
 :where(.ef-composer) .ef-chat__skill-token {
@@ -314,6 +305,12 @@
     var(--agent-ui-chat-text-color, var(--color-on-surface, #1c1b1b))
   );
   outline: none;
+}
+
+:where(.ef-composer) .ef-chat__composer-editor:not([data-has-tokens="true"])
+  .ef-chat__textarea {
+  color: inherit;
+  -webkit-text-fill-color: currentColor;
 }
 
 :where(.ef-composer) .ef-chat__textarea::placeholder {
@@ -639,12 +636,6 @@
     --agent-ui-chat-text,
     var(--agent-ui-chat-text-color, var(--color-on-surface, #1c1b1b))
   );
-}
-
-@media (prefers-reduced-motion: reduce) {
-  :where(.ef-composer) .ef-chat__composer-overlay-caret {
-    animation: none;
-  }
 }
 
 :where(.ef-composer) .ef-chat__button_send {

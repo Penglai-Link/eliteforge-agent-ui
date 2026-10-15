@@ -26,6 +26,7 @@ import {
   type SessionHistory,
   type HistoryCursor,
   removeQueuedChatSubmission,
+  reorderQueuedChatSubmission,
   takeNextQueuedChatSubmission,
   type ChatFloatingState,
   type ChatAdapter,
@@ -1496,28 +1497,36 @@ export function ChatRuntimeWindow({
     await runMessage(activeSession, sendInput);
   }
 
-  async function handleSteer() {
-    if (steeringRef.current || steerDisabled || userInputRequest || userInputAnswerPending) return;
+  async function handleSteer(queuedId?: string) {
+    if (steeringRef.current || (!queuedId && steerDisabled) || !canSteer || userInputRequest || userInputAnswerPending) return;
     const activeSession = session;
     if (!activeSession) return;
-    const content = draft.trim();
-    if (!content && !pendingAttachments.length && !pendingAnnotations.length) return;
-    const sendInput = createSendInput(activeSession, content, pendingAttachments);
+    const queuedIndex = queuedId ? queuedSubmissionsRef.current.findIndex(item => item.id === queuedId && item.sessionId === activeSession.sessionId) : -1;
+    if (queuedId && queuedIndex < 0) return;
+    const queuedSubmission = queuedIndex >= 0 ? queuedSubmissionsRef.current[queuedIndex] : null;
+    const content = queuedSubmission?.input.content ?? draft.trim();
+    if (!queuedSubmission && !content && !pendingAttachments.length && !pendingAnnotations.length) return;
+    const sendInput = queuedSubmission?.input ?? createSendInput(activeSession, content, pendingAttachments);
     if (!sendInput) return;
     const expectedRunId = activeRunCodeRef.current
       || remoteActiveRunRef.current?.runId
       || "";
     const queueGeneration = queueGenerationRef.current;
     const autoDrainEpoch = autoDrainEpochRef.current;
-    setDraft("");
-    setPendingAttachments([]);
-    setPendingAnnotations([]);
+    if (queuedSubmission) {
+      replaceQueuedSubmissions(removeQueuedChatSubmission(queuedSubmissionsRef.current, queuedSubmission.id));
+    } else {
+      setDraft("");
+      setPendingAttachments([]);
+      setPendingAnnotations([]);
+    }
     if (
       !expectedRunId
       || !activeAdapter.capabilities.supportsSteer
       || !activeAdapter.steerMessage
     ) {
-      enqueueSubmission(activeSession, sendInput);
+      if (queuedSubmission) replaceQueuedSubmissions([ ...queuedSubmissionsRef.current.slice(0, queuedIndex), queuedSubmission, ...queuedSubmissionsRef.current.slice(queuedIndex) ]);
+      else enqueueSubmission(activeSession, sendInput);
       return;
     }
 
@@ -1548,7 +1557,11 @@ export function ChatRuntimeWindow({
       const safeQueueFallback = error instanceof ChatAdapterError
         && isSteerQueueFallbackCode(error.code);
       if (safeQueueFallback && queueGenerationRef.current === queueGeneration) {
-        enqueueSubmission(activeSession, sendInput, "front");
+        if (queuedSubmission) {
+          const next = [...queuedSubmissionsRef.current];
+          next.splice(Math.min(queuedIndex, next.length), 0, queuedSubmission);
+          replaceQueuedSubmissions(next);
+        } else enqueueSubmission(activeSession, sendInput, "front");
         const nextActiveRun = await refreshActiveRun(activeSession.sessionId);
         if (
           !sendingRef.current
@@ -1570,7 +1583,13 @@ export function ChatRuntimeWindow({
       } else if (observerDetached || stopped) {
         onInfo?.("Steer delivery was not confirmed and was not retried", "Steer not retried");
       } else {
-        if (error instanceof ChatAdapterError && error.rejectedBeforeAdmission
+        if (queuedSubmission && error instanceof ChatAdapterError && error.rejectedBeforeAdmission
+          && queueGenerationRef.current === queueGeneration) {
+          const next = [...queuedSubmissionsRef.current];
+          next.splice(Math.min(queuedIndex, next.length), 0, queuedSubmission);
+          replaceQueuedSubmissions(next);
+        }
+        if (!queuedSubmission && error instanceof ChatAdapterError && error.rejectedBeforeAdmission
           && activeSessionCodeRef.current === activeSession.sessionId && !draftRef.current) {
           draftSkillsRef.current = sendInput.requestedSkills ?? [];
           setDraft(content);
@@ -1624,6 +1643,10 @@ export function ChatRuntimeWindow({
     replaceQueuedSubmissions(
       removeQueuedChatSubmission(queuedSubmissionsRef.current, id),
     );
+  }
+
+  function handleReorderQueuedMessage(sourceId: string, targetId: string) {
+    replaceQueuedSubmissions(reorderQueuedChatSubmission(queuedSubmissionsRef.current, sourceId, targetId));
   }
 
   async function handleStop() {
@@ -1792,22 +1815,27 @@ export function ChatRuntimeWindow({
       onEditMessage={handleEditMessage}
       onEditQueuedMessage={handleEditQueuedMessage}
       onRemoveQueuedMessage={handleRemoveQueuedMessage}
+      onSteerQueuedMessage={(id) => { void handleSteer(id); }}
+      onReorderQueuedMessage={handleReorderQueuedMessage}
       onSend={(mode) => { void handleSubmit(mode); }}
       onStop={() => { void handleStop(); }}
       protocolEvents={protocolEvents}
       queueDisabled={queueDisabled || Boolean(userInputRequest)}
       queuedMessages={visibleQueuedSubmissions}
       runningSubmitModes={runningSubmitModes}
+      runningEnterSubmitMode={config.runningEnterSubmitMode}
       sendDisabled={sendDisabled || Boolean(userInputRequest)}
       sending={runActive}
       streamingAssistantMessageCode={streamingAssistantMessageCode}
       session={session}
       showHistoryRail={showHistoryRail}
       showAgui={aguiEnabled}
+      showReasoningCards={config.showReasoningCards}
       showHeader={showHeader ?? !config.floating}
       showStop={canStop}
       sidebarContent={sidebarContent}
       steerDisabled={steerDisabled || Boolean(userInputRequest)}
+      queuedSteerDisabled={steering || !canSteer || Boolean(userInputRequest) || userInputAnswerPending}
       title={config.title || floatingTitle}
       userInputLabels={config.userInputLabels}
       userInputRequests={presentedUserInputRequests}
@@ -1870,21 +1898,26 @@ export function ChatRuntimeWindow({
         onEditMessage={handleEditMessage}
         onEditQueuedMessage={handleEditQueuedMessage}
         onRemoveQueuedMessage={handleRemoveQueuedMessage}
+        onSteerQueuedMessage={(id) => { void handleSteer(id); }}
+        onReorderQueuedMessage={handleReorderQueuedMessage}
         onSend={(mode) => { void handleSubmit(mode); }}
         onStop={() => { void handleStop(); }}
         protocolEvents={protocolEvents}
         queueDisabled={queueDisabled || Boolean(userInputRequest)}
         queuedMessages={visibleQueuedSubmissions}
         runningSubmitModes={runningSubmitModes}
+        runningEnterSubmitMode={config.runningEnterSubmitMode}
         sendDisabled={sendDisabled || Boolean(userInputRequest)}
         sending={runActive}
         streamingAssistantMessageCode={streamingAssistantMessageCode}
         session={session}
         showHistoryRail={showHistoryRail}
       showAgui={aguiEnabled}
+      showReasoningCards={config.showReasoningCards}
         showStop={canStop}
         sidebarContent={sidebarContent}
         steerDisabled={steerDisabled || Boolean(userInputRequest)}
+        queuedSteerDisabled={steering || !canSteer || Boolean(userInputRequest) || userInputAnswerPending}
         state={windowState}
         storageKey={config.storageKey || "agent-ui.chat.runtime.window"}
         title={floatingTitle}

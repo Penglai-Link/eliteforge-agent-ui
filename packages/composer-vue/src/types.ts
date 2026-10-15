@@ -13,4 +13,6 @@ export interface ComposerVueProps extends ComposerProps {
   onRemoveAttachment?: (id: string) => void;
   onEditQueuedMessage?: (id: string, content: string) => void;
   onRemoveQueuedMessage?: (id: string) => void;
+  onSteerQueuedMessage?: (id: string) => void;
+  onReorderQueuedMessage?: (sourceId: string, targetId: string) => void;
 }

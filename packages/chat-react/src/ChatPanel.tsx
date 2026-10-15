@@ -472,7 +472,8 @@ function ChatBubble({
   onA2UIAction?: ActionHandler;
   onEditMessage?: (content: string, message?: ChatMessage) => void;
 }) {
-  const isUser = message.role === "USER";
+  const isSystemNotice = message.provenance?.sender.kind.toUpperCase() === "SYSTEM";
+  const isUser = message.role === "USER" && !isSystemNotice;
   const turnAnnotations = useContext(AnnotationContext);
   const annotationLabels = useContext(AnnotationLabelsContext);
   const missingCitations = isUser ? [] : turnAnnotations.filter(annotation => !message.content.includes(`#chat-annotation-${annotation.id}`));
@@ -486,10 +487,10 @@ function ChatBubble({
       )}
     >
       <article
-        className={cx("ef-chat__message", isUser && "ef-chat__message--user")}
+        className={cx("ef-chat__message", isUser && "ef-chat__message--user", isSystemNotice && "ef-chat__message--system")}
         data-message-id={message.messageId}
         data-theme-anchor="chat-message"
-        data-theme-part={isUser ? "chat-message-user" : "chat-message-assistant"}
+        data-theme-part={isSystemNotice ? "chat-message-system" : isUser ? "chat-message-user" : "chat-message-assistant"}
         data-streaming={isStreaming ? "true" : undefined}
       >
         <div className="ef-chat__message-header">
@@ -1039,7 +1040,7 @@ function AguiRunStatus({ notices, labels }: { notices: AguiRunNotice[]; labels: 
   });
 }
 
-function StructuredMessageDetails({ message, workOnly = false, labels, hasRunError = false, historyLabels = defaultHistoryLabels }: { workOnly?: boolean; hasRunError?: boolean; message: ChatMessage; labels?: ChatWorkRailLabels; historyLabels?: ChatHistoryLabels }) {
+function StructuredMessageDetails({ message, workOnly = false, showReasoningCards = true, labels, hasRunError = false, historyLabels = defaultHistoryLabels }: { workOnly?: boolean; showReasoningCards?: boolean; hasRunError?: boolean; message: ChatMessage; labels?: ChatWorkRailLabels; historyLabels?: ChatHistoryLabels }) {
   const view = message.history;
   if (!view) return null;
   const reasoning = view.message.content.filter((b) => b.type === "Reasoning").map((b) => "text" in b ? b.text : "").join("");
@@ -1047,9 +1048,9 @@ function StructuredMessageDetails({ message, workOnly = false, labels, hasRunErr
   const showError = !workOnly && message.role === "ASSISTANT" && !!view.run?.error && !hasRunError;
   // Empty history sections are flex children: each one used to add another
   // transcript gap after tool-only steps, pushing the pending question away.
-  if (workOnly ? !reasoning.trim() && !view.tools.length : !blocks.length && view.message.structured == null && !showError) return null;
+  if (workOnly ? (!showReasoningCards || !reasoning.trim()) && !view.tools.length : !blocks.length && view.message.structured == null && !showError) return null;
   return <section className="ef-chat__history-details" data-history-message-id={message.messageId}>
-    {workOnly && reasoning ? <ReasoningCard labels={labels} card={{ id: `${message.messageId}:reasoning`, runId: message.runId ?? "", content: reasoning, summary: reasoning,
+    {workOnly && showReasoningCards && reasoning ? <ReasoningCard labels={labels} card={{ id: `${message.messageId}:reasoning`, runId: message.runId ?? "", content: reasoning, summary: reasoning,
       ended: view.message.status !== "Running", firstMillis: view.message.createdAtMs, endMillis: view.step?.finishedAtMs ?? null, toolCards: [] }} /> : null}
     {!workOnly && blocks.map((block, index) => <div key={index}>
       {block.type === "Json" ? <pre>{JSON.stringify(block.value, null, 2)}</pre> : block.type === "Media" && block.mimeType.startsWith("image/") && historyBlockUrl(block) ? <img src={historyBlockUrl(block)!} alt={block.name ?? block.mimeType} loading="lazy" /> : block.type === "Media" || block.type === "Resource" ? historyBlockUrl(block) ? <a href={historyBlockUrl(block)!} target="_blank" rel="noreferrer">{block.name ?? (block.type === "Resource" ? block.uri : block.mimeType)}</a> : <code>{block.name ?? (block.type === "Resource" ? block.uri : block.mimeType)}</code> : null}
@@ -1064,7 +1065,7 @@ function StructuredMessageDetails({ message, workOnly = false, labels, hasRunErr
   </section>;
 }
 
-function HistoryWorkRail({ messages, labels = defaultWorkRailLabels, historyLabels }: { messages: ChatMessage[]; labels?: ChatWorkRailLabels; historyLabels: ChatHistoryLabels }) {
+function HistoryWorkRail({ messages, labels = defaultWorkRailLabels, historyLabels, showReasoningCards = true }: { messages: ChatMessage[]; labels?: ChatWorkRailLabels; historyLabels: ChatHistoryLabels; showReasoningCards?: boolean }) {
   const completed = historyWorkCompleted(messages);
   const [expanded, setExpanded] = useState(false);
   useEffect(() => { if (completed) setExpanded(false); }, [completed]);
@@ -1075,7 +1076,7 @@ function HistoryWorkRail({ messages, labels = defaultWorkRailLabels, historyLabe
   const summary = completed ? runs.some(run => run.status === "Failed") ? labels.failed ?? "Run failed" : labels.workedFor(duration) : labels.thinking;
   return <section className="ef-chat__rail" aria-label={labels.ariaLabel} data-history-work>
     <button className="ef-chat__rail-summary" type="button" aria-expanded={expanded} onClick={() => setExpanded(value => !value)}>{summary}{expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}</button>
-    {expanded ? <div className="ef-chat__rail-stack">{messages.map(message => <StructuredMessageDetails key={message.messageId} message={message} workOnly labels={labels} historyLabels={historyLabels} />)}</div> : null}
+    {expanded ? <div className="ef-chat__rail-stack">{messages.map(message => <StructuredMessageDetails key={message.messageId} message={message} workOnly showReasoningCards={showReasoningCards} labels={labels} historyLabels={historyLabels} />)}</div> : null}
   </section>;
 }
 
@@ -1089,6 +1090,7 @@ function AguiRunWorkRail({
   timeline,
   renderMessage,
   historyLabels = defaultHistoryLabels,
+  showReasoningCards = true,
 }: {
   historyCovered?: boolean;
   debugEvents: string[];
@@ -1099,6 +1101,7 @@ function AguiRunWorkRail({
   timeline?: TranscriptWorkRun;
   renderMessage?: (message: ChatMessage) => ReactNode;
   historyLabels?: ChatHistoryLabels;
+  showReasoningCards?: boolean;
 }) {
   const notices = useMemo(() => {
     const notices = buildAguiRunNotices(events);
@@ -1107,7 +1110,9 @@ function AguiRunWorkRail({
       notices.push({ kind: "runError", code: "HISTORY_RUN_ERROR", message: error });
     return notices;
   }, [events, timeline]);
-  const userCards = useMemo<AguiUserWorkCard[]>(() => buildAguiUserWorkCards(events), [events]);
+  const userCards = useMemo<AguiUserWorkCard[]>(() => buildAguiUserWorkCards(events)
+    .filter(card => showReasoningCards || card.kind !== "reasoning"), [events, showReasoningCards]);
+  const visibleTimelineItems = useMemo(() => timeline?.items.filter(item => showReasoningCards || item.kind !== "reasoning") ?? [], [timeline, showReasoningCards]);
   const matchingUserInputRequests = useMemo(() => {
     const runCodes = new Set(events.map((event) => aguiEventRunId(event)));
     return userInputRequests.filter((request) => (
@@ -1168,7 +1173,7 @@ function AguiRunWorkRail({
   if (onlyPresentationHealth) {
     return <section className="ef-chat__rail" aria-label={labels.ariaLabel}><AguiRunStatus notices={notices} labels={labels} /></section>;
   }
-  const hasDetails = (timeline ? timeline.items.length > 0 : orderedWorkItems.length > 0) || debugEvents.length > 0;
+  const hasDetails = (timeline ? visibleTimelineItems.length > 0 : orderedWorkItems.length > 0) || debugEvents.length > 0;
   const presentationClosedWithoutOutcome = !displayedTerminalSummary && events.some(isAguiPresentationFailureEvent);
   let summary = presentationClosedWithoutOutcome
     ? labels.notices?.presentationIncomplete ?? defaultWorkRailLabels.notices.presentationIncomplete
@@ -1206,9 +1211,9 @@ function AguiRunWorkRail({
           style={{ marginTop: 8 }}
         >
           {timeline ? <section className="ef-chat__rail" aria-label="Agent work rail" style={{ maxWidth: "none", paddingLeft: 0 }}>
-            <div className="ef-chat__rail-card-list">{timeline.items.map(item => <div key={item.id} data-work-item={item.kind} data-work-item-id={item.id}>
+            <div className="ef-chat__rail-card-list">{visibleTimelineItems.map(item => <div key={item.id} data-work-item={item.kind} data-work-item-id={item.id}>
               {item.kind === "message" ? renderMessage?.(item.message) : item.kind === "reasoning"
-                ? <ReasoningCard card={item.value} labels={labels} unfolded />
+                ? <ReasoningCard card={item.value} labels={labels} />
                 : <ToolCard card={item.value} labels={labels} compact statusLabel={item.historyStatus ? historyLabels.statuses[item.historyStatus] : undefined} />}
             </div>)}</div>
           </section> : orderedWorkItems.length ? (
@@ -1317,6 +1322,8 @@ export interface ChatPanelProps extends Pick<ComposerReactProps, "pendingAttachm
   onEditMessage?: (content: string, message?: ChatMessage) => void;
   onEditQueuedMessage?: (id: string, content: string) => void;
   onRemoveQueuedMessage?: (id: string) => void;
+  onSteerQueuedMessage?: (id: string) => void;
+  onReorderQueuedMessage?: (sourceId: string, targetId: string) => void;
   onSend: (mode?: ChatSubmitMode) => void;
   onStop?: () => void;
   protocolEvents?: ChatAguiStreamEvent[];
@@ -1324,17 +1331,20 @@ export interface ChatPanelProps extends Pick<ComposerReactProps, "pendingAttachm
   queuedLabel?: string;
   queuedMessages?: ChatQueuedSubmission[];
   runningSubmitModes?: ChatRunningSubmitMode[];
+  runningEnterSubmitMode?: ChatRunningSubmitMode;
   sendDisabled?: boolean;
   sendLabel?: string;
   sending?: boolean;
   streamingAssistantMessageCode?: string | null;
   session?: ChatSession | null;
   showAgui?: boolean;
+  showReasoningCards?: boolean;
   showHeader?: boolean;
   showHistoryRail?: boolean;
   showStop?: boolean;
   sidebarContent?: ReactNode;
   steerDisabled?: boolean;
+  queuedSteerDisabled?: boolean;
   stopLabel?: string;
   title?: string;
   userInputLabels?: ChatUserInputLabels;
@@ -1392,6 +1402,8 @@ export function ChatPanel({
   onEditMessage,
   onEditQueuedMessage,
   onRemoveQueuedMessage,
+  onSteerQueuedMessage,
+  onReorderQueuedMessage,
   onSend,
   onStop,
   protocolEvents,
@@ -1399,17 +1411,20 @@ export function ChatPanel({
   queuedLabel = "Queued",
   queuedMessages = [],
   runningSubmitModes = [],
+  runningEnterSubmitMode = "queue",
   sendDisabled,
   sendLabel = "Send",
   sending = false,
   streamingAssistantMessageCode: activeStreamingAssistantMessageCode,
   session,
   showAgui = true,
+  showReasoningCards = true,
   showHeader = true,
   showHistoryRail = true,
   showStop = true,
   sidebarContent,
   steerDisabled = false,
+  queuedSteerDisabled = false,
   stopLabel = "Stop",
   title,
   userInputLabels,
@@ -1546,6 +1561,7 @@ export function ChatPanel({
   }
   function renderWorkRun(run: TranscriptWorkRun) {
     return <AguiRunWorkRail key={run.id} timeline={run} renderMessage={renderProcessMessage} historyLabels={historyLabels}
+      showReasoningCards={showReasoningCards}
       events={run.events as ChatAguiStreamEvent[]} labels={workRailLabels} userInputRequests={userInputRequests}
       debugEvents={(presentation.debugEventsByRunCode.get(run.runId) ?? []).map(describeDebugEvent)} />;
   }
@@ -1629,7 +1645,6 @@ export function ChatPanel({
               onScroll={handleScroll}
             >
               <div className="ef-chat__transcript-inner">
-                {historyLoading ? <div role="status" aria-live="polite" className="ef-chat__history-loading"><LoaderCircle className="animate-spin" size={18} />{historyLabels.loading}</div> : null}
                 {!historyLoading && onLoadOlderHistory ? <button type="button" disabled={historyLoadingOlder} onClick={onLoadOlderHistory}>{historyLoadingOlder ? historyLabels.loading : historyLabels.loadOlder}</button> : null}
                 {!historyLoading && transcriptMessages.length ? (
                   historyTurns.map((turn) => (
@@ -1642,9 +1657,9 @@ export function ChatPanel({
                         <AnnotationContext.Provider key={message.messageId} value={annotationMap.get(message.messageId) ?? []}>
                           {showAgui ? workTimeline.before.get(message.messageId)?.map(renderWorkRun) : null}
                           {!showAgui || !workTimeline.processMessageIds.has(message.messageId) ? <>
-                          {!workTimeline.managedMessageIds.has(message.messageId) && historyWork.has(message.messageId) ? <HistoryWorkRail messages={historyWork.get(message.messageId)!} labels={workRailLabels} historyLabels={historyLabels} /> : null}
+                          {!workTimeline.managedMessageIds.has(message.messageId) && historyWork.has(message.messageId) ? <HistoryWorkRail messages={historyWork.get(message.messageId)!} labels={workRailLabels} historyLabels={historyLabels} showReasoningCards={showReasoningCards} /> : null}
                           <StructuredMessageDetails message={message} labels={workRailLabels} historyLabels={historyLabels} hasRunError={displayedErrorRuns.has(message.runId ?? "") || lastHistoryErrorByRun.get(message.runId) !== message.messageId} />
-                          {message.role === "USER" ? (
+                          {message.role === "USER" && message.provenance?.sender.kind.toUpperCase() !== "SYSTEM" ? (
                             <div className="ef-chat__user-message-group">
                               <AnnotationBadges annotations={message.annotations ?? []} formatCount={formatAnnotationCount} />
                               <ChatAttachments
@@ -1687,11 +1702,15 @@ export function ChatPanel({
                     </section>
                   ))
                 ) : (
-                  <Bot
-                    strokeWidth={1}
-                    size="60"
-                    className="ef-chat__transcript__bot"
-                  />
+                  <div className="ef-chat__transcript-empty">
+                    <Bot strokeWidth={1} size="60" className="ef-chat__transcript__bot" />
+                    {historyLoading ? (
+                      <div role="status" aria-live="polite" className="ef-chat__history-loading">
+                        <LoaderCircle className="animate-spin" size={18} />
+                        {historyLabels.loading}
+                      </div>
+                    ) : null}
+                  </div>
                 )}
             {userInputRequest?.status === "Pending" && onAnswerUserInput ? (
               <ChatUserInputCard
@@ -1743,17 +1762,21 @@ export function ChatPanel({
               onPasteAttachment={onPasteAttachment}
               onEditQueuedMessage={onEditQueuedMessage ? (id, content) => onEditQueuedMessage(id, queuedMessages.find(item => item.id === id)?.input.content ?? content) : undefined}
               onRemoveQueuedMessage={onRemoveQueuedMessage}
+              onSteerQueuedMessage={onSteerQueuedMessage}
+              onReorderQueuedMessage={onReorderQueuedMessage}
               onSend={onSend}
               onStop={onStop}
               queueDisabled={queueDisabled}
               queuedLabel={queuedLabel}
               queuedMessages={queuedMessages.map(item => ({ ...item, input: { ...item.input, content: item.input.content || (item.input.annotations ?? []).map(annotation => annotation.comment).join("; ") } }))}
               runningSubmitModes={runningSubmitModes}
+              runningEnterSubmitMode={runningEnterSubmitMode}
               sendDisabled={sendDisabled}
               sendLabel={sendLabel}
               sending={sending}
               showStop={showStop}
               steerDisabled={steerDisabled}
+              queuedSteerDisabled={queuedSteerDisabled}
               stopLabel={stopLabel}
               pendingAttachments={pendingAttachments}
               attachmentDownloader={attachmentDownloader}

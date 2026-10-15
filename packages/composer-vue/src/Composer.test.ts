@@ -6,6 +6,7 @@ it("works independently with suggestions, IME, multiline input, send/queue/steer
   const draft = ref("$"),
     sending = ref(false),
     blocked = ref(false),
+    enterMode = ref<"queue" | "steer">("queue"),
     send = vi.fn(),
     stop = vi.fn(),
     edit = vi.fn(),
@@ -25,6 +26,7 @@ it("works independently with suggestions, IME, multiline input, send/queue/steer
           onStop: stop,
           sending: sending.value,
           runningSubmitModes: ["queue", "steer"],
+          runningEnterSubmitMode: enterMode.value,
           queueDisabled: blocked.value,
           steerDisabled: blocked.value,
           inputSuggestions: [
@@ -73,6 +75,12 @@ it("works independently with suggestions, IME, multiline input, send/queue/steer
     expect(send).toHaveBeenLastCalledWith("queue");
     await key({ key: "Enter", metaKey: true });
     expect(send).toHaveBeenLastCalledWith("steer");
+    enterMode.value = "steer";
+    await nextTick();
+    send.mockClear();
+    await key({ key: "Enter" });
+    await key({ key: "Enter", ctrlKey: true });
+    expect(send.mock.calls).toEqual([["steer"], ["queue"]]);
     (
       container.querySelector('[aria-label="Stop"]') as HTMLButtonElement
     ).click();

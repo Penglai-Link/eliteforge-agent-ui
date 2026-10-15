@@ -3,6 +3,7 @@ import { historyEventRunId, historyToolResult, type HistoryStatus } from "./hist
 import { aguiWorkElapsedMilliseconds } from "./aguiWork";
 import { historyCoversAguiWork, historyWorkCompleted } from "./historyWork";
 import { currentAguiTerminalEvent } from "./aguiWork";
+import { messageSenderIsHuman } from "./messageProvenance";
 import { aguiEventMillis, aguiEventType, buildAguiUserWorkCards, mergeTranscriptAguiEvents,
   type ReasoningWorkCard, type ToolWorkCard, type TranscriptPresentation } from "./transcript";
 
@@ -51,7 +52,7 @@ export function buildTranscriptWorkTimeline(messages: ChatMessage[], presentatio
   const groupByMessage = new Map<string, Group>();
   let scope = "";
   for (const message of messages) {
-    if (message.role === "USER") scope = message.messageId;
+    if (message.role === "USER" && messageSenderIsHuman(message)) scope = message.messageId;
     scopeByMessage.set(message.messageId, scope);
     const nativeId = message.history?.run?.id ?? message.runId;
     if (message.role !== "ASSISTANT" || !nativeId) continue;
@@ -71,7 +72,7 @@ export function buildTranscriptWorkTimeline(messages: ChatMessage[], presentatio
       ? [groupByMessage.get(event.messageId)] : []).find(Boolean);
     const start = aguiEventMillis(segment[0]);
     const precedingUser = start === null ? undefined : [...messages].reverse().find(message =>
-      message.role === "USER" && Date.parse(message.createdAt) <= start);
+      message.role === "USER" && messageSenderIsHuman(message) && Date.parse(message.createdAt) <= start);
     const eventScope = precedingUser?.messageId ?? scopeByMessage.get(anchor) ?? "";
     const id = `${eventScope}:${nativeId}`;
     let group = identified ?? groups.get(id);
@@ -133,7 +134,10 @@ function buildItems(messages: ChatMessage[], events: TranscriptAguiEvent[], fina
   const at = (index: number) => aguiEventMillis(events[index]) ?? index;
   // Synthetic positions retain source order even when many frames share a clock
   // tick. They are only sort keys, never displayed as elapsed time.
-  const cards = historyComplete ? [] : buildAguiUserWorkCards(events.map((event, index) => ({ ...event, timestamp: index + 1 })));
+  // Live AG-UI frames can contain progress/reasoning that history does not
+  // persist. Keep them alongside durable history and use tool call IDs below
+  // to avoid rendering the same invocation twice.
+  const cards = buildAguiUserWorkCards(events.map((event, index) => ({ ...event, timestamp: index + 1 })));
   const eventToolIds = new Set<string>();
   for (const card of cards) {
     if (card.kind === "reasoning") {
@@ -156,7 +160,7 @@ function buildItems(messages: ChatMessage[], events: TranscriptAguiEvent[], fina
       : view?.step?.startedAtMs ?? Date.parse(message.createdAt);
     const order = textIndex >= 0 && !historyComplete ? textIndex : 0;
     const reasoning = view?.message.content.filter(block => block.type === "Reasoning").map(block => "text" in block ? block.text : "").join("") ?? "";
-    const hasEventReasoning = !historyComplete && events.some(event =>
+    const hasEventReasoning = events.some(event =>
       aguiEventType(event).toUpperCase().startsWith("REASONING_") && "messageId" in event
         && (event.messageId === message.messageId || event.messageId === `${message.messageId}/reasoning`));
     if (reasoning && !hasEventReasoning) {

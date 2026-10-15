@@ -5,6 +5,7 @@ import {
   enqueueChatSubmission,
   isSteerQueueFallbackCode,
   removeQueuedChatSubmission,
+  reorderQueuedChatSubmission,
   takeNextQueuedChatSubmission,
 } from "./chatQueue";
 
@@ -52,6 +53,13 @@ describe("chat submission queue", () => {
 
     expect(nextQueue).toEqual([first, third]);
     expect(queue).toEqual([first, second, third]);
+  });
+
+  it("reorders only the dragged submission and keeps the source queue intact", () => {
+    const queue = [submission("first", "SESSION-1"), submission("second", "SESSION-1"), submission("third", "SESSION-1")];
+    expect(reorderQueuedChatSubmission(queue, "third", "first").map(item => item.id)).toEqual(["third", "first", "second"]);
+    expect(queue.map(item => item.id)).toEqual(["first", "second", "third"]);
+    expect(reorderQueuedChatSubmission(queue, "missing", "first")).toEqual(queue);
   });
 
   it("takes the first queued submission for a session and preserves other sessions", () => {

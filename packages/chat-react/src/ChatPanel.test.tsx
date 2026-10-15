@@ -58,6 +58,16 @@ function renderPanel(
   );
 }
 
+it("renders a child completion notification as system context without user editing", () => {
+  renderPanel({
+    messages: [{ id: "notice", messageId: "notice", sessionId: "SESSION-1", role: "USER", actor: "User", channel: "history", content: "Child finished", createdAt: "2026-10-15T00:00:00Z", provenance: { sender: { kind: "SYSTEM", displayName: "System notice" }, source: "ChildRunCompletion" } }],
+    onEditMessage: vi.fn(),
+  });
+  expect(screen.getByText("System notice")).toBeTruthy();
+  expect(screen.getByText("System notice").closest(".ef-chat__message")?.getAttribute("data-theme-part")).toBe("chat-message-system");
+  expect(screen.queryByRole("button", { name: "Edit message" })).toBeNull();
+});
+
 function queuedSubmission(
   id: string,
   content: string,
@@ -307,6 +317,34 @@ describe("ChatPanel submit controls", () => {
     expect(screen.queryByText("Inspecting the implementation.")).toBeNull();
     fireEvent.click(completedButton);
     expect(completedButton.getAttribute("aria-expanded")).toBe("true");
+  });
+
+  it("hides reasoning cards when disabled and leaves enabled cards collapsed while running", () => {
+    const startedAt = Date.now() - 1_000;
+    const messages = [{
+      actor: "User", channel: "MAIN_AGENT", content: "Inspect the implementation",
+      createdAt: new Date(startedAt).toISOString(), id: 1, messageId: "MSG-USER",
+      role: "USER" as const, sessionId: "SESSION-1",
+    }];
+    const protocolEvents: ChatAguiStreamEvent[] = [
+      { runId: "RUN-1", threadId: "SESSION-1", timestamp: startedAt, type: "RUN_STARTED" },
+      { messageId: "reasoning-1", runId: "RUN-1", threadId: "SESSION-1", timestamp: startedAt + 1, type: "REASONING_MESSAGE_START" },
+      { delta: "Private reasoning detail", messageId: "reasoning-1", runId: "RUN-1", threadId: "SESSION-1", timestamp: startedAt + 2, type: "REASONING_MESSAGE_CONTENT" },
+    ];
+    const props = { draft: "", messages, onDraftChange: () => undefined, onSend: () => undefined,
+      protocolEvents, session: activeSession(), showHeader: false };
+    const { rerender } = render(<ChatPanel {...props} showReasoningCards={false} />);
+    expect(screen.getByText("Inspect the implementation", { selector: ".ef-chat__message-body" })).toBeTruthy();
+    expect(screen.queryByLabelText("Thinking")).toBeNull();
+    expect(screen.queryByText("Private reasoning detail")).toBeNull();
+
+    rerender(<ChatPanel {...props} showReasoningCards />);
+    const card = screen.getByLabelText("Thinking");
+    const toggle = within(card).getByRole("button");
+    expect(toggle.getAttribute("aria-expanded")).toBe("false");
+    fireEvent.click(toggle);
+    expect(toggle.getAttribute("aria-expanded")).toBe("true");
+    expect(card.querySelector(".ef-chat__rail-entry-body")?.textContent).toContain("Private reasoning detail");
   });
 
   it("shows answered user questions in user messages outside completed work", () => {
@@ -599,6 +637,15 @@ describe("ChatPanel submit controls", () => {
     expect(onSend).toHaveBeenCalledTimes(3);
     expect(onStop).toHaveBeenCalledTimes(1);
     expect(stopButton.title).toBe("Stop response");
+  });
+
+  it("passes Enter-to-steer preference to the composer", () => {
+    const onSend = vi.fn();
+    renderPanel({ onSend, sending: true, runningSubmitModes: ["queue", "steer"], runningEnterSubmitMode: "steer" });
+    const composer = screen.getByRole("textbox");
+    fireEvent.keyDown(composer, { key: "Enter" });
+    fireEvent.keyDown(composer, { key: "Enter", metaKey: true });
+    expect(onSend.mock.calls).toEqual([["steer"], ["queue"]]);
   });
 
   it("can hide Stop without adding Queue or Steer buttons", () => {

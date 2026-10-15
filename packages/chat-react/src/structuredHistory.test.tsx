@@ -41,6 +41,7 @@ it("shows loading immediately and ignores a late response from a previous sessio
   const config={floating:false}; const onError=vi.fn();
   const view=render(<ChatRuntimeWindow adapter={adapter} initialSession={session} config={config} onError={onError} />);
   expect(screen.getByRole("status").textContent).toContain("Loading history");
+  expect(screen.getByRole("status").closest(".ef-chat__transcript-empty")?.querySelector(".ef-chat__transcript__bot")).toBeTruthy();
   view.rerender(<ChatRuntimeWindow adapter={adapter} initialSession={{...session,sessionId:"NEXT"}} config={config} onError={onError} />);
   expect(await screen.findByText("New session answer")).toBeTruthy();
   await act(async()=>resolve(page()));

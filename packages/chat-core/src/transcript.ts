@@ -569,7 +569,7 @@ function subagentNameFromArgs(value: unknown): string {
 function subagentNameFromEvent(event: TranscriptAguiEvent): string {
   const name = subagentNameFromArgs(event);
   if (name) return name;
-  return typeof event.subagentName === "string" ? event.subagentName.trim() : "";
+  return "subagentName" in event && typeof event.subagentName === "string" ? event.subagentName.trim() : "";
 }
 
 function humanizeToolName(value: string) {
@@ -683,7 +683,7 @@ function ensureToolCard(
   if (existing) return existing;
   const toolName = aguiEventToolName(event);
   const parentReasoningId = latestReasoningCardIdsByRun.get(aguiEventRunId(event)) ?? null;
-  const card = {
+  const card: ToolWorkCard = {
     args: aguiEventToolArgs(event),
     ended: false,
     firstMillis: aguiEventMillis(event) ?? Date.now(),

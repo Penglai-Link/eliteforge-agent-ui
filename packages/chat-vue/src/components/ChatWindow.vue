@@ -392,6 +392,7 @@ function endResize(event: PointerEvent) {
           :queued-label="queuedLabel"
           :queued-messages="queuedMessages"
           :running-submit-modes="runningSubmitModes"
+          :running-enter-submit-mode="props.runningEnterSubmitMode"
           :send-disabled="sendDisabled"
           :send-label="sendLabel"
           :sending="sending"

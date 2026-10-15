@@ -27,7 +27,8 @@ const emit = defineEmits<{
   editMessage: [content: string, message: ChatMessage];
 }>();
 
-const isUser = computed(() => props.message.role === "USER");
+const isSystemNotice = computed(() => props.message.provenance?.sender.kind.toUpperCase() === "SYSTEM");
+const isUser = computed(() => props.message.role === "USER" && !isSystemNotice.value);
 const actorName = computed(() =>
   messageActorName(props.message, props.currentUserDisplayName)
 );
@@ -35,9 +36,9 @@ const actorName = computed(() =>
 
 <template>
   <article
-    :class="cx('ef-chat__message', isUser && 'ef-chat__message--user')"
+    :class="cx('ef-chat__message', isUser && 'ef-chat__message--user', isSystemNotice && 'ef-chat__message--system')"
     :data-message-id="props.message.messageId"
-    data-theme-anchor="chat-message" :data-theme-part="isUser ? 'chat-message-user' : 'chat-message-assistant'"
+    data-theme-anchor="chat-message" :data-theme-part="isSystemNotice ? 'chat-message-system' : isUser ? 'chat-message-user' : 'chat-message-assistant'"
     :data-streaming="isStreaming ? 'true' : undefined"
   >
     <div class="ef-chat__message-header">

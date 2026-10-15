@@ -23,6 +23,7 @@ import {
   mergeTranscriptAguiEvents,
   normalizeChatSession,
   removeQueuedChatSubmission,
+  reorderQueuedChatSubmission,
   takeNextQueuedChatSubmission,
   type ChatActiveRun,
   type ChatAguiEvent,
@@ -1216,28 +1217,38 @@ async function handleQueue() {
   await runMessage(activeSession, sendInput);
 }
 
-async function handleSteer() {
-  if (steerDisabled.value || userInputRequest.value || userInputAnswerPending.value) return;
+async function handleSteer(queuedId?: string) {
+  if (steering.value || (!queuedId && steerDisabled.value) || !canSteer.value || userInputRequest.value || userInputAnswerPending.value) return;
   const activeSession = session.value;
   if (!activeSession) return;
-  const content = draft.value.trim();
+  const queuedIndex = queuedId ? queuedSubmissions.value.findIndex(item => item.id === queuedId && item.sessionId === activeSession.sessionId) : -1;
+  if (queuedId && queuedIndex < 0) return;
+  const queuedSubmission = queuedIndex >= 0 ? queuedSubmissions.value[queuedIndex] : null;
+  const content = queuedSubmission?.input.content ?? draft.value.trim();
   const attachments = pendingAttachments.value;
-  if (!content && !attachments.length && !pendingAnnotations.value.length) return;
-  const sendInput = createSendInput(activeSession, content, attachments);
+  if (!queuedSubmission && !content && !attachments.length && !pendingAnnotations.value.length) return;
+  const sendInput = queuedSubmission?.input ?? createSendInput(activeSession, content, attachments);
   if (!sendInput) return;
   const expectedRunId = effectiveActiveRunCode.value;
   const adapter = activeAdapter.value;
   const queueGeneration = queueGenerationRef.value;
-  draft.value = "";
-  pendingAttachments.value = [];
-  pendingAnnotations.value = [];
+  if (queuedSubmission) replaceQueuedSubmissions(removeQueuedChatSubmission(queuedSubmissions.value, queuedSubmission.id));
+  else {
+    draft.value = "";
+    pendingAttachments.value = [];
+    pendingAnnotations.value = [];
+  }
   if (
     !runActive.value ||
     !expectedRunId ||
     !adapter.capabilities.supportsSteer ||
     !adapter.steerMessage
   ) {
-    enqueueSubmission(activeSession, sendInput);
+    if (queuedSubmission) {
+      const next = [...queuedSubmissions.value];
+      next.splice(Math.min(queuedIndex, next.length), 0, queuedSubmission);
+      replaceQueuedSubmissions(next);
+    } else enqueueSubmission(activeSession, sendInput);
     return;
   }
 
@@ -1268,7 +1279,11 @@ async function handleSteer() {
       error instanceof ChatAdapterError &&
       isSteerQueueFallbackCode(error.code);
     if (safeQueueFallback && queueIsCurrent) {
-      enqueueSubmission(activeSession, sendInput, "front");
+      if (queuedSubmission) {
+        const next = [...queuedSubmissions.value];
+        next.splice(Math.min(queuedIndex, next.length), 0, queuedSubmission);
+        replaceQueuedSubmissions(next);
+      } else enqueueSubmission(activeSession, sendInput, "front");
       try {
         await refreshActiveRun(activeSession.sessionId, undefined, true);
       } catch {
@@ -1292,7 +1307,12 @@ async function handleSteer() {
         );
       }
     } else {
-      if (error instanceof ChatAdapterError && error.rejectedBeforeAdmission &&
+      if (queuedSubmission && error instanceof ChatAdapterError && error.rejectedBeforeAdmission && queueIsCurrent) {
+        const next = [...queuedSubmissions.value];
+        next.splice(Math.min(queuedIndex, next.length), 0, queuedSubmission);
+        replaceQueuedSubmissions(next);
+      }
+      if (!queuedSubmission && error instanceof ChatAdapterError && error.rejectedBeforeAdmission &&
           activeSessionCodeRef.value === activeSession.sessionId && !draft.value) {
         draftSkills.value = sendInput.requestedSkills ?? [];
         draft.value = content;
@@ -1475,6 +1495,10 @@ function handleRemoveQueuedMessage(id: string) {
   replaceQueuedSubmissions(
     removeQueuedChatSubmission(queuedSubmissions.value, id),
   );
+}
+
+function handleReorderQueuedMessage(sourceId: string, targetId: string) {
+  replaceQueuedSubmissions(reorderQueuedChatSubmission(queuedSubmissions.value, sourceId, targetId));
 }
 
 async function handleStop() {
@@ -1702,6 +1726,8 @@ const panelCommonProps = computed(() => ({
   onEditMessage: handleEditMessage,
   onEditQueuedMessage: handleEditQueuedMessage,
   onRemoveQueuedMessage: handleRemoveQueuedMessage,
+  onSteerQueuedMessage: (id: string) => { void handleSteer(id); },
+  onReorderQueuedMessage: handleReorderQueuedMessage,
   onAnswerUserInput: (answers: ChatUserInputAnswer[]) => {
     void handleAnswerUserInput(answers);
   },
@@ -1715,13 +1741,16 @@ const panelCommonProps = computed(() => ({
   queueDisabled: queueDisabled.value,
   queuedMessages: visibleQueuedSubmissions.value,
   runningSubmitModes: runningSubmitModes.value,
+  runningEnterSubmitMode: props.config.runningEnterSubmitMode,
   sendDisabled: sendDisabled.value || Boolean(userInputRequest.value),
       sending: runActive.value,
       session: session.value,
   showAgui: aguiEnabled.value,
+  showReasoningCards: props.config.showReasoningCards,
   showHeader: props.showHeader ?? props.config.floating !== false,
   showStop: canStop.value,
   steerDisabled: steerDisabled.value || Boolean(userInputRequest.value),
+  queuedSteerDisabled: steering.value || !canSteer.value || Boolean(userInputRequest.value) || userInputAnswerPending.value,
   stopLabel: "Stop",
   title: props.config.title || props.floatingTitle,
   userInputLabels: props.config.userInputLabels,

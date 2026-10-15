@@ -28,6 +28,7 @@ const props = withDefaults(defineProps<ComposerVueProps>(), {
     "Enter to queue · ⌘/Ctrl+Enter to steer · Shift+Enter for newline",
   sending: false,
   runningSubmitModes: () => [],
+  runningEnterSubmitMode: "queue",
   queueDisabled: false,
   steerDisabled: false,
   sendDisabled: false,
@@ -38,6 +39,8 @@ const props = withDefaults(defineProps<ComposerVueProps>(), {
   queuedLabel: "Queued",
   editQueuedLabel: "Edit queued message",
   removeQueuedLabel: "Remove queued message",
+  steerQueuedLabel: "Steer queued message",
+  queuedSteerDisabled: false,
   pendingAttachments: () => [],
   showAttachmentControl: false,
   attachmentUploadPending: false,
@@ -51,6 +54,8 @@ const emit = defineEmits<{
   stop: [];
   "edit-queued-message": [id: string, content: string];
   "remove-queued-message": [id: string];
+  "steer-queued-message": [id: string];
+  "reorder-queued-message": [sourceId: string, targetId: string];
   "remove-attachment": [id: string];
 }>();
 const composerRef = ref<HTMLTextAreaElement | null>(null);
@@ -80,7 +85,21 @@ onMounted(() => {
 });
 const activeSuggestion = ref(0);
 const suggestionsDismissed = ref(false);
-const composerCaretAtEnd = ref(false);
+const composerHasSelection = ref(false);
+const draggedQueuedId = ref<string | null>(null);
+function startQueuedDrag(event: DragEvent, id: string) {
+  draggedQueuedId.value = id;
+  event.dataTransfer?.setData("text/plain", id);
+}
+function allowQueuedDrop(event: DragEvent, id: string) {
+  if (draggedQueuedId.value && draggedQueuedId.value !== id) event.preventDefault();
+}
+function dropQueuedMessage(event: DragEvent, id: string) {
+  event.preventDefault();
+  const sourceId = draggedQueuedId.value;
+  draggedQueuedId.value = null;
+  if (sourceId && sourceId !== id) emit("reorder-queued-message", sourceId, id);
+}
 const suggestionQuery = computed(() => {
   return getSuggestionQuery(props.draft);
 });
@@ -109,6 +128,7 @@ const flatSuggestions = computed(() =>
 const overlayParts = computed(() =>
   composerOverlayParts(props.draft, props.inputSuggestions)
 );
+const hasTokens = computed(() => overlayParts.value.some(part => part.displayName !== null));
 watch(
   () => props.draft,
   () => {
@@ -125,7 +145,7 @@ function chooseSuggestion(item: ChatInputSuggestion) {
   void nextTick(() => {
     textarea.focus();
     textarea.setSelectionRange(next.caret, next.caret);
-    updateComposerCaret(textarea);
+    updateComposerSelection(textarea);
   });
 }
 
@@ -135,15 +155,12 @@ function syncComposerOverlayScroll(event: Event) {
   if (overlay instanceof HTMLElement) overlay.scrollTop = textarea.scrollTop;
 }
 
-function updateComposerCaret(eventOrTextarea: Event | HTMLTextAreaElement) {
+function updateComposerSelection(eventOrTextarea: Event | HTMLTextAreaElement) {
   const textarea =
     eventOrTextarea instanceof HTMLTextAreaElement
       ? eventOrTextarea
       : (eventOrTextarea.currentTarget as HTMLTextAreaElement);
-  composerCaretAtEnd.value =
-    textarea.value.length > 0 &&
-    textarea.selectionStart === textarea.value.length &&
-    textarea.selectionEnd === textarea.value.length;
+  composerHasSelection.value = textarea.selectionStart !== textarea.selectionEnd;
 }
 
 const canQueueWhileRunning = computed(() =>
@@ -152,6 +169,17 @@ const canQueueWhileRunning = computed(() =>
 const canSteerWhileRunning = computed(() =>
   props.runningSubmitModes.includes("steer")
 );
+const enterSubmitMode = computed<ChatSubmitMode | null>(() => {
+  if (!props.sending) return "send";
+  if (props.runningSubmitModes.includes(props.runningEnterSubmitMode)) return props.runningEnterSubmitMode;
+  return canQueueWhileRunning.value ? "queue" : canSteerWhileRunning.value ? "steer" : null;
+});
+const shortcutSubmitMode = computed<ChatSubmitMode | null>(() =>
+  props.sending ? props.runningSubmitModes.find(mode => mode !== enterSubmitMode.value) ?? null : null
+);
+function submitDisabled(mode: ChatSubmitMode) {
+  return props.disabledInput || (mode === "queue" ? props.queueDisabled : mode === "steer" ? props.steerDisabled : props.sendDisabled);
+}
 const composerPlaceholder = computed(() => {
   if (!props.sending || !canQueueWhileRunning.value) {
     return props.inputPlaceholder;
@@ -205,7 +233,7 @@ function handleKeydown(event: KeyboardEvent) {
     !suggestionsDismissed.value &&
     flatSuggestions.value.length &&
     event.key === "Enter" &&
-    !event.shiftKey
+    !event.shiftKey && !event.metaKey && !event.ctrlKey
   ) {
     event.preventDefault();
     chooseSuggestion(flatSuggestions.value[activeSuggestion.value]);
@@ -222,20 +250,12 @@ function handleKeydown(event: KeyboardEvent) {
   const commandShortcut = event.metaKey || event.ctrlKey;
   if (props.sending && commandShortcut && event.key === "Enter") {
     event.preventDefault();
-    if (
-      canSteerWhileRunning.value &&
-      !props.disabledInput &&
-      !props.steerDisabled
-    ) {
-      emit("send", "steer");
-    }
+    if (shortcutSubmitMode.value && !submitDisabled(shortcutSubmitMode.value)) emit("send", shortcutSubmitMode.value);
     return;
   }
   if (event.key !== "Enter") return;
   event.preventDefault();
-  if (primarySubmitMode.value && !primarySubmitDisabled.value) {
-    emit("send", primarySubmitMode.value);
-  }
+  if (enterSubmitMode.value && !submitDisabled(enterSubmitMode.value)) emit("send", enterSubmitMode.value);
 }
 
 function handleStopSubmit() { emit("stop"); }
@@ -270,11 +290,22 @@ function handleComposerPaste(event: ClipboardEvent) {
           v-for="queuedMessage in queuedMessages"
           :key="queuedMessage.id"
           class="ef-chat__queued-message"
+          :draggable="Boolean(onReorderQueuedMessage)"
+          @dragstart="startQueuedDrag($event, queuedMessage.id)"
+          @dragover="allowQueuedDrop($event, queuedMessage.id)"
+          @drop="dropQueuedMessage($event, queuedMessage.id)"
+          @dragend="draggedQueuedId = null"
         >
           <span class="ef-chat__queued-message-content">{{
             queuedMessage.input.content
           }}</span>
           <span class="ef-chat__queued-message-actions">
+            <button v-if="onSteerQueuedMessage && canSteerWhileRunning"
+              :aria-label="steerQueuedLabel" class="ef-chat__icon-button" :title="steerQueuedLabel"
+              type="button" :disabled="queuedSteerDisabled"
+              @click="emit('steer-queued-message', queuedMessage.id)">
+              <Send :size="14" />
+            </button>
             <button
               v-if="onEditQueuedMessage"
               :aria-label="editQueuedLabel"
@@ -382,7 +413,7 @@ function handleComposerPaste(event: ClipboardEvent) {
       </div>
       <div
         class="ef-chat__composer-editor"
-        :data-caret-at-end="composerCaretAtEnd ? 'true' : undefined"
+        :data-has-tokens="hasTokens && !composerHasSelection ? 'true' : undefined"
       >
         <div class="ef-chat__composer-overlay" aria-hidden="true">
           <span
@@ -395,10 +426,6 @@ function handleComposerPaste(event: ClipboardEvent) {
               }}</span></template
             ><template v-else>{{ part.text }}</template></span
           >
-          <span
-            v-if="composerCaretAtEnd"
-            class="ef-chat__composer-overlay-caret"
-          />
         </div>
         <textarea
           ref="composerRef"
@@ -410,21 +437,21 @@ function handleComposerPaste(event: ClipboardEvent) {
           :placeholder="composerPlaceholder"
           :value="draft"
           :aria-keyshortcuts="
-            sending && canSteerWhileRunning
+            shortcutSubmitMode
               ? 'Meta+Enter Control+Enter'
               : undefined
           "
           @input="
                 (e: Event) => {
-                  updateComposerCaret(e);
+                  updateComposerSelection(e);
                   emit('draft-change', (e.target as HTMLTextAreaElement).value);
                 }
               "
-          @click="updateComposerCaret"
-          @focus="updateComposerCaret"
-          @blur="composerCaretAtEnd = false"
-          @keyup="updateComposerCaret"
-          @select="updateComposerCaret"
+          @click="updateComposerSelection"
+          @focus="updateComposerSelection"
+          @blur="composerHasSelection = false"
+          @keyup="updateComposerSelection"
+          @select="updateComposerSelection"
           @scroll="syncComposerOverlayScroll"
           @paste="handleComposerPaste"
           @keydown="handleKeydown"

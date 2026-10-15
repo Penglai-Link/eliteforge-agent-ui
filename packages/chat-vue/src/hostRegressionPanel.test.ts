@@ -161,6 +161,17 @@ it("keeps Dude sender attribution on the input side in Vue", async () => {
   expect(container.querySelector(".ef-chat__message--user")).not.toBeNull();
 });
 
+it("renders child completion provenance as a system notice in Vue", async () => {
+  const container = document.createElement("div"); document.body.append(container);
+  const app = createApp({ render: () => h(ChatPanel, {
+    draft: "", onDraftChange: () => undefined, onSend: () => undefined, session: activeSession(),
+    messages: [{ id: "notice", messageId: "notice", sessionId: "SESSION-1", role: "USER", actor: "User", channel: "history", content: "Child finished", createdAt: "2026-10-15T00:00:00Z", provenance: { sender: { kind: "SYSTEM", displayName: "System notice" }, source: "ChildRunCompletion" } }],
+  }) });
+  app.mount(container); mounted = { app, container }; await nextTick();
+  expect(container.querySelector('[data-theme-part="chat-message-system"]')?.textContent).toContain("System notice");
+  expect(container.querySelector('[aria-label="Edit message"]')).toBeNull();
+});
+
 it.each([ChatPanel, ChatWindow])("forwards composer controls once through Vue panel/window", async (Component) => {
   const edit = vi.fn(), remove = vi.fn(), stop = vi.fn(), removeAttachment = vi.fn();
   const container = document.createElement("div"); document.body.append(container);

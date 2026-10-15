@@ -66,6 +66,8 @@ export interface ChatPanelProps extends Pick<ComposerVueProps, "pendingAttachmen
   onPasteAttachment?: (file: File) => void | Promise<void>;
   onEditMessage?: (content: string, message?: ChatMessage) => void;
   onEditQueuedMessage?: (id: string, content: string) => void;
+  onSteerQueuedMessage?: (id: string) => void;
+  onReorderQueuedMessage?: (sourceId: string, targetId: string) => void;
   onRemoveQueuedMessage?: (id: string) => void;
   onSend: (mode?: ChatSubmitMode) => void;
   onStop?: () => void;
@@ -74,15 +76,18 @@ export interface ChatPanelProps extends Pick<ComposerVueProps, "pendingAttachmen
   queuedLabel?: string;
   queuedMessages?: ChatQueuedSubmission[];
   runningSubmitModes?: ChatRunningSubmitMode[];
+  runningEnterSubmitMode?: ChatRunningSubmitMode;
   sendDisabled?: boolean;
   sendLabel?: string;
   sending?: boolean;
   streamingAssistantMessageCode?: string | null;
   session?: ChatSession | null;
   showAgui?: boolean;
+  showReasoningCards?: boolean;
   showHeader?: boolean;
   showStop?: boolean;
   steerDisabled?: boolean;
+  queuedSteerDisabled?: boolean;
   stopLabel?: string;
   title?: string;
   userInputLabels?: ChatUserInputLabels;

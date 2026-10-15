@@ -62,6 +62,7 @@ const props = withDefaults(defineProps<ChatPanelProps>(), {
   queuedLabel: "Queued",
   queuedMessages: () => [],
   runningSubmitModes: () => [],
+  runningEnterSubmitMode: "queue",
   sendDisabled: false,
   sendLabel: "Send",
   sending: false,
@@ -88,6 +89,8 @@ const emit = defineEmits<{
   "edit-message": [value: string, message?: ChatMessage];
   "edit-queued-message": [id: string, content: string];
   "remove-queued-message": [id: string];
+  "steer-queued-message": [id: string];
+  "reorder-queued-message": [sourceId: string, targetId: string];
   send: [mode?: ChatSubmitMode];
   stop: [];
 }>();
@@ -281,12 +284,12 @@ onMounted(() => {
           class="ef-chat__transcript"
           @scroll="handleScroll"
         >
-          <div v-if="props.historyLoading" role="status" aria-live="polite">{{ (props.historyLabels ?? defaultHistoryLabels).loading }}</div>
           <button v-if="!props.historyLoading && props.onLoadOlderHistory" type="button" :disabled="props.historyLoadingOlder" @click="props.onLoadOlderHistory">{{ props.historyLoadingOlder ? (props.historyLabels ?? defaultHistoryLabels).loading : (props.historyLabels ?? defaultHistoryLabels).loadOlder }}</button>
           <div v-if="!props.historyLoading && transcriptMessages.length" class="ef-chat__transcript-inner">
             <template v-for="message in transcriptMessages" :key="message.messageId">
               <template v-if="showAgui">
                 <AguiRunWorkRail v-for="run in workRailsForMessage(message, true)" :key="run.id"
+                  :show-reasoning-cards="props.showReasoningCards"
                   :timeline="run" :events="run.events" :debug-events="debugEventsForRun(run.runId)"
                   :labels="props.workRailLabels" :history-labels="props.historyLabels" :user-input-requests="props.userInputRequests">
                   <template #message="{ message: processMessage }">
@@ -299,7 +302,7 @@ onMounted(() => {
                 </AguiRunWorkRail>
               </template>
               <template v-if="!showAgui || !workTimeline.processMessageIds.has(message.messageId)">
-              <HistoryWorkRail v-if="!workTimeline.managedMessageIds.has(message.messageId) && historyWork.has(message.messageId)" :messages="historyWork.get(message.messageId)!" :labels="props.workRailLabels" :history-labels="props.historyLabels" />
+              <HistoryWorkRail v-if="!workTimeline.managedMessageIds.has(message.messageId) && historyWork.has(message.messageId)" :messages="historyWork.get(message.messageId)!" :labels="props.workRailLabels" :history-labels="props.historyLabels" :show-reasoning-cards="props.showReasoningCards" />
               <StructuredMessageDetails :message="message" :labels="props.historyLabels" />
               <ChatBubble
                 v-if="(!message.history || message.a2ui || message.content.trim())"
@@ -313,7 +316,7 @@ onMounted(() => {
                 "
               />
               <ChatAttachments
-                v-if="message.role === 'USER'"
+                v-if="message.role === 'USER' && message.provenance?.sender.kind.toUpperCase() !== 'SYSTEM'"
                 :attachments="message.attachments"
                 :attachment-labels="attachmentLabels"
                 :download-attachment="attachmentDownloader"
@@ -330,6 +333,7 @@ onMounted(() => {
               />
               <template v-if="showAgui">
                 <AguiRunWorkRail
+                  :show-reasoning-cards="props.showReasoningCards"
                   v-for="run in workRailsForMessage(message)"
                   :key="run.id"
                   :debug-events="debugEventsForRun(run.runId)"
@@ -351,12 +355,12 @@ onMounted(() => {
               </template>
             </template>
           </div>
-          <Bot
-            :size="40"
-            :strokeWidth="1"
-            class="ef-chat__transcript__bot"
-            v-else-if="!props.historyLoading"
-          />
+          <div v-else class="ef-chat__transcript-empty">
+            <Bot :size="40" :strokeWidth="1" class="ef-chat__transcript__bot" />
+            <div v-if="props.historyLoading" role="status" aria-live="polite" class="ef-chat__history-loading">
+              {{ (props.historyLabels ?? defaultHistoryLabels).loading }}
+            </div>
+          </div>
         <ChatUserInputCard
           v-if="props.userInputRequest?.status === 'Pending' && props.onAnswerUserInput"
           :disabled="props.userInputAnswerPending || props.session?.status === 'ARCHIVED'"
@@ -402,15 +406,19 @@ onMounted(() => {
           :on-paste-attachment="props.onPasteAttachment"
           :onEditQueuedMessage="props.onEditQueuedMessage ? (id, content) => emit('edit-queued-message', id, props.queuedMessages.find(item => item.id === id)?.input.content ?? content) : undefined"
           :onRemoveQueuedMessage="props.onRemoveQueuedMessage ? (id) => emit('remove-queued-message', id) : undefined"
+          :onSteerQueuedMessage="props.onSteerQueuedMessage ? (id) => emit('steer-queued-message', id) : undefined"
+          :onReorderQueuedMessage="props.onReorderQueuedMessage ? (sourceId, targetId) => emit('reorder-queued-message', sourceId, targetId) : undefined"
           :queue-disabled="props.queueDisabled"
           :queued-label="props.queuedLabel"
           :queued-messages="props.queuedMessages.map(item => ({ ...item, input: { ...item.input, content: item.input.content || (item.input.annotations ?? []).map(annotation => annotation.comment).join('; ') } }))"
           :running-submit-modes="props.runningSubmitModes"
+          :running-enter-submit-mode="props.runningEnterSubmitMode"
           :send-disabled="props.sendDisabled"
           :send-label="props.sendLabel"
           :sending="props.sending"
           :show-stop="props.showStop"
           :steer-disabled="props.steerDisabled"
+          :queued-steer-disabled="props.queuedSteerDisabled"
           :stop-label="props.stopLabel"
           :pending-attachments="props.pendingAttachments"
           :attachment-downloader="props.attachmentDownloader"

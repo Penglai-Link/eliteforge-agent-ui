@@ -519,11 +519,14 @@ export interface ChatClientConfig {
   inputPlaceholder?: string;
   queuedInputPlaceholder?: string;
   steeringInputPlaceholder?: string;
+  runningEnterSubmitMode?: ChatRunningSubmitMode;
   maxFileSize?: number;
   maxLimitFile?: number;
   open?: boolean;
   resizable?: boolean;
   showAgui?: boolean;
+  /** Whether reasoning cards appear in the work rail. The host may persist this preference. */
+  showReasoningCards?: boolean;
   showSessionList?: boolean;
   showNewSession?: boolean;
   storageKey?: string;

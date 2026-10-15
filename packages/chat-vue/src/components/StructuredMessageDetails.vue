@@ -3,7 +3,7 @@ import { computed } from "vue";
 import { chatErrorPresentation, defaultHistoryLabels, historyToolResult, historyBlockUrl, type ChatHistoryLabels, type ChatMessage, type ToolWorkCard } from "@eliteforge/agent-ui-chat-core";
 import ReasoningCard from "./ReasoningCard.vue";
 import ToolCard from "./ToolCard.vue";
-const props = defineProps<{ message: ChatMessage; workOnly?: boolean; labels?: ChatHistoryLabels; hideRunError?: boolean }>();
+const props = defineProps<{ message: ChatMessage; workOnly?: boolean; showReasoningCards?: boolean; labels?: ChatHistoryLabels; hideRunError?: boolean }>();
 const labels = computed(() => props.labels ?? defaultHistoryLabels);
 const view = computed(() => props.message.history);
 const error = computed(() => chatErrorPresentation(view.value?.run?.error ?? "", labels.value.statuses.Failed));
@@ -16,7 +16,7 @@ const tools = computed(() => view.value?.tools.map((tool) => ({ tool, card: {
 </script>
 <template>
   <section v-if="view" class="ef-chat__history-details" :data-history-message-id="message.messageId">
-    <ReasoningCard v-if="workOnly && reasoning" :card="{ id: `${message.messageId}:reasoning`, runId: message.runId ?? '', content: reasoning, summary: reasoning, ended: view.message.status !== 'Running', firstMillis: view.message.createdAtMs, endMillis: view.step?.finishedAtMs ?? null, toolCards: [] }" />
+    <ReasoningCard v-if="workOnly && showReasoningCards !== false && reasoning" :card="{ id: `${message.messageId}:reasoning`, runId: message.runId ?? '', content: reasoning, summary: reasoning, ended: view.message.status !== 'Running', firstMillis: view.message.createdAtMs, endMillis: view.step?.finishedAtMs ?? null, toolCards: [] }" />
     <template v-for="(block, index) in workOnly ? [] : view.message.content" :key="index">
       <pre v-if="block.type === 'Json'">{{ JSON.stringify(block.value, null, 2) }}</pre>
       <img v-else-if="block.type === 'Media' && block.mimeType.startsWith('image/') && historyBlockUrl(block)" :src="historyBlockUrl(block)!" :alt="block.name ?? block.mimeType" loading="lazy" />

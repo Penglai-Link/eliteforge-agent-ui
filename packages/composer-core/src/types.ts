@@ -54,8 +54,11 @@ export interface ComposerProps {
   queuedLabel?: string;
   queuedMessages?: ComposerQueuedMessage[];
   runningSubmitModes?: ComposerRunningSubmitMode[];
+  /** Keyboard action for Enter while a run is active; the other action uses Cmd/Ctrl+Enter. */
+  runningEnterSubmitMode?: ComposerRunningSubmitMode;
   queueDisabled?: boolean;
   steerDisabled?: boolean;
+  queuedSteerDisabled?: boolean;
   sendDisabled?: boolean;
   sending?: boolean;
   sendLabel?: string;
@@ -70,4 +73,5 @@ export interface ComposerProps {
   removeAttachmentLabel?: (name: string) => string;
   editQueuedLabel?: string;
   removeQueuedLabel?: string;
+  steerQueuedLabel?: string;
 }

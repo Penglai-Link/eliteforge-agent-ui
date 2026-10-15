@@ -28,4 +28,10 @@ describe("host message provenance", () => {
     expect(result.provenance).toEqual(provenance);
     expect(result.actor).toBe("Main Dude");
   });
+  it("recovers system attribution for previously stored child completion notices", () => {
+    const page: SessionHistory = {sessionId:"s", version:"1", nextCursor:null, runs:[], activeRuns:[], pendingInteractions:[], records:{steps:[], toolInvocations:[], interactions:[], messages:[{id:"m",runId:"r",stepId:null,role:"User",content:[{type:"Text",text:"后台子执行已完成（childRunId=child-1，status=ToolCallLimit，agent=worker）。输出摘要：。需要完整结果时用 child_wait 获取。"}],structured:null,status:"Completed",createdAtMs:0,provenance:{sender:{kind:"HUMAN",displayName:"17725021454"}}}]}};
+    const result = historyMessages(page)[0];
+    expect(result.provenance?.sender.kind).toBe("SYSTEM");
+    expect(result.actor).toBe("系统通知");
+  });
 });

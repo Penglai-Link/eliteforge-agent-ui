@@ -34,6 +34,7 @@ export function applyMessageProvenance(messages: readonly ChatMessage[], events:
     byIdentity.set(`${event.threadId}:${value.messageId}`, value.provenance!);
   }
   return messages.map(message => {
+    if (message.provenance?.source === "ChildRunCompletion") return message;
     const provenance = byIdentity.get(`${message.sessionId}:${message.messageId}`);
     return provenance ? { ...message, provenance } : message;
   });

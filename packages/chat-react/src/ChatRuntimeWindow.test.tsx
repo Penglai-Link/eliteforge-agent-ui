@@ -1073,6 +1073,19 @@ describe("ChatRuntimeWindow", () => {
     fireEvent.keyDown(composer, { key: "Enter" });
     await waitFor(() => expect(document.querySelector(".ef-chat__queued-message-content")?.textContent).toBe("$review Run this next"));
 
+    fireEvent.change(composer, { target: { value: "Steer this queued message" } });
+    fireEvent.keyDown(composer, { key: "Enter" });
+    await waitFor(() => expect(screen.getByText("Steer this queued message")).toBeTruthy());
+    fireEvent.click(screen.getAllByRole("button", { name: "Steer queued message" })[1]);
+    await waitFor(() => expect(steerMessage).toHaveBeenCalledTimes(2));
+    expect(steerMessage).toHaveBeenLastCalledWith(
+      expect.objectContaining({ sessionId: "SESSION-RESTORED" }),
+      expect.objectContaining({ content: "Steer this queued message" }),
+      { expectedRunId: "RUN-1" },
+      expect.any(AbortSignal),
+    );
+    expect(document.querySelectorAll(".ef-chat__queued-message-content")).toHaveLength(1);
+
     await act(async () => {
       pendingStreams[0].resolve(completedResult("RUN-1"));
     });

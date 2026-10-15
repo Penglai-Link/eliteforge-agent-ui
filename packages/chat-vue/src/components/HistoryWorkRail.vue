@@ -3,7 +3,7 @@ import { computed, ref, watch } from "vue";
 import { ChevronDown, ChevronRight } from "lucide-vue-next";
 import { historyWorkCompleted, type ChatMessage, type ChatWorkRailLabels, type ChatHistoryLabels } from "@eliteforge/agent-ui-chat-core";
 import StructuredMessageDetails from "./StructuredMessageDetails.vue";
-const props = defineProps<{ messages: ChatMessage[]; labels?: ChatWorkRailLabels; historyLabels?: ChatHistoryLabels }>();
+const props = defineProps<{ messages: ChatMessage[]; labels?: ChatWorkRailLabels; historyLabels?: ChatHistoryLabels; showReasoningCards?: boolean }>();
 const completed = computed(() => historyWorkCompleted(props.messages));
 const expanded = ref(false);
 watch(completed, value => { if (value) expanded.value = false; });
@@ -24,7 +24,7 @@ const summary = computed(() => {
       {{ summary }}<ChevronDown v-if="expanded" :size="14" /><ChevronRight v-else :size="14" />
     </button>
     <div v-if="expanded" class="ef-chat__rail-stack">
-      <StructuredMessageDetails v-for="message in messages" :key="message.messageId" :message="message" work-only :labels="historyLabels" />
+      <StructuredMessageDetails v-for="message in messages" :key="message.messageId" :message="message" work-only :show-reasoning-cards="showReasoningCards" :labels="historyLabels" />
     </div>
   </section>
 </template>

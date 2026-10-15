@@ -64,6 +64,21 @@ it("supports independent send, queue, steer, stop and disabled gates without cha
   fireEvent.keyDown(editor, { key: "Enter", metaKey: true });
   expect(send).not.toHaveBeenCalled();
 });
+it("routes running shortcuts according to the configured Enter action", () => {
+  const send = vi.fn();
+  const { rerender } = render(<Composer draft="message" onDraftChange={() => {}} onSend={send}
+    sending runningSubmitModes={["queue", "steer"]} runningEnterSubmitMode="steer" />);
+  const editor = screen.getByRole("textbox");
+  fireEvent.keyDown(editor, { key: "Enter" });
+  fireEvent.keyDown(editor, { key: "Enter", ctrlKey: true });
+  expect(send.mock.calls).toEqual([["steer"], ["queue"]]);
+  rerender(<Composer draft="message" onDraftChange={() => {}} onSend={send}
+    sending runningSubmitModes={["queue", "steer"]} runningEnterSubmitMode="queue" />);
+  send.mockClear();
+  fireEvent.keyDown(editor, { key: "Enter" });
+  fireEvent.keyDown(editor, { key: "Enter", metaKey: true });
+  expect(send.mock.calls).toEqual([["queue"], ["steer"]]);
+});
 it("selects skill suggestions, displays their label, dismisses menus and inserts newlines", async () => {
   render(
     <Controlled
@@ -86,6 +101,18 @@ it("selects skill suggestions, displays their label, dismisses menus and inserts
   editor.setSelectionRange(1, 1);
   fireEvent.keyDown(editor, { key: "Enter", shiftKey: true });
   expect(editor.value).toBe("a\nb");
+});
+it("uses the native editor for long text and while selecting skill text", () => {
+  const longText = "A long line that wraps in the composer. ".repeat(20);
+  const { rerender } = render(<Composer draft={longText} onDraftChange={() => {}} onSend={() => {}} />);
+  const editor = screen.getByRole("textbox") as HTMLTextAreaElement;
+  const wrapper = editor.closest(".ef-chat__composer-editor")!;
+  expect(wrapper.getAttribute("data-has-tokens")).toBeNull();
+  rerender(<Composer draft="$review selected text" inputSuggestions={[{ kind: "skill", name: "review" }]} onDraftChange={() => {}} onSend={() => {}} />);
+  expect(wrapper.getAttribute("data-has-tokens")).toBe("true");
+  editor.setSelectionRange(0, 7);
+  fireEvent.select(editor);
+  expect(wrapper.getAttribute("data-has-tokens")).toBeNull();
 });
 it("retains header/addon, queue edits/removal, attachment preview/removal, paste and file upload", () => {
   const edit = vi.fn(),
@@ -144,4 +171,17 @@ it("retains header/addon, queue edits/removal, attachment preview/removal, paste
     },
   });
   expect(paste).toHaveBeenCalledWith(file);
+});
+it("sends queue reorder only after a user drop", () => {
+  const reorder = vi.fn();
+  render(<Composer draft="" onDraftChange={() => {}} onSend={() => {}}
+    queuedMessages={[{ id: "first", input: { content: "First" } }, { id: "second", input: { content: "Second" } }]}
+    onReorderQueuedMessage={reorder} />);
+  const rows = document.querySelectorAll(".ef-chat__queued-message");
+  const dataTransfer = { effectAllowed: "none", setData: vi.fn() };
+  fireEvent.dragStart(rows[1], { dataTransfer });
+  fireEvent.dragOver(rows[0]);
+  expect(reorder).not.toHaveBeenCalled();
+  fireEvent.drop(rows[0]);
+  expect(reorder).toHaveBeenCalledWith("second", "first");
 });

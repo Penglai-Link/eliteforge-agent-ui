@@ -19,6 +19,18 @@ export function enqueueChatSubmission(
   return [...queue, submission];
 }
 
+export function reorderQueuedChatSubmission<T extends { id: string }>(
+  queue: readonly T[], sourceId: string, targetId: string,
+): T[] {
+  const sourceIndex = queue.findIndex(item => item.id === sourceId);
+  const targetIndex = queue.findIndex(item => item.id === targetId);
+  if (sourceIndex < 0 || targetIndex < 0 || sourceIndex === targetIndex) return [...queue];
+  const next = [...queue];
+  const [source] = next.splice(sourceIndex, 1);
+  next.splice(targetIndex, 0, source);
+  return next;
+}
+
 export function removeQueuedChatSubmission(
   queue: readonly ChatQueuedSubmission[],
   id: string,

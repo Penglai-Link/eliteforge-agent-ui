@@ -168,12 +168,24 @@
   gap: 20px;
 }
 
-.ef-chat__transcript__bot {
+.ef-chat__transcript-empty {
   position: absolute;
   left: 50%;
   top: 50%;
   transform: translate(-50%, -50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  text-align: center;
+}
+
+.ef-chat__transcript__bot {
   color: var(--agent-ui-chat-text-muted);
+}
+
+.ef-chat__history-loading {
+  white-space: nowrap;
 }
 
 .ef-chat__empty {
@@ -1354,6 +1366,15 @@
 .ef-chat__reasoning-inline > svg { flex: none; margin-top: 3px; }
 .ef-chat__reasoning-inline .markdown-body > :first-child { margin-top: 0; }
 .ef-chat__reasoning-inline .markdown-body > :last-child { margin-bottom: 0; }
+.ef-chat .markdown-body pre {
+  max-width: 100%;
+  overflow-x: auto;
+  border: 1px solid var(--agent-ui-chat-border);
+  border-radius: 8px;
+  background: var(--agent-ui-chat-surface-strong);
+  color: var(--agent-ui-chat-text);
+}
+.ef-chat .markdown-body pre > code { background: transparent; color: inherit; }
 .ef-chat__rail-current--working .ef-chat__rail-current-text { animation: ef-chat-working 1.5s ease-in-out infinite; }
 @keyframes ef-chat-working { 0%, 100% { opacity: 1; } 50% { opacity: .35; } }
 @media (prefers-reduced-motion: reduce) { .ef-chat__rail-current--working .ef-chat__rail-current-text { animation: none; } }

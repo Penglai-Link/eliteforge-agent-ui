@@ -1,6 +1,7 @@
 import type { ChatMessage, TranscriptAguiEvent } from "./types";
 import { historyEventRunId } from "./history";
 import { aguiEventMillis, aguiEventType, isAguiExecutionTerminalEvent } from "./transcript";
+import { messageSenderIsHuman } from "./messageProvenance";
 
 /** Fold work together, while preserving user answers as transcript boundaries. */
 export function historyWorkGroups(messages: readonly ChatMessage[]) {
@@ -8,7 +9,7 @@ export function historyWorkGroups(messages: readonly ChatMessage[]) {
   let anchor = "";
   let runId: string | null | undefined;
   for (const message of messages) {
-    if (message.role === "USER") { anchor = ""; continue; }
+    if (message.role === "USER" && messageSenderIsHuman(message)) { anchor = ""; continue; }
     if (!anchor || runId !== message.runId) { anchor = message.messageId; runId = message.runId; }
     if (!message.history?.tools.length && !message.history?.message.content.some(block => block.type === "Reasoning" && block.text.trim())) continue;
     const group = groups.get(anchor) ?? [];

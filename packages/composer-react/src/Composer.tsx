@@ -38,6 +38,8 @@ export interface ComposerReactProps extends ComposerProps {
   onRemoveAttachment?: (id: string) => void;
   onEditQueuedMessage?: (id: string, content: string) => void;
   onRemoveQueuedMessage?: (id: string) => void;
+  onSteerQueuedMessage?: (id: string) => void;
+  onReorderQueuedMessage?: (sourceId: string, targetId: string) => void;
 }
 export function useAttachmentImageSource(
   attachment: ComposerAttachment,
@@ -180,8 +182,10 @@ export function Composer({
   steeringInputPlaceholder = "Enter to queue · ⌘/Ctrl+Enter to steer · Shift+Enter for newline",
   sending = false,
   runningSubmitModes = [],
+  runningEnterSubmitMode = "queue",
   queueDisabled = false,
   steerDisabled = false,
+  queuedSteerDisabled = false,
   sendDisabled = false,
   sendLabel = "Send",
   stopLabel = "Stop",
@@ -190,8 +194,11 @@ export function Composer({
   queuedLabel = "Queued",
   onEditQueuedMessage,
   onRemoveQueuedMessage,
+  onSteerQueuedMessage,
+  onReorderQueuedMessage,
   editQueuedLabel = "Edit queued message",
   removeQueuedLabel = "Remove queued message",
+  steerQueuedLabel = "Steer queued message",
   pendingAttachments = [],
   attachmentDownloader,
   onRemoveAttachment,
@@ -203,8 +210,9 @@ export function Composer({
   removeAttachmentLabel = (name) => `Remove ${name}`,
 }: ComposerReactProps) {
   const attachmentFileInputRef = useRef<HTMLInputElement | null>(null);
+  const draggedQueuedId = useRef<string | null>(null);
   const composerElementRef = useRef<HTMLTextAreaElement | null>(null);
-  const [composerCaretAtEnd, setComposerCaretAtEnd] = useState(false);
+  const [composerHasSelection, setComposerHasSelection] = useState(false);
   const [activeSuggestion, setActiveSuggestion] = useState(0);
   const [suggestionsDismissed, setSuggestionsDismissed] = useState(false);
   const suggestionQuery = useMemo(() => {
@@ -213,6 +221,8 @@ export function Composer({
   const visibleSuggestions = useMemo(() => {
     return filterSuggestions(draft, inputSuggestions, skillSuggestionTriggers);
   }, [draft, inputSuggestions, skillSuggestionTriggers, suggestionQuery]);
+  const overlayParts = useMemo(() => composerOverlayParts(draft, inputSuggestions), [draft, inputSuggestions]);
+  const hasTokens = overlayParts.some((part) => part.displayName !== null);
   const suggestionGroups = useMemo(() => {
     const commands = visibleSuggestions.filter(
       (item) => item.kind === "command"
@@ -246,18 +256,24 @@ export function Composer({
       textarea.focus();
       const position = next.caret;
       textarea.setSelectionRange(position, position);
-      setComposerCaretAtEnd(true);
+      setComposerHasSelection(false);
     });
   }
-  function updateComposerCaret(textarea: HTMLTextAreaElement) {
-    setComposerCaretAtEnd(
-      textarea.value.length > 0 &&
-        textarea.selectionStart === textarea.value.length &&
-        textarea.selectionEnd === textarea.value.length
-    );
+  function updateComposerSelection(textarea: HTMLTextAreaElement) {
+    setComposerHasSelection(textarea.selectionStart !== textarea.selectionEnd);
   }
   const canQueueWhileRunning = runningSubmitModes.includes("queue");
   const canSteerWhileRunning = runningSubmitModes.includes("steer");
+  const enterSubmitMode: ChatSubmitMode | null = !sending
+    ? "send"
+    : runningSubmitModes.includes(runningEnterSubmitMode)
+      ? runningEnterSubmitMode
+      : canQueueWhileRunning ? "queue" : canSteerWhileRunning ? "steer" : null;
+  const shortcutSubmitMode: ChatSubmitMode | null = sending
+    ? runningSubmitModes.find(mode => mode !== enterSubmitMode) ?? null
+    : null;
+  const submitDisabled = (mode: ChatSubmitMode) =>
+    disabledInput || (mode === "queue" ? queueDisabled : mode === "steer" ? steerDisabled : Boolean(sendDisabled));
   const composerPlaceholder =
     sending && canQueueWhileRunning
       ? canSteerWhileRunning
@@ -319,11 +335,33 @@ export function Composer({
           </div>
           <ol className="ef-chat__queued-messages-list">
             {queuedMessages.map((queuedMessage) => (
-              <li className="ef-chat__queued-message" key={queuedMessage.id}>
+              <li className="ef-chat__queued-message" key={queuedMessage.id}
+                draggable={Boolean(onReorderQueuedMessage)}
+                onDragStart={(event) => {
+                  draggedQueuedId.current = queuedMessage.id;
+                  event.dataTransfer.effectAllowed = "move";
+                  event.dataTransfer.setData("text/plain", queuedMessage.id);
+                }}
+                onDragOver={(event) => {
+                  if (draggedQueuedId.current && draggedQueuedId.current !== queuedMessage.id) event.preventDefault();
+                }}
+                onDrop={(event) => {
+                  event.preventDefault();
+                  const sourceId = draggedQueuedId.current;
+                  draggedQueuedId.current = null;
+                  if (sourceId && sourceId !== queuedMessage.id) onReorderQueuedMessage?.(sourceId, queuedMessage.id);
+                }}
+                onDragEnd={() => { draggedQueuedId.current = null; }}>
                 <span className="ef-chat__queued-message-content">
                   {queuedMessage.input.content}
                 </span>
                 <span className="ef-chat__queued-message-actions">
+                  {onSteerQueuedMessage && canSteerWhileRunning ? (
+                    <button aria-label={steerQueuedLabel} className="ef-chat__icon-button" title={steerQueuedLabel} type="button"
+                      disabled={queuedSteerDisabled} onClick={() => onSteerQueuedMessage(queuedMessage.id)}>
+                      <Send size={14} />
+                    </button>
+                  ) : null}
                   {onEditQueuedMessage ? (
                     <button
                       aria-label={editQueuedLabel}
@@ -434,10 +472,10 @@ export function Composer({
         ) : null}
         <div
           className="ef-chat__composer-editor"
-          data-caret-at-end={composerCaretAtEnd ? "true" : undefined}
+          data-has-tokens={hasTokens && !composerHasSelection ? "true" : undefined}
         >
           <div className="ef-chat__composer-overlay" aria-hidden="true">
-            {composerOverlayParts(draft, inputSuggestions).map((part, index) =>
+            {overlayParts.map((part, index) =>
               part.displayName !== null ? (
                 <span className="ef-chat__skill-token" key={index}>
                   <span className="ef-chat__skill-token-label">
@@ -448,9 +486,6 @@ export function Composer({
                 <Fragment key={index}>{part.text}</Fragment>
               )
             )}
-            {composerCaretAtEnd ? (
-              <span className="ef-chat__composer-overlay-caret" />
-            ) : null}
           </div>
           <textarea
             autoFocus={autoFocusComposer}
@@ -463,14 +498,14 @@ export function Composer({
             placeholder={composerPlaceholder}
             value={draft}
             onChange={(event) => {
-              updateComposerCaret(event.currentTarget);
+              updateComposerSelection(event.currentTarget);
               onDraftChange(event.target.value);
             }}
-            onClick={(event) => updateComposerCaret(event.currentTarget)}
-            onFocus={(event) => updateComposerCaret(event.currentTarget)}
-            onBlur={() => setComposerCaretAtEnd(false)}
-            onKeyUp={(event) => updateComposerCaret(event.currentTarget)}
-            onSelect={(event) => updateComposerCaret(event.currentTarget)}
+            onClick={(event) => updateComposerSelection(event.currentTarget)}
+            onFocus={(event) => updateComposerSelection(event.currentTarget)}
+            onBlur={() => setComposerHasSelection(false)}
+            onKeyUp={(event) => updateComposerSelection(event.currentTarget)}
+            onSelect={(event) => updateComposerSelection(event.currentTarget)}
             onScroll={(event) => {
               const overlay = event.currentTarget.previousElementSibling;
               if (overlay instanceof HTMLElement)
@@ -515,7 +550,7 @@ export function Composer({
                 suggestionsOpen &&
                 visibleSuggestions.length &&
                 event.key === "Enter" &&
-                !event.shiftKey
+                !event.shiftKey && !event.metaKey && !event.ctrlKey
               ) {
                 event.preventDefault();
                 chooseSuggestion(
@@ -531,19 +566,15 @@ export function Composer({
               const commandShortcut = event.metaKey || event.ctrlKey;
               if (sending && commandShortcut && event.key === "Enter") {
                 event.preventDefault();
-                if (canSteerWhileRunning && !disabledInput && !steerDisabled) {
-                  onSend("steer");
-                }
+                if (shortcutSubmitMode && !submitDisabled(shortcutSubmitMode)) onSend(shortcutSubmitMode);
                 return;
               }
               if (event.key !== "Enter") return;
               event.preventDefault();
-              if (primarySubmitMode && !primarySubmitDisabled) {
-                onSend(primarySubmitMode);
-              }
+              if (enterSubmitMode && !submitDisabled(enterSubmitMode)) onSend(enterSubmitMode);
             }}
             aria-keyshortcuts={
-              sending && canSteerWhileRunning
+              shortcutSubmitMode
                 ? "Meta+Enter Control+Enter"
                 : undefined
             }

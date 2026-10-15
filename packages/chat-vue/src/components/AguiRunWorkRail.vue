@@ -28,6 +28,7 @@ const props = withDefaults(defineProps<{
   userInputRequests?: ChatUserInputRequest[];
   timeline?: TranscriptWorkRun;
   historyLabels?: ChatHistoryLabels;
+  showReasoningCards?: boolean;
 }>(), {
   debugEvents: () => [],
   events: () => [],
@@ -74,7 +75,8 @@ const matchingUserInputRequests = computed(() => {
 const pendingUserInputRequest = computed(() => matchingUserInputRequests.value.find(
   (request) => request.status === "Pending",
 ));
-const visibleUserCards = userCards;
+const visibleUserCards = computed(() => userCards.value.filter(card => props.showReasoningCards !== false || card.kind !== "reasoning"));
+const visibleTimelineItems = computed(() => props.timeline?.items.filter(item => props.showReasoningCards !== false || item.kind !== "reasoning") ?? []);
 const reasoningEffort = computed(() => aguiReasoningEffort(props.events));
 const terminalEvent = computed(() => props.timeline?.completed ?? (props.historyCovered || isAguiRunTerminal(props.events) && !pendingUserInputRequest.value));
 const expanded = ref(false);
@@ -107,7 +109,7 @@ onBeforeUnmount(() => {
     class="ef-chat__rail"
   >
     <button
-      v-if="terminalEvent && (props.timeline?.items.length || userCards.length || props.debugEvents.length)"
+      v-if="terminalEvent && (visibleTimelineItems.length || visibleUserCards.length || props.debugEvents.length)"
       :aria-expanded="expanded"
       class="ef-chat__rail-summary"
       type="button"
@@ -123,15 +125,15 @@ onBeforeUnmount(() => {
     <div v-else class="ef-chat__rail-summary ef-chat__rail-summary--static">{{ terminalEvent ? labels.workedFor(duration) : labels.workingFor(duration) }}</div>
     <AguiRunNotices :events="props.events" :messages="props.timeline?.messages" :labels="labels" />
     <div
-      v-if="!terminalEvent || expanded"
+      v-if="(!terminalEvent || expanded) && (visibleTimelineItems.length || visibleUserCards.length || props.debugEvents.length)"
       class="ef-chat__rail-stack"
       :style="{ marginTop: '8px' }"
     >
-      <section v-if="props.timeline" aria-label="Agent work rail" class="ef-chat__rail" style="max-width: none; padding-left: 0">
+      <section v-if="props.timeline && visibleTimelineItems.length" aria-label="Agent work rail" class="ef-chat__rail" style="max-width: none; padding-left: 0">
         <div class="ef-chat__rail-card-list">
-          <div v-for="item in props.timeline.items" :key="item.id" :data-work-item="item.kind" :data-work-item-id="item.id">
+          <div v-for="item in visibleTimelineItems" :key="item.id" :data-work-item="item.kind" :data-work-item-id="item.id">
             <slot v-if="item.kind === 'message'" name="message" :message="item.message" />
-            <ReasoningCard v-else-if="item.kind === 'reasoning'" :card="item.value" unfolded />
+            <ReasoningCard v-else-if="item.kind === 'reasoning'" :card="item.value" />
             <ToolCard v-else :card="item.value" :labels="labels" compact :status-label="item.historyStatus ? (props.historyLabels ?? defaultHistoryLabels).statuses[item.historyStatus] : undefined" />
           </div>
         </div>
