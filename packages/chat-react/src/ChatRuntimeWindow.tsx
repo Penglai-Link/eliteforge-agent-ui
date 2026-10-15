@@ -505,6 +505,11 @@ export function ChatRuntimeWindow({
     sessionId: string,
     signal?: AbortSignal,
   ) => {
+    // Hosts distinguish foreground execution from internal work such as
+    // session summarization. History's active runs include both.
+    if (activeAdapter.capabilities.supportsActiveRun && activeAdapter.getActiveRun) {
+      return (await activeAdapter.getActiveRun(sessionId, signal)).activeRun;
+    }
     if (activeAdapter.loadHistory) {
       const page = await activeAdapter.loadHistory(sessionId, { limit: 20, cursor: null }, signal);
       const run = page.activeRuns.find((r) => r.status === "Running" && r.parentRunId === null);
@@ -742,10 +747,18 @@ export function ChatRuntimeWindow({
     if (activeAdapter.loadHistory) {
       const page = await activeAdapter.loadHistory(sessionId, { limit: 20, cursor: null }, signal);
       const running = page.activeRuns.find((r) => r.status === "Running" && r.parentRunId === null);
+      const errors: unknown[] = [];
+      let foreground: ChatActiveRun | null | undefined;
+      if (activeAdapter.capabilities.supportsActiveRun && activeAdapter.getActiveRun) {
+        try { foreground = await loadActiveRunSnapshot(sessionId, signal); }
+        catch (error) { errors.push(error); }
+      } else {
+        foreground = running ? { runId: running.id, runtimeAdapterKey: "framework", supportsSteer: activeAdapter.capabilities.supportsSteer ?? false, state: "RUNNING" } : null;
+      }
       return { nextHistory: page, nextMessages: historyMessages(page, config.userInputLabels), nextAguiEvents: [] as ChatAguiEvent[], nextProtocolEvents: [] as ChatAguiStreamEvent[],
         healthyProtocolEvents: [] as ChatAguiStreamEvent[], healthNotice: undefined,
-        nextActiveRun: running ? { runId: running.id, runtimeAdapterKey: "framework", supportsSteer: activeAdapter.capabilities.supportsSteer ?? false, state: "RUNNING" as const } : null,
-        nextUserInputRequests: historyUserInputRequests(page, config.userInputLabels), errors: [] as unknown[] };
+        nextActiveRun: foreground,
+        nextUserInputRequests: historyUserInputRequests(page, config.userInputLabels), errors };
     }
     const parts = await Promise.allSettled([
       activeAdapter.loadMessages(sessionId),

@@ -94,6 +94,31 @@ function message(role: ChatMessage["role"], content: string): ChatMessage {
   };
 }
 
+it.each([40, 200])("keeps the reader's position after scrolling up %s pixels during updates", distance => {
+  const props = { draft: "", messages: [message("ASSISTANT", "First reply")], onDraftChange: vi.fn(), onSend: vi.fn(), session: activeSession() };
+  const view = render(<ChatPanel {...props} />);
+  const transcript = screen.getByRole("region", { name: "Chat transcript" });
+  let height = 1200;
+  Object.defineProperties(transcript, { clientHeight: { value: 400 }, scrollHeight: { get: () => height }, scrollTop: { value: 800, writable: true } });
+  const scroll = vi.fn(({ top }: { top: number }) => { transcript.scrollTop = Math.min(top, height - 400); });
+  transcript.scrollTo = scroll;
+  fireEvent.scroll(transcript);
+  fireEvent.wheel(transcript, { deltaY: -distance });
+  transcript.scrollTop -= distance;
+  fireEvent.scroll(transcript);
+  height += 80;
+  view.rerender(<ChatPanel {...props} messages={[...props.messages, message("ASSISTANT", "More output")]} />);
+  expect(scroll).not.toHaveBeenCalled();
+  expect(transcript.scrollTop).toBe(800 - distance);
+  transcript.scrollTop = height - 400;
+  fireEvent.scroll(transcript);
+  scroll.mockClear();
+  height += 80;
+  view.rerender(<ChatPanel {...props} messages={[...props.messages, message("ASSISTANT", "Last output")]} />);
+  expect(scroll).toHaveBeenCalled();
+  expect(transcript.scrollTop).toBe(height - 400);
+});
+
 describe("ChatPanel theme hooks", () => {
   it("exposes stable theme parts for the chat, messages, input, and effect layer", () => {
     renderPanel({

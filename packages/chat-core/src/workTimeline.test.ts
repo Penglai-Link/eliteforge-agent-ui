@@ -96,3 +96,48 @@ it("keeps answer continuations in their own user boundary even when a host reuse
   expect(timeline.before.get("resumed-step-1")![0].completed).toBe(false);
   expect(timeline.before.get("step-1")![0].items.some(item => item.id === "resumed-step-1")).toBe(false);
 });
+
+it("honors an accepted answer anchor when the server starts before client acknowledgment", () => {
+  const input = [message("user", "Wake up", "USER", 1000), message("ask", "", "ASSISTANT", 2000),
+    { ...message("interaction:q", "Direct", "USER", 4100), interactionResponse: { requestId: "q", rows: [] } }];
+  const source: ChatAguiStreamEvent[] = [{ type: "RUN_STARTED", runId: "alias", threadId: "S", timestamp: 4000,
+    metadata: { framework: { runId: "native" } } }, { type: "TOOL_CALL_START", runId: "alias", threadId: "S", timestamp: 4200,
+    toolCallId: "save-soul", toolCallName: "dude_soul_update", metadata: { framework: { runId: "native" } } }];
+  const timeline = buildTranscriptWorkTimeline(input, presentation(source, "interaction:q"));
+  expect(timeline.after.get("interaction:q")?.[0].events).toHaveLength(2);
+  expect(timeline.before.get("ask")).toBeUndefined();
+});
+
+it("closes only the pre-answer segment while the same native run resumes from history", () => {
+  const page: SessionHistory = { sessionId: "S", version: "1", nextCursor: null, pendingInteractions: [], activeRuns: [],
+    runs: [{ id: "native", sessionId: "S", parentRunId: null, rootRunId: "native", status: "Running", startedAtMs: 4000, finishedAtMs: null, error: null }],
+    records: { steps: [], messages: [
+      { id: "user", runId: "native", stepId: null, role: "User", content: [{ type: "Text", text: "Wake up" }], structured: null, status: "Completed", createdAtMs: 1000 },
+      { id: "ask", runId: "native", stepId: null, role: "Assistant", content: [], structured: null, status: "Completed", createdAtMs: 2000 },
+      { id: "continued", runId: "native", stepId: null, role: "Assistant", content: [{ type: "Reasoning", text: "Save the soul" }], structured: null, status: "Running", createdAtMs: 5000 },
+    ], toolInvocations: [{ id: "ask-call", callId: "ask-call", runId: "native", stepId: "ask", messageId: "ask", toolId: "ask", toolName: "chat_ask_user", arguments: {}, content: [],
+      structured: { frameworkInteractionId: "q" }, status: "Completed", isError: false, resultReference: null, startedAtMs: 2100, finishedAtMs: 2200 }],
+      interactions: [{ id: "q", runId: "native", invocationId: null, prompt: [], responseSchema: {}, presentation: null, response: "Direct", expiresAtMs: null }] } };
+  const restored = historyMessages(page);
+  expect(restored.map(m => m.messageId)).toEqual(["user", "ask", "interaction:q", "continued"]);
+  const timeline = buildTranscriptWorkTimeline(restored, presentation([]));
+  expect(timeline.before.get("ask")?.[0]).toMatchObject({ completed: true, finalMessageId: undefined });
+  expect(timeline.before.get("continued")?.[0].completed).toBe(false);
+  expect(timeline.before.get("ask")?.[0].items.map(item => item.id)).toEqual(["ask-call"]);
+});
+
+it("keeps multiple accepted answers as separate boundaries in one native execution", () => {
+  const historyRun = { id: "native", sessionId: "S", parentRunId: null, rootRunId: "native", status: "Running" as const, startedAtMs: 6000, finishedAtMs: null, error: null };
+  const step = (id: string, time: number) => ({ ...message(id, id, "ASSISTANT", time), history: {
+    message: { id, runId: "native", stepId: null, role: "Assistant" as const, content: [{ type: "Text" as const, text: id }], structured: null, status: "Completed" as const, createdAtMs: time },
+    step: null, tools: [], run: historyRun, interactions: [],
+  } });
+  const answer = (id: string, time: number) => ({ ...message(`interaction:${id}`, "Yes", "USER", time), interactionResponse: { requestId: id, rows: [] } });
+  const input = [message("user", "Wake up", "USER", 1000), step("first-question", 2000), answer("q1", 3000),
+    step("second-question", 4000), answer("q2", 5000), step("save", 6000)];
+  const timeline = buildTranscriptWorkTimeline(input, presentation([]), [{ requestId: "q3", runId: "native", status: "Pending" } as ChatUserInputRequest]);
+  expect(timeline.before.get("first-question")?.[0].completed).toBe(true);
+  expect(timeline.before.get("second-question")?.[0].completed).toBe(true);
+  expect(timeline.before.get("save")?.[0].completed).toBe(false);
+  expect([...timeline.before.keys()]).toEqual(["first-question", "second-question", "save"]);
+});

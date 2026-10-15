@@ -71,8 +71,12 @@ export function buildTranscriptWorkTimeline(messages: ChatMessage[], presentatio
     const identified = segment.flatMap(event => "messageId" in event && typeof event.messageId === "string"
       ? [groupByMessage.get(event.messageId)] : []).find(Boolean);
     const start = aguiEventMillis(segment[0]);
-    const precedingUser = start === null ? undefined : [...messages].reverse().find(message =>
-      message.role === "USER" && messageSenderIsHuman(message) && Date.parse(message.createdAt) <= start);
+    // Accepted answers are client-side boundaries. Their timestamp can be a
+    // little later than the server's RUN_STARTED frame, especially on resume.
+    const explicitUser = messages.find(message => message.messageId === anchor
+      && message.interactionResponse && message.role === "USER" && messageSenderIsHuman(message));
+    const precedingUser = explicitUser ?? (start === null ? undefined : [...messages].reverse().find(message =>
+      message.role === "USER" && messageSenderIsHuman(message) && Date.parse(message.createdAt) <= start));
     const eventScope = precedingUser?.messageId ?? scopeByMessage.get(anchor) ?? "";
     const id = `${eventScope}:${nativeId}`;
     let group = identified ?? groups.get(id);
@@ -93,13 +97,17 @@ export function buildTranscriptWorkTimeline(messages: ChatMessage[], presentatio
     const historyComplete = group.messages.length > 0 && group.messages.every(message => message.history)
       && historyWorkCompleted(group.messages)
       && (!group.events.length || historyCoversAguiWork(group.messages, group.events));
-    const pending = requests.some(request => request.status === "Pending"
+    const lastMessageIndex = Math.max(-1, ...group.messages.map(message => messages.indexOf(message)));
+    const nextUser = messages.slice(lastMessageIndex + 1).find(message => message.role === "USER" && messageSenderIsHuman(message));
+    const answeredBoundary = Boolean(nextUser?.interactionResponse
+      && (nextUser.runId === group.nativeId || group.wireIds.has(nextUser.runId ?? "")));
+    const pending = !answeredBoundary && requests.some(request => request.status === "Pending"
       && (request.runId === group.nativeId || group.wireIds.has(request.runId)
         || group.messages.some(message => message.messageId === request.assistantMessageId)));
     const outcome = terminal && "outcome" in terminal ? terminal.outcome as { type?: string } | undefined : undefined;
-    const interrupted = outcome?.type === "interrupt"
+    const interrupted = answeredBoundary || outcome?.type === "interrupt"
       || group.messages.some(message => message.history?.run?.status === "Waiting");
-    const completed = !pending && (Boolean(terminal) || historyComplete);
+    const completed = answeredBoundary || !pending && (Boolean(terminal) || historyComplete);
     const successful = completed && !interrupted && (terminal ? aguiEventType(terminal).toUpperCase() === "RUN_FINISHED"
       : group.messages.some(message => message.history?.run?.status === "Completed"));
     const final = successful ? [...group.messages].reverse().find(message =>

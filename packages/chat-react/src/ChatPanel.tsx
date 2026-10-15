@@ -1471,6 +1471,7 @@ export function ChatPanel({
   const [showJumpButton, setShowJumpButton] = useState(false);
   const [previewImage, setPreviewImage] = useState<{ alt: string; source: string } | null>(null);
   const autoStickToBottomRef = useRef(true);
+  const lastScrollTopRef = useRef(0);
   const streamingAssistantMessageCode = useMemo(() => {
     if (activeStreamingAssistantMessageCode !== undefined) {
       return activeStreamingAssistantMessageCode || undefined;
@@ -1570,6 +1571,7 @@ export function ChatPanel({
     const element = transcriptRef.current;
     if (!element) return;
     element.scrollTo({ behavior, top: element.scrollHeight });
+    lastScrollTopRef.current = element.scrollTop;
     autoStickToBottomRef.current = true;
     setShowJumpButton(false);
   }
@@ -1579,7 +1581,9 @@ export function ChatPanel({
     if (!element) return;
     const distanceFromBottom =
       element.scrollHeight - element.scrollTop - element.clientHeight;
-    autoStickToBottomRef.current = distanceFromBottom <= 96;
+    if (distanceFromBottom <= 2) autoStickToBottomRef.current = true;
+    else if (element.scrollTop < lastScrollTopRef.current) autoStickToBottomRef.current = false;
+    lastScrollTopRef.current = element.scrollTop;
     setShowJumpButton(distanceFromBottom > 160);
   }
 
@@ -1643,6 +1647,7 @@ export function ChatPanel({
               aria-label="Chat transcript"
               ref={transcriptRef}
               onScroll={handleScroll}
+              onWheel={event => { if (event.deltaY < 0) autoStickToBottomRef.current = false; }}
             >
               <div className="ef-chat__transcript-inner">
                 {!historyLoading && onLoadOlderHistory ? <button type="button" disabled={historyLoadingOlder} onClick={onLoadOlderHistory}>{historyLoadingOlder ? historyLabels.loading : historyLabels.loadOlder}</button> : null}
