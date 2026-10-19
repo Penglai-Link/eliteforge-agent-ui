@@ -21,7 +21,7 @@ import {
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ensureTestLocalStorage } from "./testLocalStorage";
-import { ChatRuntimeWindow } from "./ChatRuntimeWindow";
+import { ChatRuntimeWindow, type ChatRuntimeSubmitter } from "./ChatRuntimeWindow";
 
 afterEach(() => {
   cleanup();
@@ -91,6 +91,68 @@ function completedResult(
 }
 
 describe("draft session admission", () => {
+  it("admits host submissions through the shared runtime without consuming the user's draft attachments", async () => {
+    const { adapter } = createAdapter();
+    adapter.createSession = vi.fn().mockResolvedValue(restoredSession());
+    adapter.streamMessage = vi.fn().mockResolvedValue(completedResult("HOST-RUN"));
+    const submitterRef = { current: null as ChatRuntimeSubmitter | null };
+    const pending = { id: "UNSENT", kind: "file" as const, fileName: "unsent.docx" };
+    const submitted = { id: "HOST", kind: "file" as const, fileName: "inspection.png" };
+    const onDraftChange = vi.fn();
+    const onPendingAttachmentsChange = vi.fn();
+    render(<ChatRuntimeWindow adapter={adapter} config={{ floating: false }} allowDraftSession
+      submitterRef={submitterRef} draft="unfinished draft" pendingAttachments={[pending]}
+      onDraftChange={onDraftChange} onPendingAttachmentsChange={onPendingAttachmentsChange} />);
+    let accepted = false;
+    await act(async () => { accepted = await submitterRef.current!.submit({ content: "Review the inspection", attachments: [submitted] }); });
+    expect(accepted).toBe(true);
+    expect(adapter.createSession).toHaveBeenCalledTimes(1);
+    expect(adapter.streamMessage).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(adapter.streamMessage).mock.calls[0][1]).toMatchObject({ content: "Review the inspection", attachments: [submitted] });
+    expect((screen.getByRole("textbox") as HTMLTextAreaElement).value).toBe("unfinished draft");
+    expect(screen.getAllByText("unsent.docx")).toHaveLength(1);
+    expect(onDraftChange).not.toHaveBeenCalled();
+    expect(onPendingAttachmentsChange).not.toHaveBeenCalled();
+  });
+
+  it.each([false, true])("renders each staged attachment once with preview and removal before session creation (floating=%s)", async (floating) => {
+    const { adapter } = createAdapter();
+    adapter.downloadAttachment = vi.fn();
+    const file = { id: "DOC", kind: "file" as const, fileName: "example.docx" };
+    const image = { id: "IMAGE", kind: "image" as const, fileName: "preview.png", contentType: "image/png" };
+    const blob = new Blob(["preview"], { type: "image/png" });
+    const attachmentDownloader = vi.fn().mockResolvedValue(blob);
+    const onPendingAttachmentsChange = vi.fn();
+    const revokeObjectURL = vi.fn();
+    vi.stubGlobal("URL", class extends URL {
+      static createObjectURL = vi.fn(() => "blob:staged-preview");
+      static revokeObjectURL = revokeObjectURL;
+    });
+    try {
+      const props = { adapter, config: { floating }, allowDraftSession: true, attachmentDownloader, onPendingAttachmentsChange };
+      const view = render(<ChatRuntimeWindow {...props} pendingAttachments={[file, image]} />);
+      expect(screen.getAllByText("example.docx")).toHaveLength(1);
+      expect(screen.getAllByRole("button", { name: "Remove example.docx" })).toHaveLength(1);
+      await waitFor(() => expect(screen.getByRole("img", { name: "preview.png" }).getAttribute("src")).toBe("blob:staged-preview"));
+      expect(attachmentDownloader).toHaveBeenCalledExactlyOnceWith(image);
+      expect(adapter.downloadAttachment).not.toHaveBeenCalled();
+      expect(adapter.createSession).not.toHaveBeenCalled();
+      expect(adapter.streamMessage).not.toHaveBeenCalled();
+      fireEvent.click(screen.getByRole("button", { name: "Remove example.docx" }));
+      expect(onPendingAttachmentsChange).toHaveBeenLastCalledWith([image]);
+      view.rerender(<ChatRuntimeWindow {...props} pendingAttachments={[image]} />);
+      expect(screen.queryByText("example.docx")).toBeNull();
+      fireEvent.click(screen.getByRole("button", { name: "Remove preview.png" }));
+      expect(onPendingAttachmentsChange).toHaveBeenLastCalledWith([]);
+      view.rerender(<ChatRuntimeWindow {...props} pendingAttachments={[]} />);
+      expect(screen.queryByRole("img", { name: "preview.png" })).toBeNull();
+      expect(revokeObjectURL).toHaveBeenCalledExactlyOnceWith("blob:staged-preview");
+    } finally {
+      cleanup();
+      vi.unstubAllGlobals();
+    }
+  });
+
   it.each([false, true])("renders a draft composer (floating=%s), then creates and sends on the first valid submission", async (floating) => {
     const { adapter } = createAdapter();
     adapter.createSession = vi.fn().mockResolvedValue(restoredSession());

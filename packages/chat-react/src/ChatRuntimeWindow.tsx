@@ -52,6 +52,7 @@ import {
 import {
   useCallback,
   useEffect,
+  useImperativeHandle,
   useMemo,
   useRef,
   useState,
@@ -66,6 +67,11 @@ interface ToastLikeCallback {
   (message: string, title?: string): void;
 }
 
+export interface ChatRuntimeSubmitter {
+  /** Submit host-generated content through the same admission and queue as the composer. */
+  submit(input: Pick<SendChatMessageInput, "content" | "attachments">): Promise<boolean>;
+}
+
 export interface ChatRuntimeWindowProps {
   /** Forward A2UI actions to the host transport. */
   onA2UIAction?: ActionHandler;
@@ -74,10 +80,13 @@ export interface ChatRuntimeWindowProps {
   agentReplyEffect?: AssistantReplyEffect;
   agentReplySpeed?: number;
   adapter?: ChatAdapter;
+  /** Load host-staged attachments before a session exists; also used for history. */
+  attachmentDownloader?: (attachment: ChatMessageAttachment) => Promise<Blob>;
   attachmentLabels?: ChatAttachmentLabels;
   autoFocusComposer?: boolean;
   config: ChatClientConfig;
   composerRef?: Ref<HTMLTextAreaElement>;
+  submitterRef?: Ref<ChatRuntimeSubmitter>;
   composerHeader?: ReactNode;
   createSessionLabel?: string;
   currentUserDisplayName?: string;
@@ -155,11 +164,13 @@ export function ChatRuntimeWindow({
   agentReplyEffect = "off",
   agentReplySpeed = 120,
   adapter,
+  attachmentDownloader: hostAttachmentDownloader,
   attachmentLabels,
   autoFocusComposer = false,
   composerHeader,
   config,
   composerRef,
+  submitterRef,
   createSessionLabel = "Start chat",
   currentUserDisplayName,
   currentSender,
@@ -1461,36 +1472,42 @@ export function ChatRuntimeWindow({
     }
   }
 
-  async function handleSend() {
-    if (initialSubmitPendingRef.current || sendingRef.current || sendDisabled || userInputRequest || userInputAnswerPending) return;
+  async function handleSend(submitted?: Pick<SendChatMessageInput, "content" | "attachments">): Promise<boolean> {
+    if (initialSubmitPendingRef.current || sendingRef.current || config.disabledInput || creatingSession || (!submitted && sendDisabled) || userInputRequest || userInputAnswerPending) return false;
     // Capture the submitted draft before awaiting session creation. Subsequent
     // input changes must not alter the message being admitted.
-    const content = draft.trim();
-    const attachments = pendingAttachments;
-    const annotations = pendingAnnotations;
+    const content = (submitted?.content ?? draft).trim();
+    const attachments = submitted ? submitted.attachments ?? [] : pendingAttachments;
+    const annotations = submitted ? [] : pendingAnnotations;
     const requestedSkills = requestedSkillsFromDraft(content, config.inputSuggestions ?? [], draftSkillsRef.current);
-    if (!content && !attachments.length && !annotations.length) return;
+    if (!content && !attachments.length && !annotations.length) return false;
     const submission = Symbol("initial-submission");
     initialSubmitPendingRef.current = submission;
     try {
       const activeSession = await ensureSession();
       const sendInput = createSendInput(activeSession, content, attachments, requestedSkills, annotations);
-      if (!sendInput) return;
-      setDraft("");
-      setPendingAttachments([]);
-      setPendingAnnotations([]);
+      if (!sendInput) return false;
+      if (!submitted) {
+        setDraft("");
+        setPendingAttachments([]);
+        setPendingAnnotations([]);
+      }
       if (remoteActiveRunRef.current) {
         enqueueSubmission(activeSession, sendInput);
-        return;
+        return true;
       }
       if (initialSubmitPendingRef.current === submission) initialSubmitPendingRef.current = null;
       await runMessage(activeSession, sendInput);
+      return true;
     } catch (error) {
       onError(error instanceof Error ? error.message : "Chat send failed", "Chat send failed");
+      return false;
     } finally {
       if (initialSubmitPendingRef.current === submission) initialSubmitPendingRef.current = null;
     }
   }
+
+  useImperativeHandle(submitterRef, () => ({ submit: handleSend }));
 
   async function handleQueue() {
     if (queueDisabled || userInputRequest || userInputAnswerPending) return;
@@ -1769,10 +1786,11 @@ export function ChatRuntimeWindow({
   const attachmentDownloader = useMemo<
     ((attachment: ChatMessageAttachment) => Promise<Blob>) | undefined
   >(() => {
+    if (hostAttachmentDownloader) return hostAttachmentDownloader;
     if (!session || !activeAdapter.downloadAttachment) return undefined;
     return (attachment: ChatMessageAttachment) =>
       activeAdapter.downloadAttachment!(session, attachment);
-  }, [activeAdapter, session]);
+  }, [activeAdapter, hostAttachmentDownloader, session]);
   const composerFeedback = <>
     {composerHeader}
     {errorDisplay === "inline" && submissionError ? <div className="ef-chat__run-notice ef-chat__run-notice--error" role="alert">
