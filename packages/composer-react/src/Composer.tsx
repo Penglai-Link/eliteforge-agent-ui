@@ -288,10 +288,16 @@ export function Composer({
   const primarySubmitDisabled =
     disabledInput ||
     (primarySubmitMode === "queue" ? queueDisabled : Boolean(sendDisabled));
+  const autoFocusedComposerKeyRef = useRef<string | null>(null);
   useLayoutEffect(() => {
-    if (!autoFocusComposer || !composerKey) return;
-    composerElementRef.current?.focus();
-  }, [autoFocusComposer, composerKey]);
+    if (!autoFocusComposer || disabledInput) return;
+    const key = composerKey ?? "composer";
+    if (autoFocusedComposerKeyRef.current === key) return;
+    composerElementRef.current?.focus({ preventScroll: true });
+    if (document.activeElement === composerElementRef.current) {
+      autoFocusedComposerKeyRef.current = key;
+    }
+  }, [autoFocusComposer, composerKey, disabledInput]);
 
   function setComposerNode(node: HTMLTextAreaElement | null) {
     composerElementRef.current = node;

@@ -21,6 +21,23 @@ function Controlled(props: Partial<ComposerReactProps>) {
     />
   );
 }
+it("focuses a new chat composer when it becomes enabled", () => {
+  const props = { draft: "", onDraftChange: () => {}, onSend: () => {}, autoFocusComposer: true };
+  const { rerender } = render(<Composer {...props} disabledInput />);
+  const editor = screen.getByRole("textbox") as HTMLTextAreaElement;
+  expect(document.activeElement).not.toBe(editor);
+
+  rerender(<Composer {...props} />);
+  expect(document.activeElement).toBe(editor);
+
+  const other = document.createElement("button");
+  document.body.appendChild(other);
+  other.focus();
+  rerender(<Composer {...props} disabledInput />);
+  rerender(<Composer {...props} />);
+  expect(document.activeElement).toBe(other);
+  other.remove();
+});
 it("supports independent send, queue, steer, stop and disabled gates without chat", () => {
   const send = vi.fn(),
     stop = vi.fn();

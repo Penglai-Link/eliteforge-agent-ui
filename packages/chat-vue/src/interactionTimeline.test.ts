@@ -35,6 +35,9 @@ it("shows resumed execution as working instead of retaining the interrupt comple
     events.value.push({ type: "RUN_STARTED", runId: "r", timestamp: 300 }); await nextTick();
     expect(container.textContent).toContain("Working for");
     expect(container.textContent).not.toContain("Worked for");
+    expect(container.querySelector("button")?.getAttribute("aria-expanded")).toBe("true");
+    events.value.push({ type: "RUN_FINISHED", runId: "r", timestamp: 400 }); await nextTick();
+    expect(container.querySelector("button")?.getAttribute("aria-expanded")).toBe("false");
   } finally { app.unmount(); }
 });
 
@@ -67,6 +70,8 @@ it("shows a frozen completed segment and a new live segment after steer", async 
     expect(container.textContent).toContain("Worked for");
     expect(container.textContent).toContain("Working for");
     expect(container.querySelectorAll(".ef-chat__rail-summary")).toHaveLength(2);
+    expect(container.querySelectorAll('.ef-chat__rail-summary[aria-expanded="false"]')).toHaveLength(1);
+    expect(container.querySelectorAll('.ef-chat__rail-summary[aria-expanded="true"]')).toHaveLength(1);
   } finally { app.unmount(); }
 });
 

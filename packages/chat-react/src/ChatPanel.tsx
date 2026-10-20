@@ -460,6 +460,7 @@ function ChatBubble({
   emptyAssistantMessage = "No assistant response was produced.",
   isStreaming = false,
   message,
+  processMessage = false,
   a2uiSession,
   a2uiDisabled,
   onA2UIAction,
@@ -468,6 +469,7 @@ function ChatBubble({
   currentUserDisplayName?: string;
   emptyAssistantMessage?: string;
   isStreaming?: boolean;
+  processMessage?: boolean;
   message: ChatMessage;
   a2uiSession?: ChatA2uiSession;
   a2uiDisabled?: boolean;
@@ -486,21 +488,22 @@ function ChatBubble({
       className={cx(
         "ef-chat__message-entry",
         isUser && "ef-chat__message-entry--user",
+        processMessage && "ef-chat__message-entry--process",
       )}
     >
       <article
-        className={cx("ef-chat__message", isUser && "ef-chat__message--user", isSystemNotice && "ef-chat__message--system")}
+        className={cx("ef-chat__message", isUser && "ef-chat__message--user", isSystemNotice && "ef-chat__message--system", processMessage && "ef-chat__message--process")}
         data-message-id={message.messageId}
         data-theme-anchor="chat-message"
         data-theme-part={isSystemNotice ? "chat-message-system" : isUser ? "chat-message-user" : "chat-message-assistant"}
         data-streaming={isStreaming ? "true" : undefined}
       >
-        <div className="ef-chat__message-header">
+        {!processMessage ? <div className="ef-chat__message-header">
           <div className="ef-chat__message-actor">
             {senderAvatar ? <img src={senderAvatar} alt="" width={16} height={16} /> : messageSenderIsHuman(message) ? <UserRound size={16} /> : <Bot size={16} />}
             <span data-interaction-response-sender={message.interactionResponse ? message.provenance?.sender.kind : undefined}>{actorName}</span>
           </div>
-        </div>
+        </div> : null}
         {isUser ? (
           <div className="ef-chat__message-body" data-chat-annotation-source={message.interactionResponse ? undefined : "true"} data-history-interaction-id={message.interactionResponse?.requestId}>
             {message.interactionResponse ? <dl className="ef-chat__interaction-summary">{message.interactionResponse.rows.map((row, index) => <div key={index}><dt>{row.label}</dt><dd>{row.value}</dd></div>)}</dl> : message.content}
@@ -642,16 +645,18 @@ function ToolCard({
   labels = defaultWorkRailLabels,
   nested = false,
   statusLabel,
+  statusFailed = false,
   compact = false,
 }: {
   statusLabel?: string;
+  statusFailed?: boolean;
   card: ToolWorkCard;
   labels?: ChatWorkRailLabels;
   nested?: boolean;
   compact?: boolean;
 }) {
   const complete = card.ended || Boolean(card.result);
-  const failed = toolResultFailed(card.result);
+  const failed = statusFailed || toolResultFailed(card.result);
   const running = card.started && !complete;
   const interactionInfo = interactionToolSummary(card.toolName, card.args);
   const hasParameters = hasToolParameterPayload(card.args);
@@ -706,7 +711,11 @@ function ToolCard({
             className={cx(
               "ef-chat__tool-badge",
               nested
-                ? "ef-chat__tool-badge--nested"
+                ? cx(
+                    "ef-chat__tool-badge--nested",
+                    failed && "ef-chat__tool-badge--failed",
+                    complete && !failed && "ef-chat__tool-badge--done",
+                  )
                 : cx(
                     "ef-chat__tool-badge--standalone",
                     failed && "ef-chat__tool-badge--failed",
@@ -714,7 +723,7 @@ function ToolCard({
                   ),
             )}
           >
-            {nested ? (
+            {nested && !complete ? (
               <span className="ef-chat__tool-timeline-dot" aria-hidden="true" />
             ) : failed ? (
               <CircleX size={14} />
@@ -736,11 +745,7 @@ function ToolCard({
               >
                 {nested || compact && nestedToolLabel !== toolName ? nestedToolLabel : toolLabel}
               </span>
-              {nested ? statusLabel ? (
-                <span className={cx("ef-chat__tool-status", failed ? "ef-chat__tool-status--failed" : complete ? "ef-chat__tool-status--done" : "ef-chat__tool-status--running")}>
-                  {statusLabel}
-                </span>
-              ) : null : complete || failed || subagentDispatch ? null : (
+              {nested ? null : complete || failed || subagentDispatch ? null : (
                 <span
                   className={cx(
                     "ef-chat__tool-status",
@@ -859,7 +864,7 @@ function ToolCard({
   );
 }
 
-function ToolGroupCard({ card, labels = defaultWorkRailLabels, statusLabels }: { card: ToolGroupWorkCard; labels?: ChatWorkRailLabels; statusLabels?: Record<string, string> }) {
+function ToolGroupCard({ card, labels = defaultWorkRailLabels, statusLabels, failedStatuses }: { card: ToolGroupWorkCard; labels?: ChatWorkRailLabels; statusLabels?: Record<string, string>; failedStatuses?: Record<string, boolean> }) {
   const toolCopy = { ...defaultToolWorkLabels, ...labels.tool };
   const toolCards = card.toolCards.filter((toolCard) => toolCard.started);
   const hasRunningTool = toolCards.some(
@@ -903,7 +908,7 @@ function ToolGroupCard({ card, labels = defaultWorkRailLabels, statusLabels }: {
         <ol className="ef-chat__rail-entry-list">
           {toolCards.map((toolCard) => (
             <li key={toolCard.id}>
-            <ToolCard card={toolCard} labels={labels} nested statusLabel={statusLabels?.[toolCard.id]} />
+            <ToolCard card={toolCard} labels={labels} nested statusLabel={statusLabels?.[toolCard.id]} statusFailed={failedStatuses?.[toolCard.id]} />
             </li>
           ))}
         </ol>
@@ -1162,9 +1167,9 @@ function AguiRunWorkRail({
     };
   }, [events, notices, terminalEvent]);
   const displayedTerminalSummary = terminalSummary;
-  const [expanded, setExpanded] = useState(false);
-  const [now, setNow] = useState(() => Date.now());
   const completed = timeline?.completed ?? (historyCovered || Boolean(displayedTerminalSummary) && !pendingUserInputRequest);
+  const [expanded, setExpanded] = useState(!completed);
+  const [now, setNow] = useState(() => Date.now());
   const duration = timeline ? formatAguiDuration(workTimelineElapsedMilliseconds(timeline, now)) : completed
     ? displayedTerminalSummary?.duration ?? "<1s"
     : formatAguiDuration(aguiWorkElapsedMilliseconds(events, now));
@@ -1176,7 +1181,7 @@ function AguiRunWorkRail({
   }, [completed]);
 
   useEffect(() => {
-    if (completed) setExpanded(false);
+    setExpanded(!completed);
   }, [completed]);
 
   if (!timeline && historyCovered && !debugEvents.length) return notices.length
@@ -1233,8 +1238,8 @@ function AguiRunWorkRail({
               {item.kind === "message" ? renderMessage?.(item.message) : item.kind === "reasoning"
                 ? <ReasoningCard card={item.value} labels={labels} />
                 : item.kind === "toolGroup"
-                  ? <ToolGroupCard card={item.value} labels={labels} statusLabels={item.historyStatuses ? Object.fromEntries(Object.entries(item.historyStatuses).map(([id, status]) => [id, historyLabels.statuses[status]])) : undefined} />
-                  : <ToolCard card={item.value} labels={labels} compact statusLabel={item.historyStatus ? historyLabels.statuses[item.historyStatus] : undefined} />}
+                  ? <ToolGroupCard card={item.value} labels={labels} statusLabels={item.historyStatuses ? Object.fromEntries(Object.entries(item.historyStatuses).map(([id, status]) => [id, historyLabels.statuses[status]])) : undefined} failedStatuses={item.historyStatuses ? Object.fromEntries(Object.entries(item.historyStatuses).map(([id, status]) => [id, status === "Failed"])) : undefined} />
+                  : <ToolCard card={item.value} labels={labels} compact statusLabel={item.historyStatus ? historyLabels.statuses[item.historyStatus] : undefined} statusFailed={item.historyStatus === "Failed"} />}
             </div>)}</div>
           </section> : orderedWorkItems.length ? (
             <section
@@ -1575,7 +1580,7 @@ export function ChatPanel({
   function renderProcessMessage(message: ChatMessage) {
     return <>
       <StructuredMessageDetails message={message} labels={workRailLabels} historyLabels={historyLabels} hasRunError={workTimeline.managedMessageIds.has(message.messageId) || displayedErrorRuns.has(message.runId ?? "") || lastHistoryErrorByRun.get(message.runId) !== message.messageId} />
-      {message.content.trim() || message.a2ui ? <ChatBubble currentUserDisplayName={currentUserDisplayName}
+      {message.content.trim() || message.a2ui ? <ChatBubble currentUserDisplayName={currentUserDisplayName} processMessage
         isStreaming={message.messageId === streamingAssistantMessageCode} message={message} a2uiSession={a2uiSession}
         a2uiDisabled={a2uiDisabled} onA2UIAction={onA2UIAction} onEditMessage={onEditMessage} /> : null}
     </>;

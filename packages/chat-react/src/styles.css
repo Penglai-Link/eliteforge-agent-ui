@@ -469,6 +469,17 @@
   background: var(--agent-ui-chat-surface-strong);
 }
 
+.ef-chat__message--process {
+  border-radius: 0;
+  background: transparent;
+  padding: 0;
+  box-shadow: none;
+}
+
+.ef-chat__message-entry--process {
+  gap: 0;
+}
+
 .ef-chat__message-entry {
   display: flex;
   align-items: flex-start;
@@ -1176,6 +1187,11 @@
 .ef-chat__tool-badge--nested {
   width: 20px;
   height: 20px;
+}
+
+.ef-chat__tool-badge--nested.ef-chat__tool-badge--done,
+.ef-chat__tool-badge--nested.ef-chat__tool-badge--failed {
+  background: transparent;
 }
 
 .ef-chat__tool-timeline-dot {

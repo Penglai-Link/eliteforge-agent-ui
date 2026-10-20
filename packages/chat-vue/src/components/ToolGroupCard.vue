@@ -8,6 +8,7 @@ const props = defineProps<{
   card: ToolGroupWorkCard;
   labels?: ChatWorkRailLabels;
   statusLabels?: Record<string, string>;
+  failedStatuses?: Record<string, boolean>;
 }>();
 
 const toolCards = computed(() =>
@@ -58,8 +59,8 @@ watch(
       </span>
     </button>
     <ol v-if="expanded" class="ef-chat__rail-entry-list">
-      <li v-for="(tc, index) in toolCards" :key="tc.id">
-            <ToolCard :card="tc" :labels="props.labels" :nested="true" :step-number="index + 1" :status-label="props.statusLabels?.[tc.id]" />
+      <li v-for="tc in toolCards" :key="tc.id">
+            <ToolCard :card="tc" :labels="props.labels" :nested="true" :status-label="props.statusLabels?.[tc.id]" :status-failed="props.failedStatuses?.[tc.id]" />
       </li>
     </ol>
   </section>

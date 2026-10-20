@@ -511,6 +511,13 @@ export function toolCommandLinePreview(toolName: string, args: unknown, maxLengt
 export function toolCompactLabel(toolName: string, args: unknown, displayName = humanizeToolName(toolName)) {
   const command = toolCommandLinePreview(toolName, args);
   if (command) return `Shell ${command}`;
+  if (toolName.trim().toLowerCase() === "search_grep") {
+    const payload = parseToolPayload(args);
+    const pattern = typeof payload?.pattern === "string" ? payload.pattern.trim() : "";
+    const root = typeof payload?.root === "string" ? payload.root.trim() : "";
+    if (pattern && root) return `${displayName}: ${pattern} (${root})`;
+    if (pattern) return `${displayName}: ${pattern}`;
+  }
   const target = valueAtKnownKey(args);
   return target ? `${displayName} ${target}` : displayName;
 }

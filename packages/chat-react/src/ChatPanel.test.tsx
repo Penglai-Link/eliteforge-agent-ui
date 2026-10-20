@@ -365,11 +365,9 @@ describe("ChatPanel submit controls", () => {
     const { rerender } = render(<ChatPanel {...panelProps} protocolEvents={activeEvents} />);
 
     const activeButton = screen.getByRole("button", { name: /Working for/ });
-    expect(activeButton.getAttribute("aria-expanded")).toBe("false");
-    expect(screen.queryByText("Inspecting the implementation.")).toBeNull();
-    expect(screen.getByText("Working")).toBeTruthy();
-    fireEvent.click(activeButton);
+    expect(activeButton.getAttribute("aria-expanded")).toBe("true");
     expect(screen.getByText("Inspecting the implementation.")).toBeTruthy();
+    expect(screen.getByText("Working")).toBeTruthy();
 
     rerender(
       <ChatPanel
@@ -440,7 +438,6 @@ describe("ChatPanel submit controls", () => {
     expect(screen.queryByText("Private reasoning detail")).toBeNull();
 
     rerender(<ChatPanel {...props} showReasoningCards />);
-    fireEvent.click(screen.getByRole("button", { name: /Working for/ }));
     const card = screen.getByLabelText("Thinking");
     const toggle = within(card).getByRole("button");
     expect(toggle.getAttribute("aria-expanded")).toBe("false");
@@ -500,7 +497,6 @@ describe("ChatPanel submit controls", () => {
     const workSummary = screen.getByRole("button", { name: /Worked for/ });
     expect(workSummary.getAttribute("aria-expanded")).toBe("false");
     expect(screen.queryByRole("button", { name: "Asked 1 questions" })).toBeNull();
-    fireEvent.click(workSummary);
 
     const workItems = screen.getByLabelText("Agent work rail");
     expect(within(workItems).queryByText("First option")).toBeNull();
@@ -987,9 +983,8 @@ it("keeps pending questions adjacent to work without empty history sections", ()
   expect(container.querySelectorAll(".ef-chat__turn > *")).toHaveLength(2); // User and one grouped work rail.
   expect(screen.queryByRole("button", { name: "Thinking…" })).toBeNull();
   const workSummary = screen.getByRole("button", { name: /Working for|Worked for/ });
-  expect(workSummary.getAttribute("aria-expanded")).toBe("false");
-  expect(screen.queryByText("Work 0")).toBeNull();
-  fireEvent.click(workSummary);
+  expect(workSummary.getAttribute("aria-expanded")).toBe("true");
+  expect(screen.getByText("Work 0")).toBeTruthy();
   for (let index = 0; index < 6; index++) expect(screen.getByText(`Work ${index}`)).toBeTruthy();
   expect(container.querySelectorAll(".ef-chat__history-details")).toHaveLength(0);
   expect(container.querySelectorAll(".ef-chat__turn > *")).toHaveLength(2);

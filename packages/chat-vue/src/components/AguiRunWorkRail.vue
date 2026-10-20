@@ -80,7 +80,7 @@ const visibleUserCards = computed(() => userCards.value.filter(card => props.sho
 const visibleTimelineItems = computed(() => props.timeline?.items.filter(item => props.showReasoningCards !== false || item.kind !== "reasoning") ?? []);
 const reasoningEffort = computed(() => aguiReasoningEffort(props.events));
 const terminalEvent = computed(() => props.timeline?.completed ?? (props.historyCovered || isAguiRunTerminal(props.events) && !pendingUserInputRequest.value));
-const expanded = ref(false);
+const expanded = ref(!terminalEvent.value);
 const hasDetails = computed(() => visibleTimelineItems.value.length > 0 || visibleUserCards.value.length > 0 || props.debugEvents.length > 0);
 const now = ref(Date.now());
 const labels = computed(() => props.labels ?? defaultLabels);
@@ -99,12 +99,16 @@ function historyGroupStatusLabels(item: WorkTimelineItem) {
   const history = props.historyLabels ?? defaultHistoryLabels;
   return Object.fromEntries(Object.entries(item.historyStatuses).map(([id, status]) => [id, history.statuses[status]]));
 }
+function historyGroupFailedStatuses(item: WorkTimelineItem) {
+  if (item.kind !== "toolGroup" || !item.historyStatuses) return undefined;
+  return Object.fromEntries(Object.entries(item.historyStatuses).map(([id, status]) => [id, status === "Failed"]));
+}
 let timer: ReturnType<typeof setInterval> | undefined;
 
 watch(terminalEvent, (completed) => {
   if (timer) clearInterval(timer);
+  expanded.value = !completed;
   if (completed) {
-    expanded.value = false;
     return;
   }
   now.value = Date.now();
@@ -155,8 +159,8 @@ onBeforeUnmount(() => {
           <div v-for="item in visibleTimelineItems" :key="item.id" :data-work-item="item.kind" :data-work-item-id="item.id">
             <slot v-if="item.kind === 'message'" name="message" :message="item.message" />
             <ReasoningCard v-else-if="item.kind === 'reasoning'" :card="item.value" />
-            <ToolGroupCard v-else-if="item.kind === 'toolGroup'" :card="item.value" :labels="labels" :status-labels="historyGroupStatusLabels(item)" />
-            <ToolCard v-else :card="item.value" :labels="labels" compact :status-label="item.historyStatus ? (props.historyLabels ?? defaultHistoryLabels).statuses[item.historyStatus] : undefined" />
+            <ToolGroupCard v-else-if="item.kind === 'toolGroup'" :card="item.value" :labels="labels" :status-labels="historyGroupStatusLabels(item)" :failed-statuses="historyGroupFailedStatuses(item)" />
+            <ToolCard v-else :card="item.value" :labels="labels" compact :status-label="item.historyStatus ? (props.historyLabels ?? defaultHistoryLabels).statuses[item.historyStatus] : undefined" :status-failed="item.historyStatus === 'Failed'" />
           </div>
         </div>
       </section>

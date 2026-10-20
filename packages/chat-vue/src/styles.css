@@ -914,6 +914,11 @@
   height: 20px;
 }
 
+.ef-chat__tool-badge--nested.ef-chat__tool-badge--done,
+.ef-chat__tool-badge--nested.ef-chat__tool-badge--failed {
+  background: transparent;
+}
+
 .ef-chat__tool-toggle-text {
   min-width: 0;
 }

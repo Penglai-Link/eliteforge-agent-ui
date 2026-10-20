@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import {
   CheckCircle2,
+  CircleX,
   ChevronDown,
   ChevronRight,
   LoaderCircle,
@@ -25,9 +26,9 @@ const props = defineProps<{
   card: ToolWorkCard;
   labels?: ChatWorkRailLabels;
   statusLabel?: string;
+  statusFailed?: boolean;
   nested?: boolean;
   compact?: boolean;
-  stepNumber?: number;
 }>();
 
 const expanded = ref(false);
@@ -36,6 +37,16 @@ const logRef = ref<HTMLDivElement | null>(null);
 
 const interactionInfo = computed(() => interactionToolSummary(props.card.toolName, props.card.args));
 const complete = computed(() => props.card.ended || Boolean(props.card.result));
+const failed = computed(() => {
+  if (props.statusFailed) return true;
+  if (!props.card.result) return false;
+  try {
+    const parsed = JSON.parse(props.card.result) as { isError?: unknown } | null;
+    return parsed?.isError === true;
+  } catch {
+    return false;
+  }
+});
 const running = computed(() => props.card.started && !complete.value);
 const hasParameters = computed(() => hasToolParameterPayload(props.card.args));
 const parametersText = computed(() =>
@@ -124,16 +135,21 @@ function subagentDispatchedLabel(name: string) {
             cx(
               'ef-chat__tool-badge',
               props.nested
-                ? 'ef-chat__tool-badge--nested'
+                ? cx(
+                    'ef-chat__tool-badge--nested',
+                    failed && 'ef-chat__tool-badge--failed',
+                    complete && !failed && 'ef-chat__tool-badge--done',
+                  )
                 : 'ef-chat__tool-badge--standalone',
             )
           "
         >
-          <template v-if="typeof props.stepNumber === 'number'">
-            {{ String(props.stepNumber) }}
+          <template v-if="failed">
+            <CircleX :size="14" />
           </template>
           <CheckCircle2 v-else-if="complete" :size="14" />
           <LoaderCircle v-else-if="running" class="animate-spin" :size="14" />
+          <span v-else-if="props.nested" class="ef-chat__tool-timeline-dot" aria-hidden="true" />
           <Terminal v-else :size="14" />
         </span>
         <span class="ef-chat__tool-toggle-text">
@@ -149,7 +165,7 @@ function subagentDispatchedLabel(name: string) {
               {{ props.nested || props.compact ? nestedToolLabel : toolLabel }}
             </span>
             <span
-              v-if="props.nested ? Boolean(props.statusLabel) : !subagentDispatch"
+              v-if="!props.nested && !subagentDispatch"
               :class="
                 cx(
                   'ef-chat__tool-status',

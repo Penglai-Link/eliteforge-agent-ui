@@ -1235,7 +1235,7 @@ describe("ChatRuntimeWindow", () => {
       });
     });
     const workingRails = screen.getAllByRole("button", { name: /^Working for/ });
-    fireEvent.click(workingRails[workingRails.length - 1]!);
+    expect(workingRails[workingRails.length - 1]!.getAttribute("aria-expanded")).toBe("true");
     expect(screen.getByText(/sleep 5/)).toBeTruthy();
 
     await act(async () => resolveSteer(steerResult));
