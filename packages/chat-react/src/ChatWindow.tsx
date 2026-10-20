@@ -1,4 +1,4 @@
-import { Bot, Grip, Maximize2, Minus, X, Plus } from "lucide-react";
+import { Bot, Maximize2, Minus, X, Plus } from "lucide-react";
 import {
   clampFloatingStateToViewport,
   defaultFloatingState,
@@ -15,6 +15,7 @@ import {
   useMemo,
   useRef,
   useState,
+  type KeyboardEvent as ReactKeyboardEvent,
   type PointerEvent as ReactPointerEvent,
 } from "react";
 import { ChatPanel, type ChatPanelProps } from "./ChatPanel";
@@ -28,6 +29,7 @@ interface ChatWindowProps extends Omit<
   storageKey?: string;
   title?: string;
   titleSubtitle?: string;
+  resizeHint?: string;
   onStateChange?: (state: ChatFloatingState) => void;
 }
 
@@ -38,6 +40,7 @@ export function ChatWindow({
   storageKey = "eliteforge.agent-ui.chat.window",
   title = "Chat",
   titleSubtitle = "AI assistant",
+  resizeHint = "Drag to resize the window. Arrow keys fine-tune the size; hold Shift for larger steps.",
   ...panelProps
 }: ChatWindowProps) {
   const isControlled = Boolean(state && onStateChange);
@@ -46,6 +49,7 @@ export function ChatWindow({
   );
   const [transientState, setTransientState] = useState<ChatFloatingState | null>(null);
   const [viewportRevision, setViewportRevision] = useState(0);
+  const [resizing, setResizing] = useState(false);
   const activeState = transientState ?? (isControlled ? (state as ChatFloatingState) : localState);
   const panelRef = useRef<HTMLDivElement | null>(null);
   const dragRef = useRef<{
@@ -199,7 +203,10 @@ export function ChatWindow({
     }
   }
 
-  function startResize(event: ReactPointerEvent<HTMLButtonElement>) {
+  function startResize(event: ReactPointerEvent<HTMLDivElement>) {
+    if (event.button !== 0) return;
+    event.preventDefault();
+    event.stopPropagation();
     resizeRef.current = {
       height: visibleState.height,
       pointerId: event.pointerId,
@@ -208,10 +215,11 @@ export function ChatWindow({
       width: visibleState.width,
     };
     event.currentTarget.setPointerCapture(event.pointerId);
+    setResizing(true);
     setTransientState(visibleState);
   }
 
-  function handleResize(event: ReactPointerEvent<HTMLButtonElement>) {
+  function handleResize(event: ReactPointerEvent<HTMLDivElement>) {
     if (!resizeRef.current || resizeRef.current.pointerId !== event.pointerId)
       return;
     const next = reduceFloatingState(visibleState, {
@@ -224,15 +232,31 @@ export function ChatWindow({
     setTransientState(next);
   }
 
-  function endResize(event: ReactPointerEvent<HTMLButtonElement>) {
+  function endResize(event: ReactPointerEvent<HTMLDivElement>) {
     if (!resizeRef.current || resizeRef.current.pointerId !== event.pointerId)
       return;
     resizeRef.current = null;
-    event.currentTarget.releasePointerCapture(event.pointerId);
+    setResizing(false);
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
     if (transientState) {
       applyState(transientState);
       setTransientState(null);
     }
+  }
+
+  function handleResizeKeyDown(event: ReactKeyboardEvent<HTMLDivElement>) {
+    if (!["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(event.key)) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const step = event.shiftKey ? 40 : 10;
+    // The window is anchored at the bottom right; its top-left corner moves.
+    applyState(reduceFloatingState(visibleState, {
+      type: "resize",
+      width: visibleState.width + (event.key === "ArrowLeft" ? step : event.key === "ArrowRight" ? -step : 0),
+      height: visibleState.height + (event.key === "ArrowUp" ? step : event.key === "ArrowDown" ? -step : 0),
+    }));
   }
 
   return (
@@ -271,7 +295,7 @@ export function ChatWindow({
             onPointerCancel={endDrag}
           >
             <div className="ef-chat-window__title">
-              <Bot size={18} />
+              <Bot size={18} aria-hidden="true" />
               <div className="ef-chat-window__title-text">
                 <span className="ef-chat-window__title-main">{title}</span>
               </div>
@@ -324,15 +348,20 @@ export function ChatWindow({
             </div>
           ) : null}
           {!visibleState.collapsed ? (
-            <button
-              className="ef-chat-window__control ef-chat-window__resize"
-              type="button"
-              aria-label="Resize chat window"
+            <div
+              className="ef-chat-window__resize"
+              role="group"
+              tabIndex={0}
+              title={resizeHint}
+              aria-label={resizeHint}
+              data-resizing={resizing || undefined}
               onPointerDown={startResize}
               onPointerMove={handleResize}
               onPointerUp={endResize}
               onPointerCancel={endResize}
-            ></button>
+              onLostPointerCapture={endResize}
+              onKeyDown={handleResizeKeyDown}
+            />
           ) : null}
         </div>
       )}

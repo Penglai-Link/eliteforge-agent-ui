@@ -1968,6 +1968,7 @@ export function ChatRuntimeWindow({
   if (config.floating !== false) {
     return (
       <ChatWindow
+        resizeHint={config.resizeHint}
         showNewSession={config.showNewSession}
         allowDraftSession={allowDraftSession}
         attachmentLabels={attachmentLabels}

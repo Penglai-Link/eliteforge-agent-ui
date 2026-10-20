@@ -535,6 +535,7 @@ export interface ChatClientConfig {
   maxLimitFile?: number;
   open?: boolean;
   resizable?: boolean;
+  resizeHint?: string;
   showAgui?: boolean;
   /** Whether reasoning cards appear in the work rail. The host may persist this preference. */
   showReasoningCards?: boolean;

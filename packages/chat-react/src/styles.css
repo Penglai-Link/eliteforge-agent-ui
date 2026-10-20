@@ -1376,6 +1376,7 @@
 }
 
 .ef-chat-window__panel {
+  position: relative;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -1416,10 +1417,14 @@
 
 .ef-chat-window__title-text {
   display: grid;
+  min-width: 0;
   gap: 2px;
 }
 
 .ef-chat-window__title-main {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-size: 15px;
   font-weight: 600;
 }
@@ -1431,6 +1436,7 @@
 
 .ef-chat-window__actions {
   display: inline-flex;
+  flex-shrink: 0;
   align-items: center;
   gap: 4px;
 }
@@ -1449,43 +1455,37 @@
 
 .ef-chat-window__resize {
   position: absolute;
-  top: 1px;
-  left: 1px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 50px;
-  height: 50px;
+  top: 0;
+  left: 0;
+  z-index: 3;
+  width: 40px;
+  height: 40px;
+  clip-path: polygon(0 0, 100% 0, 0 100%);
+  color: var(--agent-ui-chat-primary);
   cursor: nwse-resize;
-  padding: 0;
-  border-radius: 0;
-  border-top-left-radius: 24px;
-  border: 1px solid transparent;
-  z-index: 1;
-  background: linear-gradient(
-        var(--agent-ui-chat-surface),
-        var(--agent-ui-chat-surface)
-      )
-      padding-box,
-    linear-gradient(
-        135deg,
-        var(--agent-ui-chat-primary) 0%,
-        var(--agent-ui-chat-surface) 50%,
-        transparent 50%,
-        transparent 100%
-      )
-      border-box;
+  touch-action: none;
+  user-select: none;
 }
 
-.ef-chat-window__resize:hover {
-  border: 2px solid transparent;
-  transform: translateY(0) !important;
+.ef-chat-window__resize::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-top: 2px solid currentColor;
+  border-left: 2px solid currentColor;
+  border-top-left-radius: 23px;
+  opacity: 0;
+  pointer-events: none;
 }
 
-.ef-chat-window__resize:focus,
+.ef-chat-window__resize:hover::after,
+.ef-chat-window__resize[data-resizing="true"]::after,
+.ef-chat-window__resize:focus-visible::after {
+  opacity: 1;
+}
+
 .ef-chat-window__resize:focus-visible {
   outline: none;
-  box-shadow: none;
 }
 
 .ef-chat-window__body {
