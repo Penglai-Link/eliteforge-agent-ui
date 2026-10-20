@@ -95,7 +95,7 @@ describe("completed turn settlement", () => {
     fireEvent.keyDown(screen.getByRole("textbox"), { key: "Enter" });
     await act(async () => { first.resolve(result("RUN-1", "Authoritative final answer")); });
     await waitFor(() => expect(host.streamMessage).toHaveBeenCalledTimes(2));
-    expect(screen.getByText("Authoritative final answer")).toBeTruthy();
+    expect(await screen.findByText("Authoritative final answer")).toBeTruthy();
     expect(onRunStateChange.mock.calls.some(([state]) => !state.active)).toBe(true);
     await act(async () => { second.resolve(result("RUN-2", "Second final answer")); });
     await waitFor(() => expect(onRunStateChange.mock.calls.at(-1)?.[0].active).toBe(false));

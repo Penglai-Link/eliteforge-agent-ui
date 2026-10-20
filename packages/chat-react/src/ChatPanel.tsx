@@ -48,6 +48,8 @@ import {
   formatTime,
   toolDisplayName,
   toolCompactLabel,
+  defaultToolActionSummaryLabel,
+  summarizeToolActions,
   summarizeReasoning,
   type AguiUserWorkCard,
   type AguiRunNotice,
@@ -580,6 +582,7 @@ const defaultToolWorkLabels = {
   domainExpanded: (name: string) => `Expand ${name}`,
   domainExpanding: (name: string) => `Expanding ${name}`,
   group: (count: number) => `${count} ${count === 1 ? "tool call" : "tool calls"}`,
+  groupSummary: defaultToolActionSummaryLabel,
   statusDone: "done",
   statusRunning: "running",
   parameters: "Parameters",
@@ -733,7 +736,11 @@ function ToolCard({
               >
                 {nested || compact && nestedToolLabel !== toolName ? nestedToolLabel : toolLabel}
               </span>
-              {nested || complete || failed || subagentDispatch ? null : (
+              {nested ? statusLabel ? (
+                <span className={cx("ef-chat__tool-status", failed ? "ef-chat__tool-status--failed" : complete ? "ef-chat__tool-status--done" : "ef-chat__tool-status--running")}>
+                  {statusLabel}
+                </span>
+              ) : null : complete || failed || subagentDispatch ? null : (
                 <span
                   className={cx(
                     "ef-chat__tool-status",
@@ -852,12 +859,14 @@ function ToolCard({
   );
 }
 
-function ToolGroupCard({ card, labels = defaultWorkRailLabels }: { card: ToolGroupWorkCard; labels?: ChatWorkRailLabels }) {
+function ToolGroupCard({ card, labels = defaultWorkRailLabels, statusLabels }: { card: ToolGroupWorkCard; labels?: ChatWorkRailLabels; statusLabels?: Record<string, string> }) {
   const toolCopy = { ...defaultToolWorkLabels, ...labels.tool };
   const toolCards = card.toolCards.filter((toolCard) => toolCard.started);
   const hasRunningTool = toolCards.some(
     (toolCard) => toolCard.started && !toolCard.ended && !toolCard.result,
   );
+  const summary = toolCopy.groupSummary?.(summarizeToolActions(toolCards))
+    ?? defaultToolActionSummaryLabel(summarizeToolActions(toolCards));
   const [expanded, setExpanded] = useState(false);
 
   useEffect(() => {
@@ -883,7 +892,7 @@ function ToolGroupCard({ card, labels = defaultWorkRailLabels }: { card: ToolGro
             />
           </span>
           <span className="ef-chat__rail-entry-summary ef-chat__rail-entry-summary--strong">
-            {toolCopy.group(toolCards.length)}
+            {summary}
           </span>
         </span>
         <span className="ef-chat__rail-entry-chevron">
@@ -894,7 +903,7 @@ function ToolGroupCard({ card, labels = defaultWorkRailLabels }: { card: ToolGro
         <ol className="ef-chat__rail-entry-list">
           {toolCards.map((toolCard) => (
             <li key={toolCard.id}>
-            <ToolCard card={toolCard} labels={labels} nested />
+            <ToolCard card={toolCard} labels={labels} nested statusLabel={statusLabels?.[toolCard.id]} />
             </li>
           ))}
         </ol>
@@ -1073,9 +1082,16 @@ function HistoryWorkRail({ messages, labels = defaultWorkRailLabels, historyLabe
   const starts = runs.map(run => run.startedAtMs);
   const ends = runs.flatMap(run => run.finishedAtMs == null ? [] : [run.finishedAtMs]);
   const duration = formatAguiDuration(starts.length && ends.length ? Math.max(...ends) - Math.min(...starts) : 0);
-  const summary = completed ? runs.some(run => run.status === "Failed") ? labels.failed ?? "Run failed" : labels.workedFor(duration) : labels.thinking;
+  const failed = runs.some(run => run.status === "Failed");
+  const interrupted = !failed && runs.some(run => run.status === "Interrupted");
+  const statusNotice = failed ? historyLabels.statuses.Failed : interrupted ? historyLabels.statuses.Interrupted : null;
+  const summary = completed ? labels.workedFor(duration) : labels.workingFor(duration);
   return <section className="ef-chat__rail" aria-label={labels.ariaLabel} data-history-work>
     <button className="ef-chat__rail-summary" type="button" aria-expanded={expanded} onClick={() => setExpanded(value => !value)}>{summary}{expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}</button>
+    {statusNotice ? <div className={cx("ef-chat__run-notice", failed && "ef-chat__run-notice--error")} role={failed ? "alert" : "status"}>
+      {failed ? <CircleAlert aria-hidden="true" size={16} /> : <CircleX aria-hidden="true" size={16} />}
+      <div className="ef-chat__run-notice-content"><div className="ef-chat__run-notice-title">{statusNotice}</div></div>
+    </div> : null}
     {expanded ? <div className="ef-chat__rail-stack">{messages.map(message => <StructuredMessageDetails key={message.messageId} message={message} workOnly showReasoningCards={showReasoningCards} labels={labels} historyLabels={historyLabels} />)}</div> : null}
   </section>;
 }
@@ -1174,17 +1190,15 @@ function AguiRunWorkRail({
     return <section className="ef-chat__rail" aria-label={labels.ariaLabel}><AguiRunStatus notices={notices} labels={labels} /></section>;
   }
   const hasDetails = (timeline ? visibleTimelineItems.length > 0 : orderedWorkItems.length > 0) || debugEvents.length > 0;
+  const historyFailure = !timeline?.events.length && timeline?.messages.some(message => message.history?.run?.status === "Failed");
+  const historyInterrupted = !historyFailure && !timeline?.events.length
+    && timeline?.messages.some(message => message.history?.run?.status === "Interrupted");
+  const historyStatusNotice = historyFailure ? historyLabels.statuses.Failed
+    : historyInterrupted ? historyLabels.statuses.Interrupted : null;
   const presentationClosedWithoutOutcome = !displayedTerminalSummary && events.some(isAguiPresentationFailureEvent);
-  let summary = presentationClosedWithoutOutcome
-    ? labels.notices?.presentationIncomplete ?? defaultWorkRailLabels.notices.presentationIncomplete
+  const summary = completed
+    ? labels.workedFor(duration)
     : labels.workingFor(duration);
-  if (completed) {
-    summary = displayedTerminalSummary?.failed
-      ? `${labels.failed ?? defaultWorkRailLabels.failed} · ${duration}`
-      : displayedTerminalSummary?.stopped
-        ? `${labels.stopped ?? "Run stopped"} · ${duration}`
-        : labels.workedFor(duration);
-  }
   const summaryContent = (
     <span className="ef-chat__rail-summary-label">
       <span>{summary}</span>
@@ -1193,7 +1207,7 @@ function AguiRunWorkRail({
   );
   return (
     <section className="ef-chat__rail" aria-label={labels.ariaLabel}>
-      {hasDetails && completed ? (
+      {hasDetails ? (
         <button
           className="ef-chat__rail-summary"
           type="button"
@@ -1205,7 +1219,11 @@ function AguiRunWorkRail({
         </button>
       ) : <div className="ef-chat__rail-summary ef-chat__rail-summary--static">{summaryContent}</div>}
       <AguiRunStatus notices={notices} labels={labels} />
-      {(!completed || expanded) && hasDetails ? (
+      {historyStatusNotice ? <div className={cx("ef-chat__run-notice", historyFailure && "ef-chat__run-notice--error")} role={historyFailure ? "alert" : "status"}>
+        {historyFailure ? <CircleAlert aria-hidden="true" size={16} /> : <CircleX aria-hidden="true" size={16} />}
+        <div className="ef-chat__run-notice-content"><div className="ef-chat__run-notice-title">{historyStatusNotice}</div></div>
+      </div> : null}
+      {expanded && hasDetails ? (
         <div
           className="ef-chat__rail-stack"
           style={{ marginTop: 8 }}
@@ -1214,7 +1232,9 @@ function AguiRunWorkRail({
             <div className="ef-chat__rail-card-list">{visibleTimelineItems.map(item => <div key={item.id} data-work-item={item.kind} data-work-item-id={item.id}>
               {item.kind === "message" ? renderMessage?.(item.message) : item.kind === "reasoning"
                 ? <ReasoningCard card={item.value} labels={labels} />
-                : <ToolCard card={item.value} labels={labels} compact statusLabel={item.historyStatus ? historyLabels.statuses[item.historyStatus] : undefined} />}
+                : item.kind === "toolGroup"
+                  ? <ToolGroupCard card={item.value} labels={labels} statusLabels={item.historyStatuses ? Object.fromEntries(Object.entries(item.historyStatuses).map(([id, status]) => [id, historyLabels.statuses[status]])) : undefined} />
+                  : <ToolCard card={item.value} labels={labels} compact statusLabel={item.historyStatus ? historyLabels.statuses[item.historyStatus] : undefined} />}
             </div>)}</div>
           </section> : orderedWorkItems.length ? (
             <section

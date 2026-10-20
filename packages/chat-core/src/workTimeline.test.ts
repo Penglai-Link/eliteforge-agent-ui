@@ -1,5 +1,5 @@
 import { expect, it } from "vitest";
-import { buildTranscriptWorkTimeline } from "./workTimeline";
+import { buildTranscriptWorkTimeline, workTimelineElapsedMilliseconds } from "./workTimeline";
 import { historyMessages, type SessionHistory } from "./history";
 import type { ChatAguiStreamEvent, ChatMessage, ChatUserInputRequest } from "./types";
 import { buildTranscriptPresentation, type TranscriptPresentation } from "./transcript";
@@ -22,7 +22,7 @@ function presentation(events: ChatAguiStreamEvent[], anchor = "user"): Transcrip
   return { waitingForModelAnchorMessageCode: "", debugEventsByRunCode: new Map(), workRailsByMessageCode: new Map([[anchor, [{ runId: "execution", firstMillis: 1000, events }]]]) };
 }
 const messages = () => [message("user", "Question", "USER"), message("step-1"), message("step-2"), message("final")];
-const items = (run: ReturnType<typeof buildTranscriptWorkTimeline>["before"] extends Map<string, infer T> ? T : never) => run[0].items.map(item => item.kind === "message" ? item.id : item.kind === "reasoning" ? item.value.summary : item.value.toolCallId);
+const items = (run: ReturnType<typeof buildTranscriptWorkTimeline>["before"] extends Map<string, infer T> ? T : never) => run[0].items.flatMap(item => item.kind === "message" ? [item.id] : item.kind === "reasoning" ? [item.value.summary] : item.kind === "toolGroup" ? [item.value.toolCards.map(tool => tool.toolCallId).join("+")] : [item.value.toolCallId]);
 
 it("interleaves reasoning, separate step outputs and tools in source order even with identical timestamps", () => {
   const timeline = buildTranscriptWorkTimeline(messages(), presentation(events()));
@@ -32,6 +32,24 @@ it("interleaves reasoning, separate step outputs and tools in source order even 
   expect(run[0].completed).toBe(false);
   expect(run[0].finalMessageId).toBeUndefined();
   expect([...timeline.processMessageIds]).toEqual(["step-1", "step-2", "final"]);
+});
+
+it("keeps each contiguous batch of tool calls after its process message and collapses only multiple calls", () => {
+  const source = events();
+  const toolIndex = source.findIndex(event => event.type === "TOOL_CALL_START");
+  const extraTools = ["tool-2", "tool-3"].flatMap((toolCallId) => {
+    const sequence = Number(toolCallId.slice(-1)) + 100;
+    const metadata = { framework: { ...source[toolIndex]!.metadata?.framework, sourceSequence: sequence } };
+    return [
+      { ...source[toolIndex]!, metadata, toolCallId, timestamp: 1000 },
+      { ...source[toolIndex + 1]!, metadata: { framework: { ...metadata.framework, sourceSequence: sequence + 1 } }, toolCallId, timestamp: 1000 },
+    ];
+  });
+  source.splice(toolIndex + 2, 0, ...extraTools);
+  const timeline = buildTranscriptWorkTimeline(messages(), presentation(source));
+  const run = timeline.before.get("step-1")![0];
+  expect(items([run])).toEqual(["thought-1", "step-1", "thought-2", "tool-1+tool-2+tool-3", "step-2", "thought-3", "final"]);
+  expect(run.items.find(item => item.kind === "toolGroup")?.value.toolCards).toHaveLength(3);
 });
 
 it("only execution success moves the final message out of the process; text END does not", () => {
@@ -79,10 +97,14 @@ it("restores the entire ordered process and separate final from structured histo
       { id: "user", runId: "native", stepId: null, role: "User", content: [{ type: "Text", text: "Question" }], structured: null, status: "Completed", createdAtMs: 1000 },
       { id: "step-1", runId: "native", stepId: null, role: "Assistant", content: [{ type: "Reasoning", text: "thought-1" }, { type: "Text", text: "step-1" }], structured: null, status: "Completed", createdAtMs: 2000 },
       { id: "final", runId: "native", stepId: null, role: "Assistant", content: [{ type: "Reasoning", text: "thought-final" }, { type: "Text", text: "final" }], structured: null, status: "Completed", createdAtMs: 3000 },
-    ], toolInvocations: [{ id: "tool-1", callId: "call-1", runId: "native", stepId: "step", messageId: "step-1", toolId: "shell", toolName: "bash_exec", arguments: { command: "pwd" }, content: [{ type: "Text", text: "/project" }], structured: null, status: "Completed", isError: false, resultReference: null, startedAtMs: 2100, finishedAtMs: 2200 }] } };
+    ], toolInvocations: [
+      { id: "tool-1", callId: "call-1", runId: "native", stepId: "step", messageId: "step-1", toolId: "shell", toolName: "bash_exec", arguments: { command: "pwd" }, content: [{ type: "Text", text: "/project" }], structured: null, status: "Completed", isError: false, resultReference: null, startedAtMs: 2100, finishedAtMs: 2200 },
+      { id: "tool-2", callId: "call-2", runId: "native", stepId: "step", messageId: "step-1", toolId: "shell", toolName: "bash_exec", arguments: { command: "git status" }, content: [{ type: "Text", text: "clean" }], structured: null, status: "Completed", isError: false, resultReference: null, startedAtMs: 2300, finishedAtMs: 2400 },
+    ] } };
   const timeline = buildTranscriptWorkTimeline(historyMessages(page), presentation([]));
   const run = timeline.before.get("step-1")!;
-  expect(items(run)).toEqual(["thought-1", "step-1", "tool-1", "thought-final"]);
+  expect(items(run)).toEqual(["thought-1", "step-1", "tool-1+tool-2", "thought-final"]);
+  expect(run[0]!.items.find(item => item.kind === "toolGroup")?.value.toolCards).toHaveLength(2);
   expect(run[0].finalMessageId).toBe("final"); expect(run[0].completed).toBe(true);
 });
 
@@ -140,4 +162,67 @@ it("keeps multiple accepted answers as separate boundaries in one native executi
   expect(timeline.before.get("second-question")?.[0].completed).toBe(true);
   expect(timeline.before.get("save")?.[0].completed).toBe(false);
   expect([...timeline.before.keys()]).toEqual(["first-question", "second-question", "save"]);
+});
+
+it("splits a steered run as soon as the accepted user message appears and freezes each segment timer", () => {
+  const source: ChatAguiStreamEvent[] = [
+    { type: "RUN_STARTED", runId: "execution", threadId: "S", timestamp: 1000, metadata: { framework: { runId: "native" } } },
+    { type: "TEXT_MESSAGE_START", runId: "execution", threadId: "S", timestamp: 1100, messageId: "first-step" },
+    { type: "TEXT_MESSAGE_CONTENT", runId: "execution", threadId: "S", timestamp: 1200, messageId: "first-step", delta: "Working before steer" },
+    { type: "TEXT_MESSAGE_END", runId: "execution", threadId: "S", timestamp: 1300, messageId: "first-step" },
+    { type: "TEXT_MESSAGE_START", runId: "execution", threadId: "S", timestamp: 2600, messageId: "steered-step" },
+    { type: "TEXT_MESSAGE_CONTENT", runId: "execution", threadId: "S", timestamp: 2700, messageId: "steered-step", delta: "Working after steer" },
+    { type: "TEXT_MESSAGE_END", runId: "execution", threadId: "S", timestamp: 2800, messageId: "steered-step" },
+    { type: "TEXT_MESSAGE_START", runId: "execution", threadId: "S", timestamp: 3900, messageId: "final" },
+    { type: "TEXT_MESSAGE_CONTENT", runId: "execution", threadId: "S", timestamp: 3950, messageId: "final", delta: "Done" },
+    { type: "TEXT_MESSAGE_END", runId: "execution", threadId: "S", timestamp: 3990, messageId: "final" },
+    { type: "RUN_FINISHED", runId: "execution", threadId: "S", timestamp: 4000, metadata: { framework: { runId: "native" } } },
+  ];
+  const input = [
+    message("first-user", "Start", "USER", 1000),
+    message("first-step", "Before steer", "ASSISTANT", 1500),
+    message("steer-user", "Change direction", "USER", 2000),
+    message("steered-step", "After steer", "ASSISTANT", 3000),
+    message("second-steer", "One more change", "USER", 3500),
+    message("final", "Final answer", "ASSISTANT", 3990),
+  ];
+  const timeline = buildTranscriptWorkTimeline(input, presentation(source, "first-user"));
+  const first = timeline.before.get("first-step")![0]!;
+  const second = timeline.before.get("steered-step")![0]!;
+  const final = timeline.before.get("final")![0]!;
+
+  expect(first).toMatchObject({ completed: true, segmentFinishedAtMs: 2000 });
+  expect(workTimelineElapsedMilliseconds(first, 9000)).toBe(1000);
+  expect(second).toMatchObject({ completed: true, segmentStartedAtMs: 2000, segmentFinishedAtMs: 3500 });
+  expect(workTimelineElapsedMilliseconds(second, 9000)).toBe(1500);
+  expect(final).toMatchObject({ completed: true, segmentStartedAtMs: 3500, finalMessageId: "final" });
+  expect(workTimelineElapsedMilliseconds(final, 9000)).toBe(500);
+});
+
+it("reconstructs steer segment timing after AG-UI events have been replaced by history", () => {
+  const historyRun = { id: "native", sessionId: "S", parentRunId: null, rootRunId: "native", status: "Completed" as const,
+    startedAtMs: 1000, finishedAtMs: 4000, error: null };
+  const historyAssistant = (id: string, time: number, content: string): ChatMessage => ({
+    ...message(id, content, "ASSISTANT", time),
+    history: {
+      message: { id, runId: "native", stepId: null, role: "Assistant", content: [{ type: "Text", text: content }],
+        structured: null, status: "Completed", createdAtMs: time },
+      step: null, tools: [], run: historyRun, interactions: [],
+    },
+  });
+  const input = [
+    message("first-user", "Start", "USER", 1000),
+    historyAssistant("first-step", 1500, "Before steer"),
+    message("steer-user", "Change direction", "USER", 2000),
+    historyAssistant("final", 3990, "Final answer"),
+  ];
+  const timeline = buildTranscriptWorkTimeline(input, presentation([]));
+  const first = timeline.before.get("first-step")![0]!;
+  const final = timeline.before.get("final")![0]!;
+
+  expect(first).toMatchObject({ completed: true, segmentFinishedAtMs: 2000 });
+  expect(first.finalMessageId).toBeUndefined();
+  expect(workTimelineElapsedMilliseconds(first, 9000)).toBe(1000);
+  expect(final).toMatchObject({ completed: true, segmentStartedAtMs: 2000, finalMessageId: "final" });
+  expect(workTimelineElapsedMilliseconds(final, 9000)).toBe(2000);
 });

@@ -387,6 +387,8 @@ it("shows separate AG-UI step cards before completion and preserves them through
   await emit("RUN_STARTED", "");
   await emit("TEXT_MESSAGE_START", "step-first");
   await emit("TEXT_MESSAGE_CONTENT", "step-first", "First progress summary");
+  container.querySelector<HTMLButtonElement>(".ef-chat__rail-summary[aria-expanded]")?.click();
+  await flushUi();
   const first = container.querySelector('[data-message-id="step-first"]');
   expect(first?.textContent).toContain("First progress summary");
   await emit("TEXT_MESSAGE_END", "step-first");

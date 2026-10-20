@@ -247,6 +247,7 @@ export interface ChatToolWorkLabels {
   domainExpanded: (name: string) => string;
   domainExpanding: (name: string) => string;
   group: (count: number) => string;
+  groupSummary?: (summary: ToolActionSummary) => string;
   statusDone: string;
   statusRunning: string;
   parameters: string;
@@ -262,6 +263,16 @@ export interface ChatToolWorkLabels {
   emptyReasoning: string;
   subagentDispatched?: (name: string) => string;
   resolveName: (runtimeName: string, args: unknown) => string;
+}
+
+/** Counts visible actions in one contiguous group of tool invocations. */
+export interface ToolActionSummary {
+  commands: number;
+  editedFiles: number;
+  editOperations: number;
+  reads: number;
+  searches: number;
+  otherActions: number;
 }
 
 export interface ChatWorkRailLabels {

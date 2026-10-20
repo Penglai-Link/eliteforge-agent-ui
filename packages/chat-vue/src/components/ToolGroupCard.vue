@@ -1,12 +1,13 @@
 <script setup lang="ts">
 import { ChevronDown, ChevronRight, Terminal } from "lucide-vue-next";
 import { computed, ref, watch } from "vue";
-import type { ChatWorkRailLabels, ToolGroupWorkCard } from "@eliteforge/agent-ui-chat-core";
+import { defaultToolActionSummaryLabel, summarizeToolActions, type ChatWorkRailLabels, type ToolGroupWorkCard } from "@eliteforge/agent-ui-chat-core";
 import ToolCard from "./ToolCard.vue";
 
 const props = defineProps<{
   card: ToolGroupWorkCard;
   labels?: ChatWorkRailLabels;
+  statusLabels?: Record<string, string>;
 }>();
 
 const toolCards = computed(() =>
@@ -15,6 +16,8 @@ const toolCards = computed(() =>
 const hasRunningTool = computed(() =>
   toolCards.value.some((tc) => tc.started && !tc.ended && !tc.result),
 );
+const summary = computed(() => props.labels?.tool?.groupSummary?.(summarizeToolActions(toolCards.value))
+  ?? defaultToolActionSummaryLabel(summarizeToolActions(toolCards.value)));
 const expanded = ref(false);
 
 watch(
@@ -46,7 +49,7 @@ watch(
         <span
           class="ef-chat__rail-entry-summary ef-chat__rail-entry-summary--strong"
         >
-          {{ props.labels?.tool?.group?.(toolCards.length) ?? `Ran ${toolCards.length} ${toolCards.length === 1 ? "command" : "commands"}` }}
+          {{ summary }}
         </span>
       </span>
       <span class="ef-chat__rail-entry-chevron">
@@ -56,7 +59,7 @@ watch(
     </button>
     <ol v-if="expanded" class="ef-chat__rail-entry-list">
       <li v-for="(tc, index) in toolCards" :key="tc.id">
-            <ToolCard :card="tc" :labels="props.labels" :nested="true" :step-number="index + 1" />
+            <ToolCard :card="tc" :labels="props.labels" :nested="true" :step-number="index + 1" :status-label="props.statusLabels?.[tc.id]" />
       </li>
     </ol>
   </section>

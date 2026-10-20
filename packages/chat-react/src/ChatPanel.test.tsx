@@ -152,18 +152,18 @@ describe("ChatPanel submit controls", () => {
     ];
     const props = { draft: "", onDraftChange: () => undefined, onSend: () => undefined, session: activeSession(), messages: [user] };
     const { rerender } = render(<ChatPanel {...props} liveAguiEvents={events} />);
-    expect(screen.getByText(/^Run stopped ·/)).toBeTruthy();
+    expect(screen.getByText(/^Worked for/)).toBeTruthy();
     expect(screen.getByRole("status").textContent).toContain("Run stopped");
     expect(screen.getByRole("status").className).not.toContain("ef-chat__run-notice--error");
     expect(screen.queryByRole("alert")).toBeNull();
     expect(screen.queryByText(/^Working for/)).toBeNull();
     rerender(<ChatPanel {...props} protocolEvents={events} />);
-    expect(screen.getByText(/^Run stopped ·/)).toBeTruthy();
+    expect(screen.getByText(/^Worked for/)).toBeTruthy();
     expect(screen.getAllByRole("status")).toHaveLength(1);
     expect(screen.queryByRole("alert")).toBeNull();
   });
 
-  it("uses a custom stopped label for both the neutral notice and rail", () => {
+  it("keeps elapsed time in the rail and uses a custom stopped label in the notice", () => {
     const user = message("USER", "Stop this response");
     renderPanel({
       messages: [user],
@@ -177,11 +177,53 @@ describe("ChatPanel submit controls", () => {
         code: "AGENT_CANCELLED", message: "Agent run cancelled",
       }],
     });
-    expect(screen.getByText(/^已停止 ·/)).toBeTruthy();
+    expect(screen.getByText(/^已工作/)).toBeTruthy();
     expect(screen.getByRole("status").textContent).toContain("已停止");
     expect(screen.getByRole("status").className).not.toContain("ef-chat__run-notice--error");
     expect(screen.queryByText(/^Run stopped/)).toBeNull();
     expect(screen.queryByRole("alert")).toBeNull();
+  });
+
+  it("renders a new steer work segment before the active run produces its final response", () => {
+    const startedAt = Date.now() - 10_000;
+    const originalUser: ChatMessage = {
+      ...message("USER", "Start the run"), id: 1, messageId: "user-start", runId: "RUN-STEER",
+      createdAt: new Date(startedAt).toISOString(),
+    };
+    const progress: ChatMessage = {
+      ...message("ASSISTANT", "Checking the request"), id: 2, messageId: "step-before-steer", runId: "RUN-STEER",
+      createdAt: new Date(startedAt + 100).toISOString(),
+    };
+    const acceptedAt = Date.now();
+    const steerUser: ChatMessage = {
+      ...message("USER", "Change direction"), id: 3, messageId: "user-steer", runId: "RUN-STEER",
+      createdAt: new Date(acceptedAt).toISOString(),
+    };
+    const sharedProps = {
+      liveAguiAnchorMessageCodes: { "RUN-STEER": "user-start" },
+      liveAguiEvents: [
+        { type: "RUN_STARTED", runId: "RUN-STEER", threadId: "SESSION-1", timestamp: startedAt },
+        { type: "TEXT_MESSAGE_START", runId: "RUN-STEER", threadId: "SESSION-1", timestamp: startedAt + 100, messageId: "step-before-steer" },
+        { type: "TEXT_MESSAGE_CONTENT", runId: "RUN-STEER", threadId: "SESSION-1", timestamp: startedAt + 200, messageId: "step-before-steer", delta: "Checking the request" },
+      ] satisfies ChatAguiStreamEvent[],
+    };
+    const view = renderPanel({ messages: [originalUser, progress], ...sharedProps });
+    expect(screen.getByText(/^Working for/)).toBeTruthy();
+
+    view.rerender(
+      <ChatPanel
+        draft="Follow up"
+        messages={[originalUser, progress, steerUser]}
+        onDraftChange={() => undefined}
+        onSend={() => undefined}
+        session={activeSession()}
+        showHeader={false}
+        {...sharedProps}
+      />,
+    );
+
+    expect(screen.getByText(/^Worked for/)).toBeTruthy();
+    expect(screen.getByText(/^Working for/)).toBeTruthy();
   });
 
   it.each(["AGENT_MODEL_FAILED", "AGENT_RUN_FAILED", "AGENT_RUN_STOPPED"])(
@@ -192,7 +234,7 @@ describe("ChatPanel submit controls", () => {
         type: "RUN_ERROR", runId: "RUN-1", threadId: "SESSION-1", timestamp: Date.parse(user.createdAt) + 1,
         code, message: "Agent run cancelled",
       }] });
-      expect(screen.getByText(/^Run failed ·/)).toBeTruthy();
+      expect(screen.getByText(/^Worked for/)).toBeTruthy();
       expect(screen.getByRole("alert").textContent).toContain("Agent run cancelled");
       expect(screen.getByRole("alert").className).toContain("ef-chat__run-notice--error");
       expect(screen.queryByText(/^Run stopped/)).toBeNull();
@@ -206,11 +248,10 @@ describe("ChatPanel submit controls", () => {
       { ...base, type: "RUN_ERROR", runId: failedRunId, code: "AGENT_RUN_FAILED", message: "Model stream failed" },
       { ...base, timestamp: base.timestamp + 1, type: "RUN_ERROR", runId: "RUN-1", code: "AGENT_CANCELLED", message: "Agent run cancelled" },
     ] });
-    expect(screen.getByText(/^Run failed ·/)).toBeTruthy();
     expect(screen.getByRole("alert").textContent).toContain("Model stream failed");
     if (failedRunId === "CHILD-1") {
       // Separate run rails preserve the child error and the parent's neutral stop.
-      expect(screen.getByText(/^Run stopped ·/)).toBeTruthy();
+      expect(screen.getAllByText(/^Worked for/).length).toBeGreaterThan(1);
       expect(screen.getByRole("status").textContent).toContain("Agent run cancelled");
     } else {
       expect(screen.queryAllByText(/^Run stopped/)).toHaveLength(0);
@@ -224,7 +265,7 @@ describe("ChatPanel submit controls", () => {
       { ...base, type: "RUN_ERROR", code: "AGUI_OUTPUT_OVERFLOW", message: "Output lost" },
       { ...base, timestamp: base.timestamp + 1, type: "RUN_ERROR", code: "AGENT_CANCELLED", message: "Agent run cancelled" },
     ] });
-    expect(screen.getByText(/^Run stopped ·/)).toBeTruthy();
+    expect(screen.getByText(/^Worked for/)).toBeTruthy();
     expect(screen.getByRole("status").textContent).toContain("Run stopped");
     expect(screen.getByRole("alert").textContent).toContain("Presentation replay is incomplete");
     expect(screen.getByRole("alert").className).toContain("ef-chat__run-notice--error");
@@ -240,7 +281,7 @@ describe("ChatPanel submit controls", () => {
         message: "TOOL_SCHEMA_OVER_BUDGET: estimatedTokens=27294, limitTokens=21597, toolCount=89; tool exposure was not changed",
       }],
     });
-    expect(screen.getByText(/^Run failed ·/)).toBeTruthy();
+    expect(screen.getByText(/^Worked for/)).toBeTruthy();
     expect(screen.queryByRole("button", { name: /Run failed/ })).toBeNull();
     const alert = screen.getByRole("alert");
     expect(alert.textContent).toContain("Tool definitions exceed the context budget");
@@ -292,7 +333,7 @@ describe("ChatPanel submit controls", () => {
     expect(screen.getByText("上下文压缩失败")).toBeTruthy();
     expect(screen.getByText("COMPACTION_MODEL_FAILED")).toBeTruthy();
     expect(screen.getByText("Model is unavailable")).toBeTruthy();
-    expect(screen.getByText(/^运行失败 ·/)).toBeTruthy();
+    expect(screen.getByText(/^已工作/)).toBeTruthy();
   });
 
   it("shows a stable activity stage while running and auto-collapses when complete", () => {
@@ -323,9 +364,12 @@ describe("ChatPanel submit controls", () => {
     };
     const { rerender } = render(<ChatPanel {...panelProps} protocolEvents={activeEvents} />);
 
-    expect(screen.queryByRole("button", { name: /Working for/ })).toBeNull();
-    expect(screen.getByText("Inspecting the implementation.")).toBeTruthy();
+    const activeButton = screen.getByRole("button", { name: /Working for/ });
+    expect(activeButton.getAttribute("aria-expanded")).toBe("false");
+    expect(screen.queryByText("Inspecting the implementation.")).toBeNull();
     expect(screen.getByText("Working")).toBeTruthy();
+    fireEvent.click(activeButton);
+    expect(screen.getByText("Inspecting the implementation.")).toBeTruthy();
 
     rerender(
       <ChatPanel
@@ -342,6 +386,38 @@ describe("ChatPanel submit controls", () => {
     expect(screen.queryByText("Inspecting the implementation.")).toBeNull();
     fireEvent.click(completedButton);
     expect(completedButton.getAttribute("aria-expanded")).toBe("true");
+  });
+
+  it("keeps the run duration at the top and describes a grouped action batch after its thought", () => {
+    const user = message("USER", "Inspect and update the project");
+    const startedAt = Date.now() - 2_000;
+    const base = { runId: "RUN-1", threadId: "SESSION-1", timestamp: startedAt };
+    const protocolEvents: ChatAguiStreamEvent[] = [
+      { ...base, type: "RUN_STARTED" },
+      { ...base, timestamp: startedAt + 1, type: "REASONING_START", messageId: "thought-1" },
+      { ...base, timestamp: startedAt + 2, type: "REASONING_MESSAGE_CONTENT", messageId: "thought-1", delta: "Inspecting and updating." },
+      { ...base, timestamp: startedAt + 3, type: "REASONING_END", messageId: "thought-1" },
+      { ...base, timestamp: startedAt + 4, type: "TOOL_CALL_START", toolCallId: "command", toolCallName: "bash_exec", toolCallArgs: { command: "pwd" } },
+      { ...base, timestamp: startedAt + 5, type: "TOOL_CALL_RESULT", toolCallId: "command", content: "/project" },
+      { ...base, timestamp: startedAt + 6, type: "TOOL_CALL_START", toolCallId: "write", toolCallName: "fs_write_text", toolCallArgs: { path: "src/app.ts", content: "updated" } },
+      { ...base, timestamp: startedAt + 7, type: "TOOL_CALL_RESULT", toolCallId: "write", content: "ok" },
+      { ...base, timestamp: startedAt + 8, type: "TOOL_CALL_START", toolCallId: "patch", toolCallName: "fs_apply_patch", toolCallArgs: { patch: "*** Begin Patch\n*** Update File: src/view.ts\n*** End Patch" } },
+      { ...base, timestamp: startedAt + 9, type: "TOOL_CALL_RESULT", toolCallId: "patch", content: "ok" },
+      { ...base, timestamp: startedAt + 10, type: "RUN_FINISHED" },
+    ];
+    renderPanel({
+      messages: [user], protocolEvents,
+      workRailLabels: {
+        ariaLabel: "Agent work", preparing: "Preparing", responding: "Responding", thinking: "Thinking",
+        workedFor: duration => `Worked for ${duration}`, workingFor: duration => `Working for ${duration}`,
+        tool: { groupSummary: summary => `Executed ${summary.commands} command, edited ${summary.editedFiles} files` },
+      },
+    });
+    const overall = screen.getByRole("button", { name: /Worked for/ });
+    expect(screen.queryByText(/Executed 1 command/)).toBeNull();
+    fireEvent.click(overall);
+    expect(screen.getByText("Inspecting and updating.")).toBeTruthy();
+    expect(screen.getByText("Executed 1 command, edited 2 files")).toBeTruthy();
   });
 
   it("hides reasoning cards when disabled and leaves enabled cards collapsed while running", () => {
@@ -364,6 +440,7 @@ describe("ChatPanel submit controls", () => {
     expect(screen.queryByText("Private reasoning detail")).toBeNull();
 
     rerender(<ChatPanel {...props} showReasoningCards />);
+    fireEvent.click(screen.getByRole("button", { name: /Working for/ }));
     const card = screen.getByLabelText("Thinking");
     const toggle = within(card).getByRole("button");
     expect(toggle.getAttribute("aria-expanded")).toBe("false");
@@ -826,6 +903,24 @@ it.each([true, false])("collapses provider diagnostics and hides internal step c
   expect(container.querySelectorAll("details pre")).toHaveLength(1);
 });
 
+it("shows an interrupted historical run without claiming it kept working after restart", () => {
+  const user = message("USER", "Continue");
+  const assistant: ChatMessage = {
+    ...message("ASSISTANT", ""),
+    runId: "RUN-1",
+    history: {
+      message: { id: "assistant", runId: "RUN-1", stepId: null, role: "Assistant", content: [], structured: null, status: "Interrupted", createdAtMs: 1 },
+      step: null,
+      tools: [],
+      interactions: [],
+      run: { id: "RUN-1", sessionId: "SESSION-1", parentRunId: null, rootRunId: "RUN-1", status: "Interrupted", startedAtMs: 1, finishedAtMs: 1_200_000, error: null },
+    },
+  };
+  renderPanel({ messages: [user, assistant] });
+  expect(screen.getByText(/Worked for 20m/)).toBeTruthy();
+  expect(screen.getByRole("status").textContent).toContain("Interrupted");
+});
+
 
 it("shows readable historical answers and interaction tool details without duplicate timings or JSON", () => {
   const interaction:any = {id:"question",prompt:[{type:"Text",text:"请确认需求"}],presentation:{questions:[{id:"uuid",question:"需求方向",options:[{id:"consult",label:"发起会诊"}]}]},response:{answers:{uuid:{option_id:"consult"}}}};
@@ -861,6 +956,7 @@ it("folds structured work when the run completes and keeps final text visible", 
   } } satisfies ChatMessage;
   const view = renderPanel({ messages: [running] });
   expect(screen.queryByRole("button", { name: "Thinking…" })).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: /Working for/ }));
   expect(screen.getByText("Internal thought")).toBeTruthy();
   const completed: ChatMessage = { ...running, history: { ...running.history, message: { ...running.history.message, status: "Completed" }, run: { ...running.history.run, status: "Completed", finishedAtMs: 200 } } };
   view.rerender(<ChatPanel allowDraftSession messages={[completed]} draft="" onDraftChange={() => undefined} onSend={() => undefined} />);
@@ -890,6 +986,10 @@ it("keeps pending questions adjacent to work without empty history sections", ()
   expect(container.querySelectorAll(".ef-chat__history-details")).toHaveLength(0);
   expect(container.querySelectorAll(".ef-chat__turn > *")).toHaveLength(2); // User and one grouped work rail.
   expect(screen.queryByRole("button", { name: "Thinking…" })).toBeNull();
+  const workSummary = screen.getByRole("button", { name: /Working for|Worked for/ });
+  expect(workSummary.getAttribute("aria-expanded")).toBe("false");
+  expect(screen.queryByText("Work 0")).toBeNull();
+  fireEvent.click(workSummary);
   for (let index = 0; index < 6; index++) expect(screen.getByText(`Work ${index}`)).toBeTruthy();
   expect(container.querySelectorAll(".ef-chat__history-details")).toHaveLength(0);
   expect(container.querySelectorAll(".ef-chat__turn > *")).toHaveLength(2);

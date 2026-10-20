@@ -149,7 +149,7 @@ function subagentDispatchedLabel(name: string) {
               {{ props.nested || props.compact ? nestedToolLabel : toolLabel }}
             </span>
             <span
-              v-if="!props.nested && !subagentDispatch"
+              v-if="props.nested ? Boolean(props.statusLabel) : !subagentDispatch"
               :class="
                 cx(
                   'ef-chat__tool-status',

@@ -133,6 +133,7 @@ export interface ToolWorkCard {
   parentReasoningId: string | null;
   result: string;
   runId: string;
+  stepId?: string;
   started: boolean;
   subagentName?: string;
   toolCallId: string;

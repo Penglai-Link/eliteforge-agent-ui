@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Bot, ChevronDown, ChevronRight } from "lucide-vue-next";
+import { Bot, ChevronDown, ChevronRight, CircleAlert, CircleX } from "lucide-vue-next";
 import { computed, onBeforeUnmount, ref, watch } from "vue";
 import {
   aguiWorkElapsedMilliseconds,
@@ -10,6 +10,7 @@ import {
   type ChatWorkRailLabels,
   type ChatUserInputRequest,
   type TranscriptWorkRun,
+  type WorkTimelineItem,
   type ChatHistoryLabels,
   defaultHistoryLabels,
   workTimelineElapsedMilliseconds,
@@ -80,9 +81,24 @@ const visibleTimelineItems = computed(() => props.timeline?.items.filter(item =>
 const reasoningEffort = computed(() => aguiReasoningEffort(props.events));
 const terminalEvent = computed(() => props.timeline?.completed ?? (props.historyCovered || isAguiRunTerminal(props.events) && !pendingUserInputRequest.value));
 const expanded = ref(false);
+const hasDetails = computed(() => visibleTimelineItems.value.length > 0 || visibleUserCards.value.length > 0 || props.debugEvents.length > 0);
 const now = ref(Date.now());
 const labels = computed(() => props.labels ?? defaultLabels);
 const duration = computed(() => formatAguiDuration(props.timeline ? workTimelineElapsedMilliseconds(props.timeline, now.value) : aguiWorkElapsedMilliseconds(props.events, now.value)));
+const summary = computed(() => terminalEvent.value ? labels.value.workedFor(duration.value) : labels.value.workingFor(duration.value));
+const historyStatusNotice = computed(() => {
+  if (props.timeline?.events.length) return null;
+  const runs = props.timeline?.messages.flatMap(message => message.history?.run ? [message.history.run] : []) ?? [];
+  const history = props.historyLabels ?? defaultHistoryLabels;
+  if (runs.some(run => run.status === "Failed")) return { failed: true, label: history.statuses.Failed };
+  if (runs.some(run => run.status === "Interrupted")) return { failed: false, label: history.statuses.Interrupted };
+  return null;
+});
+function historyGroupStatusLabels(item: WorkTimelineItem) {
+  if (item.kind !== "toolGroup" || !item.historyStatuses) return undefined;
+  const history = props.historyLabels ?? defaultHistoryLabels;
+  return Object.fromEntries(Object.entries(item.historyStatuses).map(([id, status]) => [id, history.statuses[status]]));
+}
 let timer: ReturnType<typeof setInterval> | undefined;
 
 watch(terminalEvent, (completed) => {
@@ -109,23 +125,28 @@ onBeforeUnmount(() => {
     class="ef-chat__rail"
   >
     <button
-      v-if="terminalEvent && (visibleTimelineItems.length || visibleUserCards.length || props.debugEvents.length)"
+      v-if="hasDetails"
       :aria-expanded="expanded"
       class="ef-chat__rail-summary"
       type="button"
       @click="expanded = !expanded"
     >
       <span class="ef-chat__rail-summary-label">
-        {{ terminalEvent ? labels.workedFor(duration) : labels.workingFor(duration) }}
+        {{ summary }}
         <span v-if="reasoningEffort"> · {{ reasoningEffort }}</span>
       </span>
       <ChevronDown v-if="expanded" :size="14" />
       <ChevronRight v-else :size="14" />
     </button>
-    <div v-else class="ef-chat__rail-summary ef-chat__rail-summary--static">{{ terminalEvent ? labels.workedFor(duration) : labels.workingFor(duration) }}</div>
+    <div v-else class="ef-chat__rail-summary ef-chat__rail-summary--static">{{ summary }}</div>
     <AguiRunNotices :events="props.events" :messages="props.timeline?.messages" :labels="labels" />
+    <div v-if="historyStatusNotice" class="ef-chat__run-notice" :class="{ 'ef-chat__run-notice--error': historyStatusNotice.failed }" :role="historyStatusNotice.failed ? 'alert' : 'status'">
+      <CircleAlert v-if="historyStatusNotice.failed" :size="16" aria-hidden="true" />
+      <CircleX v-else :size="16" aria-hidden="true" />
+      <div class="ef-chat__run-notice-content"><div class="ef-chat__run-notice-title">{{ historyStatusNotice.label }}</div></div>
+    </div>
     <div
-      v-if="(!terminalEvent || expanded) && (visibleTimelineItems.length || visibleUserCards.length || props.debugEvents.length)"
+      v-if="expanded && hasDetails"
       class="ef-chat__rail-stack"
       :style="{ marginTop: '8px' }"
     >
@@ -134,6 +155,7 @@ onBeforeUnmount(() => {
           <div v-for="item in visibleTimelineItems" :key="item.id" :data-work-item="item.kind" :data-work-item-id="item.id">
             <slot v-if="item.kind === 'message'" name="message" :message="item.message" />
             <ReasoningCard v-else-if="item.kind === 'reasoning'" :card="item.value" />
+            <ToolGroupCard v-else-if="item.kind === 'toolGroup'" :card="item.value" :labels="labels" :status-labels="historyGroupStatusLabels(item)" />
             <ToolCard v-else :card="item.value" :labels="labels" compact :status-label="item.historyStatus ? (props.historyLabels ?? defaultHistoryLabels).statuses[item.historyStatus] : undefined" />
           </div>
         </div>

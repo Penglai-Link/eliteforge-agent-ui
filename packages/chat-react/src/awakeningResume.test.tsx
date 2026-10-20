@@ -48,6 +48,7 @@ it("restores background awakening, places resumed tools after the answer, and re
     observer?.onAguiEvent?.(frame("RUN_STARTED"));
     observer?.onAguiEvent?.(frame("TOOL_CALL_START", { toolCallId: "save-tool", toolCallName: "dude_soul_update" }));
   });
+  fireEvent.click(screen.getByRole("button", { name: /Working for/ }));
   await waitFor(() => expect(view.container.querySelector('[data-work-item-id="product:save-tool"]')).toBeTruthy());
   const answer = view.container.querySelector('[data-history-interaction-id="question"]')!;
   const tool = view.container.querySelector('[data-work-item-id="product:save-tool"]')!;

@@ -15,6 +15,7 @@ import {
   type ChatAdapter,
   type ChatSendResult,
   type ChatSession,
+  type ChatSteerResult,
   type ChatStreamHandlers,
   type SendChatMessageInput,
 } from "@eliteforge/agent-ui-chat-core";
@@ -237,7 +238,7 @@ describe("ChatRuntimeWindow", () => {
     fireEvent.keyDown(input, { key: "Enter" });
     await waitFor(() => expect(screen.getByRole("alert").textContent).toContain("Model is unavailable"));
     expect(onError).not.toHaveBeenCalled();
-    expect(screen.getByText(/^Run failed ·/)).toBeTruthy();
+    expect(screen.getByText(/^Worked for/)).toBeTruthy();
     expect(screen.getAllByRole("article")).toHaveLength(1);
   });
 
@@ -1160,6 +1161,88 @@ describe("ChatRuntimeWindow", () => {
     });
   });
 
+  it("starts a separate live work timer and groups new tools before steer acknowledgement", async () => {
+    let streamHandlers: ChatStreamHandlers | undefined;
+    const streamMessage = vi.fn((
+      _session: ChatSession,
+      _input: SendChatMessageInput,
+      handlers?: ChatStreamHandlers,
+    ) => {
+      streamHandlers = handlers;
+      return new Promise<ChatSendResult>(() => {});
+    });
+    const steerResult: ChatSteerResult = {
+      message: {
+        actor: "User",
+        channel: "MAIN_AGENT",
+        content: "Change course",
+        createdAt: new Date().toISOString(),
+        id: 22,
+        messageId: "MSG-STEER-LIVE",
+        role: "USER",
+        runId: "RUN-STEER-LIVE",
+        sessionId: "SESSION-RESTORED",
+      },
+      runId: "RUN-STEER-LIVE",
+      sessionId: "SESSION-RESTORED",
+    };
+    let resolveSteer: (value: ChatSteerResult) => void = () => undefined;
+    const steerMessage = vi.fn(() => new Promise<ChatSteerResult>((resolve) => {
+      resolveSteer = resolve;
+    }));
+    const adapter: ChatAdapter = {
+      capabilities: {
+        supportsAbort: true,
+        supportsAgui: true,
+        supportsProtocolReplay: false,
+        supportsSteer: true,
+        supportsStreaming: true,
+      },
+      createSession: vi.fn(),
+      loadAguiEvents: vi.fn().mockResolvedValue([]),
+      loadMessages: vi.fn().mockResolvedValue([]),
+      steerMessage,
+      streamMessage,
+    };
+    render(<ChatRuntimeWindow adapter={adapter} config={{ floating: false }} initialSession={restoredSession()} />);
+
+    await waitFor(() => expect(adapter.loadMessages).toHaveBeenCalled());
+    fireEvent.change(screen.getByRole("textbox"), { target: { value: "Start" } });
+    fireEvent.click(screen.getByRole("button", { name: "Send" }));
+    await waitFor(() => expect(streamMessage).toHaveBeenCalledTimes(1));
+    act(() => {
+      streamHandlers?.onAguiEvent?.({ type: "RUN_STARTED", runId: "RUN-STEER-LIVE", threadId: "SESSION-RESTORED" });
+      streamHandlers?.onAguiEvent?.({ type: "TEXT_MESSAGE_START", runId: "RUN-STEER-LIVE", threadId: "SESSION-RESTORED", messageId: "PROGRESS-STEER-LIVE", role: "assistant" });
+      streamHandlers?.onAguiEvent?.({ type: "TEXT_MESSAGE_CONTENT", runId: "RUN-STEER-LIVE", threadId: "SESSION-RESTORED", messageId: "PROGRESS-STEER-LIVE", delta: "I have started working." });
+    });
+
+    fireEvent.change(screen.getByRole("textbox"), { target: { value: "Change course" } });
+    fireEvent.keyDown(screen.getByRole("textbox"), { key: "Enter", metaKey: true });
+    await waitFor(() => expect(steerMessage).toHaveBeenCalledTimes(1));
+    expect(screen.getAllByText("Change course").length).toBeGreaterThan(0);
+    expect(screen.getByText(/^Worked for/)).toBeTruthy();
+    expect(screen.getByText(/^Working for/)).toBeTruthy();
+
+    act(() => {
+      streamHandlers?.onAguiEvent?.({
+        type: "TOOL_CALL_START",
+        runId: "RUN-STEER-LIVE",
+        threadId: "SESSION-RESTORED",
+        timestamp: Date.now() + 10,
+        toolCallId: "TOOL-STEER-LIVE",
+        toolCallName: "bash_exec",
+        toolCallArgs: { command: "sleep 5" },
+      });
+    });
+    const workingRails = screen.getAllByRole("button", { name: /^Working for/ });
+    fireEvent.click(workingRails[workingRails.length - 1]!);
+    expect(screen.getByText(/sleep 5/)).toBeTruthy();
+
+    await act(async () => resolveSteer(steerResult));
+    expect(screen.getAllByRole("button", { name: /^Working for/ })).toHaveLength(1);
+    expect(screen.getByRole("button", { name: "Stop" })).toBeTruthy();
+  });
+
   it("restores saved explicit skill identities when editing history without current suggestions", async () => {
     const { adapter, loadMessages } = createAdapter();
     loadMessages.mockResolvedValue([{ id: 1, messageId: "saved-selection", sessionId: "SESSION-RESTORED", role: "USER", channel: "MAIN_AGENT", content: "$review saved", requestedSkills: ["review"], createdAt: "2026-06-10T00:00:00.000Z" }]);
@@ -1443,7 +1526,8 @@ describe("ChatRuntimeWindow", () => {
 
     await waitFor(() => expect(steerAckDelivered).toHaveBeenCalledTimes(1));
     expect(screen.queryByRole("region", { name: "Queued" })).toBeNull();
-    expect(screen.queryByText("Keep this steer")).toBeNull();
+    expect(document.querySelectorAll('article[data-message-id="MSG-LATE-STEER"]')).toHaveLength(1);
+    expect(document.querySelector('[data-message-id^="LOCAL-"][data-message-id$="-STEER"]')).toBeNull();
     expect(streamMessage).toHaveBeenCalledTimes(1);
   });
 });

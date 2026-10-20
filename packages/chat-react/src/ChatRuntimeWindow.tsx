@@ -4,6 +4,9 @@ import {
   chatErrorPresentation,
   requestedSkillsFromDraft,
   applyMessageProvenance,
+  createSteerWorkSegmentEvents,
+  aguiEventMillis,
+  messageSenderIsHuman,
   type MessageSender,
   AssistantReplyQueue,
   AssistantMessageStream,
@@ -1233,6 +1236,17 @@ export function ChatRuntimeWindow({
       // and replay reads must not keep the completed executor in the composer.
       flushTurnText();
       presentationEpoch = acknowledgeCompletedTurn(result.session.sessionId, result.run.runId);
+      if (result.run.status === "COMPLETED") {
+        setLiveAguiEvents((current) => current.some((event) => (
+          isAguiExecutionTerminalEvent(event) && historyEventRunId(event) === result.run.runId
+        )) ? current : [...current, {
+          type: "RUN_FINISHED",
+          threadId: activeSession.sessionId,
+          runId: result.run.runId,
+          timestamp: Date.now(),
+          outcome: { type: "success" },
+        }]);
+      }
       streamSucceeded = true;
       shouldRestoreSourceSubmission = false;
       setSession(result.session);
@@ -1560,6 +1574,58 @@ export function ChatRuntimeWindow({
       return;
     }
 
+    const previousUser = [...messages].reverse().find((message) =>
+      message.role === "USER" && messageSenderIsHuman(message));
+    optimisticMessageSequenceRef.current += 1;
+    const optimisticAt = Math.max(
+      Date.now(),
+      ...liveAguiEvents.map(aguiEventMillis).filter((value): value is number => value !== null).map((value) => value + 1),
+    );
+    const optimisticMessageId = `LOCAL-${Date.now()}-${optimisticMessageSequenceRef.current}-STEER`;
+    const optimisticMessage: ChatMessage = {
+      actor: currentSender?.displayName ?? currentUserDisplayName ?? "User",
+      provenance: { sender: currentSender ?? { kind: "user", displayName: currentUserDisplayName || "User" } },
+      channel: "conversation",
+      content,
+      annotations: sendInput.annotations ?? [],
+      attachments: sendInput.attachments ?? [],
+      requestedSkills: sendInput.requestedSkills ?? [],
+      createdAt: new Date(optimisticAt).toISOString(),
+      id: -Date.now() - optimisticMessageSequenceRef.current,
+      messageId: optimisticMessageId,
+      role: "USER",
+      runId: expectedRunId,
+      sessionId: activeSession.sessionId,
+    };
+    const matchingRunEvent = [...liveAguiEvents].reverse().find((event) =>
+      event.runId === expectedRunId || historyEventRunId(event) === expectedRunId);
+    const nativeRunId = matchingRunEvent ? historyEventRunId(matchingRunEvent) : expectedRunId;
+    const optimisticBoundaryEvents = aguiEnabled && previousUser
+      ? createSteerWorkSegmentEvents({
+          at: optimisticAt,
+          fromMessageId: previousUser.messageId,
+          nativeRunId,
+          runId: expectedRunId,
+          threadId: activeSession.sessionId,
+          toMessageId: optimisticMessageId,
+        })
+      : [];
+    setMessages((current) => mergeChatMessagesChronologically(current, [optimisticMessage]));
+    if (optimisticBoundaryEvents.length) {
+      setLiveAguiEvents((current) => [...current, ...optimisticBoundaryEvents]);
+    }
+    const removeOptimisticSteer = () => {
+      if (activeSessionCodeRef.current !== activeSession.sessionId) return;
+      setMessages((current) => current.filter((message) => message.messageId !== optimisticMessageId));
+      if (optimisticBoundaryEvents.length) {
+        setLiveAguiEvents((current) => current.filter((event) => !(
+          (event.type === "CLIENT_WORK_SEGMENT_START" || event.type === "CLIENT_WORK_SEGMENT_END")
+          && event.fromMessageId === previousUser?.messageId
+          && event.toMessageId === optimisticMessageId
+        )));
+      }
+    };
+
     const abortController = new AbortController();
     steerAbortRef.current = abortController;
     steeringRef.current = true;
@@ -1571,18 +1637,36 @@ export function ChatRuntimeWindow({
         { expectedRunId: expectedRunId },
         abortController.signal,
       );
-      if (steerAbortRef.current !== abortController) {
-        // A resolved ACK means the backend accepted and persisted the steer.
-        // Ignore a stale observer result without sending the same input again.
-        return;
-      }
       if (activeSessionCodeRef.current === result.sessionId) {
         setMessages((current) => mergeChatMessagesChronologically(
-          current,
+          current.filter((message) => message.messageId !== optimisticMessageId),
           [result.message],
         ));
+        if (optimisticBoundaryEvents.length && previousUser) {
+          const confirmedBoundaryEvents = createSteerWorkSegmentEvents({
+            at: optimisticAt,
+            fromMessageId: previousUser.messageId,
+            nativeRunId,
+            runId: expectedRunId,
+            threadId: activeSession.sessionId,
+            toMessageId: result.message.messageId,
+          });
+          setLiveAguiEvents((current) => [
+            ...current.filter((event) => !(
+              (event.type === "CLIENT_WORK_SEGMENT_START" || event.type === "CLIENT_WORK_SEGMENT_END")
+              && event.fromMessageId === previousUser.messageId
+              && event.toMessageId === optimisticMessageId
+            )),
+            ...confirmedBoundaryEvents,
+          ]);
+        }
       }
+      // A resolved ACK means the backend accepted and persisted the steer.
+      // Commit the visible message even if this observer was detached, but
+      // never retry or resubmit the accepted input.
+      if (steerAbortRef.current !== abortController) return;
     } catch (error) {
+      removeOptimisticSteer();
       const observerDetached = steerAbortRef.current !== abortController;
       const safeQueueFallback = error instanceof ChatAdapterError
         && isSteerQueueFallbackCode(error.code);

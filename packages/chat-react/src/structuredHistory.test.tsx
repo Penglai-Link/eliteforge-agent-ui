@@ -29,7 +29,8 @@ it("reads one structured snapshot and renders records without any event replay",
   const work = screen.getByRole("button", { name: /Worked for/ });
   expect(work.getAttribute("aria-expanded")).toBe("false");
   fireEvent.click(work);
-  expect(screen.getAllByText(/Result unknown/).length).toBeGreaterThan(0);
+  fireEvent.click(await screen.findByRole("button", { name: /Lookup/i }));
+  expect(await screen.findByText("No result payload.")).toBeTruthy();
   expect(screen.queryByText("Ran lookup")).toBeNull();
   expect(screen.getByText('"public": true', { exact: false })).toBeTruthy();
   expect(screen.getByText("report.txt")).toBeTruthy();

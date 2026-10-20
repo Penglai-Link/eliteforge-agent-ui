@@ -25,6 +25,7 @@ export * from "./interactionSummary";
 export * from "./interactionMessages";
 export * from "./historyWork";
 export * from "./workTimeline";
+export * from "./toolActionSummary";
 
 export * from "./messageProvenance";
 
