@@ -119,6 +119,48 @@ it("selects skill suggestions, displays their label, dismisses menus and inserts
   fireEvent.keyDown(editor, { key: "Enter", shiftKey: true });
   expect(editor.value).toBe("a\nb");
 });
+it.each([
+  ["/com", false, "/compact "],
+  ["/", false, "/goal "],
+  ["/", true, "/compact "],
+  ["$rev", false, "$review "],
+])("completes %s with Tab without submitting or leaving the editor", async (draft, moveDown, expected) => {
+  const send = vi.fn();
+  render(<Controlled draft={draft} onSend={send} autoFocusComposer inputSuggestions={[
+    { kind: "command", name: "goal" }, { kind: "command", name: "compact" },
+    { kind: "skill", name: "review", displayName: "代码审查" },
+  ]} />);
+  const editor = screen.getByRole("textbox") as HTMLTextAreaElement;
+  if (moveDown) fireEvent.keyDown(editor, { key: "ArrowDown" });
+  expect(fireEvent.keyDown(editor, { key: "Tab" })).toBe(false);
+  await waitFor(() => {
+    expect(editor.value).toBe(expected);
+    expect(document.activeElement).toBe(editor);
+    expect(editor.selectionStart).toBe(expected.length);
+    expect(editor.selectionEnd).toBe(expected.length);
+  });
+  expect(screen.queryByRole("listbox")).toBeNull();
+  expect(send).not.toHaveBeenCalled();
+});
+it.each([
+  { shiftKey: true }, { ctrlKey: true }, { metaKey: true },
+  { altKey: true }, { isComposing: true },
+])("keeps modified or composing Tab native: %j", options => {
+  render(<Controlled draft="/com" inputSuggestions={[{ kind: "command", name: "compact" }]} />);
+  const editor = screen.getByRole("textbox") as HTMLTextAreaElement;
+  expect(fireEvent.keyDown(editor, { key: "Tab", ...options })).toBe(true);
+  expect(editor.value).toBe("/com");
+});
+it("keeps Tab native when suggestions are dismissed or have no matches", () => {
+  render(<Controlled draft="/com" inputSuggestions={[{ kind: "command", name: "compact" }]} />);
+  const editor = screen.getByRole("textbox") as HTMLTextAreaElement;
+  fireEvent.keyDown(editor, { key: "Escape" });
+  expect(fireEvent.keyDown(editor, { key: "Tab" })).toBe(true);
+  expect(editor.value).toBe("/com");
+  fireEvent.change(editor, { target: { value: "/missing" } });
+  expect(fireEvent.keyDown(editor, { key: "Tab" })).toBe(true);
+  expect(editor.value).toBe("/missing");
+});
 it("uses the native editor for long text and while selecting skill text", () => {
   const longText = "A long line that wraps in the composer. ".repeat(20);
   const { rerender } = render(<Composer draft={longText} onDraftChange={() => {}} onSend={() => {}} />);

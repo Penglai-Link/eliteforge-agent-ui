@@ -26,3 +26,12 @@ it("shows question and option labels instead of answer envelopes and transport I
 it("summarizes a just-submitted form using field and option labels", () => {
  expect(submittedFormSummary({requestId:"form",runId:"run",intro:"Complete the form",a2uiInteraction:{messages:form.presentation.messages},answers:[{questionId:"form",answerKind:"Other",otherText:JSON.stringify(form.response)}]} as any)).toEqual([{label:"性别",value:"男"},{label:"年龄（岁）",value:"12"}]);
 });
+
+it("keeps batch children in audit records without duplicating conversation tool cards", () => {
+ const parent = {id:"batch",runId:"run",messageId:"m",stepId:"step",toolName:"fs_read_text",arguments:{items:[{path:"a"},{path:"b"}]},status:"Completed",structured:{results:[{index:0,isError:false,result:"a"},{index:1,isError:false,result:"b"}]},content:[],isError:false};
+ const child = {...parent,id:"child",batch:{parentInvocationId:"batch",parentCallId:"call",invocationId:"child",callId:"child",index:0},arguments:{path:"a"}};
+ const page = {sessionId:"s",runs:[{id:"run",startedAtMs:1,finishedAtMs:10}],activeRuns:[],pendingInteractions:[],records:{steps:[],messages:[{id:"m",runId:"run",stepId:"step",role:"Assistant",content:[],status:"Completed",createdAtMs:1}],toolInvocations:[parent,child],interactions:[]}} as unknown as SessionHistory;
+ const messages = historyMessages(page);
+ expect(messages[0].history?.tools.map(t=>t.id)).toEqual(["batch"]);
+ expect(page.records.toolInvocations).toHaveLength(2);
+});

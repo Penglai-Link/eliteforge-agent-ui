@@ -387,7 +387,7 @@ it("shows separate AG-UI step cards before completion and preserves them through
   await emit("RUN_STARTED", "");
   await emit("TEXT_MESSAGE_START", "step-first");
   await emit("TEXT_MESSAGE_CONTENT", "step-first", "First progress summary");
-  container.querySelector<HTMLButtonElement>(".ef-chat__rail-summary[aria-expanded]")?.click();
+  container.querySelector<HTMLButtonElement>('.ef-chat__rail-summary[aria-expanded="false"]')?.click();
   await flushUi();
   const first = container.querySelector('[data-message-id="step-first"]');
   expect(first?.textContent).toContain("First progress summary");
@@ -414,4 +414,42 @@ it("shows separate AG-UI step cards before completion and preserves them through
   container.querySelector<HTMLButtonElement>('.ef-chat__rail-summary')!.click(); await flushUi();
   expect(container.querySelector('[data-message-id="step-first"]')?.textContent).toContain("First progress summary");
   expect(container.querySelectorAll('[data-theme-part="chat-message-assistant"]')).toHaveLength(3);
+});
+
+it("restores a compaction card and lock after switching sessions without stopping the run", async () => {
+  const first = restoredSession();
+  const second = restoredSession("SESSION-SECOND", 2);
+  const selected = ref(first);
+  let finished = false;
+  const adapter: ChatAdapter = {
+    capabilities: { supportsStreaming: true, supportsAgui: true, supportsProtocolReplay: true, supportsActiveRun: true, supportsSteer: true, supportsStop: true },
+    createSession: vi.fn(), streamMessage: vi.fn(), stopRun: vi.fn(),
+    loadMessages: vi.fn(async sessionId => sessionId === first.sessionId ? [{id:1,messageId:"compact-input",sessionId,role:"USER",channel:"MAIN_AGENT",content:"/compact",createdAt:new Date(0).toISOString()}] : []), loadAguiEvents: vi.fn().mockResolvedValue([]),
+    getActiveRun: vi.fn(async sessionId => ({ sessionId, activeRun: sessionId === first.sessionId && !finished
+      ? { runId: "COMPACT", runtimeAdapterKey: "REACT", state: "RUNNING", supportsSteer: false, operationKind: "ContextCompaction" } : null })),
+    loadProtocolEvents: vi.fn().mockResolvedValue([]),
+    loadHistory: vi.fn(async sessionId => {
+      const owns = sessionId === first.sessionId;
+      const run = {id:"COMPACT",sessionId,rootRunId:"COMPACT",parentRunId:null,status: finished ? "Completed" as const : "Running" as const,startedAtMs:1,finishedAtMs:finished?4:null,error:null};
+      return {sessionId,version:"1",nextCursor:null,runs:owns?[run]:[],activeRuns:owns&&!finished?[run]:[],pendingInteractions:[],records:{steps:owns?[{id:"compact-step",runId:"COMPACT",nodeInvocationId:null,sequence:0,attempt:1,name:"framework.context.compaction",model:null,status:run.status,usage:null,startedAtMs:2,finishedAtMs:finished?3:null}]:[],toolInvocations:[],interactions:[],messages:owns?[{id:"compact-input",runId:"COMPACT",stepId:null,role:"User" as const,content:[{type:"Text" as const,text:"/compact"}],structured:null,status:"Completed" as const,createdAtMs:0}]:[]}};
+    }),
+  };
+  const container = mountRuntime(adapter, selected, ref({ showAgui: true }));
+  await waitFor(() => container.querySelector("textarea")?.disabled === true && container.textContent?.includes("Compacting context") === true);
+  expect(container.querySelector('[aria-label="Stop"]')).toBeNull();
+  selected.value = second;
+  await waitFor(() => container.querySelector("textarea")?.disabled === false);
+  selected.value = first;
+  await waitFor(() => container.querySelector("textarea")?.disabled === true && container.textContent?.includes("Compacting context") === true);
+  selected.value = second;
+  await waitFor(() => container.querySelector("textarea")?.disabled === false);
+  finished = true;
+  selected.value = first;
+  await waitFor(() => container.querySelector("textarea")?.disabled === false);
+  const rail = container.querySelector<HTMLButtonElement>(".ef-chat__rail-summary");
+  if (rail?.getAttribute("aria-expanded") === "false") { rail.click(); await flushUi(); }
+  expect(container.textContent).toContain("Context compacted");
+  expect(adapter.streamMessage).not.toHaveBeenCalled();
+  expect(adapter.stopRun).not.toHaveBeenCalled();
+  expect(adapter.loadProtocolEvents).not.toHaveBeenCalled();
 });

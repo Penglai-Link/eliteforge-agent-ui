@@ -3,6 +3,8 @@ import { buildTranscriptWorkTimeline, workTimelineElapsedMilliseconds } from "./
 import { historyMessages, type SessionHistory } from "./history";
 import type { ChatAguiStreamEvent, ChatMessage, ChatUserInputRequest } from "./types";
 import { buildTranscriptPresentation, type TranscriptPresentation } from "./transcript";
+import { summarizeToolActions } from "./toolActionSummary";
+import { contiguousToolEvents, contiguousToolHistory } from "../../../contracts/tool-group-contiguous-history";
 
 const message = (id: string, content = id, role: "USER" | "ASSISTANT" = "ASSISTANT", time = 1000): ChatMessage => ({
   id, messageId: id, sessionId: "S", runId: "native", role, content, actor: role, channel: "conversation", createdAt: new Date(time).toISOString(),
@@ -24,6 +26,19 @@ function presentation(events: ChatAguiStreamEvent[], anchor = "user"): Transcrip
 const messages = () => [message("user", "Question", "USER"), message("step-1"), message("step-2"), message("final")];
 const items = (run: ReturnType<typeof buildTranscriptWorkTimeline>["before"] extends Map<string, infer T> ? T : never) => run[0].items.flatMap(item => item.kind === "message" ? [item.id] : item.kind === "reasoning" ? [item.value.summary] : item.kind === "toolGroup" ? [item.value.toolCards.map(tool => tool.toolCallId).join("+")] : [item.value.toolCallId]);
 
+it.each([false, true])("combines consecutive search and execute steps into one summary with history (replay=%s)", replay => {
+  const messages = historyMessages(contiguousToolHistory);
+  const view = buildTranscriptPresentation({ messages, liveAguiEvents: replay ? contiguousToolEvents : [], sessionId: "SESSION-1" });
+  const run = [...buildTranscriptWorkTimeline(messages, view, [], { showReasoningCards: false }).before.values()].flat()[0];
+  const groups = run.items.filter(item => item.kind === "toolGroup");
+  expect(groups).toHaveLength(1);
+  expect(groups[0].value.toolCards.map(tool => tool.toolCallId)).toEqual(["search", "execute"]);
+  expect(summarizeToolActions(groups[0].value.toolCards)).toMatchObject({ searches: 1, otherActions: 1 });
+  expect(run.items.some(item => item.kind === "reasoning")).toBe(false);
+  const visibleThoughtRun = [...buildTranscriptWorkTimeline(messages, view, [], { showReasoningCards: true }).before.values()].flat()[0];
+  expect(visibleThoughtRun.items.filter(item => item.kind === "toolGroup")).toHaveLength(2);
+});
+
 it("interleaves reasoning, separate step outputs and tools in source order even with identical timestamps", () => {
   const timeline = buildTranscriptWorkTimeline(messages(), presentation(events()));
   const run = timeline.before.get("step-1")!;
@@ -34,7 +49,7 @@ it("interleaves reasoning, separate step outputs and tools in source order even 
   expect([...timeline.processMessageIds]).toEqual(["step-1", "step-2", "final"]);
 });
 
-it("keeps each contiguous batch of tool calls after its process message and collapses only multiple calls", () => {
+it("keeps each contiguous batch of tool calls after its process message", () => {
   const source = events();
   const toolIndex = source.findIndex(event => event.type === "TOOL_CALL_START");
   const extraTools = ["tool-2", "tool-3"].flatMap((toolCallId) => {
@@ -50,6 +65,15 @@ it("keeps each contiguous batch of tool calls after its process message and coll
   const run = timeline.before.get("step-1")![0];
   expect(items([run])).toEqual(["thought-1", "step-1", "thought-2", "tool-1+tool-2+tool-3", "step-2", "thought-3", "final"]);
   expect(run.items.find(item => item.kind === "toolGroup")?.value.toolCards).toHaveLength(3);
+});
+
+it("retains a summary group for each single-tool phase after completion", () => {
+  const source = events();
+  source.push({ ...source[0], type: "RUN_FINISHED" });
+  const run = buildTranscriptWorkTimeline(messages(), presentation(source)).before.get("step-1")![0];
+  expect(run.completed).toBe(true);
+  expect(run.items.filter(item => item.kind === "tool")).toEqual([]);
+  expect(run.items.filter(item => item.kind === "toolGroup").map(item => item.value.toolCards.length)).toEqual([1]);
 });
 
 it("only execution success moves the final message out of the process; text END does not", () => {
@@ -145,7 +169,7 @@ it("closes only the pre-answer segment while the same native run resumes from hi
   const timeline = buildTranscriptWorkTimeline(restored, presentation([]));
   expect(timeline.before.get("ask")?.[0]).toMatchObject({ completed: true, finalMessageId: undefined });
   expect(timeline.before.get("continued")?.[0].completed).toBe(false);
-  expect(timeline.before.get("ask")?.[0].items.map(item => item.id)).toEqual(["ask-call"]);
+  expect(items(timeline.before.get("ask")!)).toEqual(["ask-call"]);
 });
 
 it("keeps multiple accepted answers as separate boundaries in one native execution", () => {

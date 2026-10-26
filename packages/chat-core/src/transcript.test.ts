@@ -4,6 +4,7 @@ import {
   aguiReasoningEffort,
   belongsToNewChatTurn,
   buildAguiRunNotices,
+  contextCompactionInProgress,
   mergeTranscriptAguiEvents,
   aguiWorkRailsByMessageCode,
   buildAguiUserWorkCards,
@@ -237,9 +238,9 @@ describe("buildAguiUserWorkCards", () => {
       event({ type: "TOOL_CALL_END", timestamp: 3_003, toolCallId: "tool-bash" }),
     ]);
 
-    const tool = cards.find((card) => card.kind === "tool");
-    if (!tool || tool.kind !== "tool") throw new Error("expected standalone tool card");
-    expect(tool.value.toolName).toBe("bash_exec");
+    const group = cards.find((card) => card.kind === "toolGroup");
+    if (!group || group.kind !== "toolGroup") throw new Error("expected tool group");
+    expect(group.value.toolCards[0].toolName).toBe("bash_exec");
   });
 });
 
@@ -484,4 +485,15 @@ describe("new submission stream ownership", () => {
     expect(belongsToNewChatTurn({ type: "RUN_STARTED", threadId: "SESSION-1", runId: "current", timestamp: now - 1_000 }, "SESSION-1", createdAt)).toBe(true);
     expect(belongsToNewChatTurn({ type: "TEXT_MESSAGE_CONTENT", delta: "text" }, "SESSION-1", createdAt)).toBe(true);
   });
+});
+
+it("restores the compaction lock from replay and clears it for success or failure", () => {
+  const active=[compaction("compaction.started")];
+  expect(contextCompactionInProgress(active,"RUN-1")).toBe(true);
+  expect(contextCompactionInProgress(active,"OTHER")).toBe(false);
+  expect(contextCompactionInProgress(JSON.parse(JSON.stringify(active)),"RUN-1")).toBe(true);
+  for (const name of ["compaction.completed","compaction.failed"]) {
+    expect(contextCompactionInProgress([...active,compaction(name,2)],"RUN-1")).toBe(false);
+  }
+  expect(contextCompactionInProgress([...active,event({type:"RUN_ERROR"})],"RUN-1")).toBe(false);
 });

@@ -25,6 +25,7 @@ const props = withDefaults(defineProps<{
   debugEvents?: string[];
   events?: TranscriptAguiEvent[];
   labels?: ChatWorkRailLabels;
+  locale?: string;
   messageId?: string;
   userInputRequests?: ChatUserInputRequest[];
   timeline?: TranscriptWorkRun;
@@ -81,7 +82,7 @@ const visibleTimelineItems = computed(() => props.timeline?.items.filter(item =>
 const reasoningEffort = computed(() => aguiReasoningEffort(props.events));
 const terminalEvent = computed(() => props.timeline?.completed ?? (props.historyCovered || isAguiRunTerminal(props.events) && !pendingUserInputRequest.value));
 const expanded = ref(!terminalEvent.value);
-const hasDetails = computed(() => visibleTimelineItems.value.length > 0 || visibleUserCards.value.length > 0 || props.debugEvents.length > 0);
+const hasDetails = computed(() => (props.timeline ? visibleTimelineItems.value.length > 0 : visibleUserCards.value.length > 0) || props.debugEvents.length > 0);
 const now = ref(Date.now());
 const labels = computed(() => props.labels ?? defaultLabels);
 const duration = computed(() => formatAguiDuration(props.timeline ? workTimelineElapsedMilliseconds(props.timeline, now.value) : aguiWorkElapsedMilliseconds(props.events, now.value)));
@@ -159,13 +160,13 @@ onBeforeUnmount(() => {
           <div v-for="item in visibleTimelineItems" :key="item.id" :data-work-item="item.kind" :data-work-item-id="item.id">
             <slot v-if="item.kind === 'message'" name="message" :message="item.message" />
             <ReasoningCard v-else-if="item.kind === 'reasoning'" :card="item.value" />
-            <ToolGroupCard v-else-if="item.kind === 'toolGroup'" :card="item.value" :labels="labels" :status-labels="historyGroupStatusLabels(item)" :failed-statuses="historyGroupFailedStatuses(item)" />
-            <ToolCard v-else :card="item.value" :labels="labels" compact :status-label="item.historyStatus ? (props.historyLabels ?? defaultHistoryLabels).statuses[item.historyStatus] : undefined" :status-failed="item.historyStatus === 'Failed'" />
+            <ToolGroupCard v-else-if="item.kind === 'toolGroup'" :card="item.value" :auto-expanded="!terminalEvent && item.value.isCurrentPhase === true" :labels="labels" :locale="props.locale" :status-labels="historyGroupStatusLabels(item)" :failed-statuses="historyGroupFailedStatuses(item)" />
+            <ToolCard v-else :card="item.value" :labels="labels" :locale="props.locale" compact :status-label="item.historyStatus ? (props.historyLabels ?? defaultHistoryLabels).statuses[item.historyStatus] : undefined" :status-failed="item.historyStatus === 'Failed'" />
           </div>
         </div>
       </section>
       <section
-        v-else-if="visibleUserCards.length"
+        v-else-if="!props.timeline && visibleUserCards.length"
         aria-label="Agent work rail"
         class="ef-chat__rail"
         style="max-width: none; padding-left: 0"
@@ -173,8 +174,8 @@ onBeforeUnmount(() => {
         <div class="ef-chat__rail-card-list">
           <template v-for="card in visibleUserCards" :key="card.value.id">
             <ReasoningCard v-if="card.kind === 'reasoning'" :card="card.value" />
-            <ToolGroupCard v-else-if="card.kind === 'toolGroup'" :card="card.value" :labels="labels" />
-            <ToolCard v-else :card="card.value" :labels="labels" />
+            <ToolGroupCard v-else-if="card.kind === 'toolGroup'" :card="card.value" :auto-expanded="!terminalEvent && card.value.isCurrentPhase === true" :labels="labels" :locale="props.locale" />
+            <ToolCard v-else :card="card.value" :labels="labels" :locale="props.locale" />
           </template>
         </div>
       </section>

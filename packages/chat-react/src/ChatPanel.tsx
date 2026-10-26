@@ -1,3 +1,4 @@
+import { hasPendingBatchItems } from "@eliteforge/agent-ui-chat-core";
 import { chatAnnotationsByMessage, chatAnnotationForHref, chatAnnotationTooltip, mountChatAnnotationSelection, mountChatAnnotationPreviews, openChatAnnotationEditor, defaultChatAnnotationLabels, type ChatAnnotationLabels, type ChatAnnotation } from "@eliteforge/agent-ui-chat-core";
 import { Composer, type ComposerReactProps } from "@eliteforge/agent-ui-composer-react";
 import { messageActorName, messageSenderIsHuman, messageSenderAvatar } from "@eliteforge/agent-ui-chat-core";
@@ -46,6 +47,7 @@ import {
   describeDebugEvent,
   formatJsonBlockValue,
   formatTime,
+  detectToolPresentationLocale,
   toolDisplayName,
   toolCompactLabel,
   defaultToolActionSummaryLabel,
@@ -582,8 +584,6 @@ const defaultToolWorkLabels = {
   ariaLabel: "Tool run steps",
   completed: (name: string) => name,
   running: (name: string) => name,
-  domainExpanded: (name: string) => `Expand ${name}`,
-  domainExpanding: (name: string) => `Expanding ${name}`,
   group: (count: number) => `${count} ${count === 1 ? "tool call" : "tool calls"}`,
   groupSummary: defaultToolActionSummaryLabel,
   statusDone: "done",
@@ -600,8 +600,19 @@ const defaultToolWorkLabels = {
   reasoningAria: "Thinking",
   emptyReasoning: "No reasoning content was produced.",
   subagentDispatched: (name: string) => name ? `Dispatched ${name} subagent` : "Subagent dispatched",
+  // Locale-aware fallback: cards prefer this presenter over the static default.
   resolveName: (runtimeName: string, args: unknown) => toolDisplayName(runtimeName, args),
 } satisfies ChatToolWorkLabels;
+
+/** Resolves the card locale from the host locale or the rail label text. */
+function resolveToolCardLocale(labels: ChatWorkRailLabels | undefined, locale: string | undefined) {
+  return detectToolPresentationLocale(locale, [
+    labels?.ariaLabel,
+    labels?.thinking,
+    labels?.preparing,
+    labels?.responding,
+  ]);
+}
 
 interface TerminalWorkSummary {
   duration: string;
@@ -647,6 +658,7 @@ function ToolCard({
   statusLabel,
   statusFailed = false,
   compact = false,
+  locale,
 }: {
   statusLabel?: string;
   statusFailed?: boolean;
@@ -654,24 +666,30 @@ function ToolCard({
   labels?: ChatWorkRailLabels;
   nested?: boolean;
   compact?: boolean;
+  /** Host language ('zh-CN' | 'en-US' | anything); falls back to label heuristics. */
+  locale?: string;
 }) {
-  const complete = card.ended || Boolean(card.result);
-  const failed = statusFailed || toolResultFailed(card.result);
+  const partial = hasPendingBatchItems(card.result);
+  const complete = card.ended || (!partial && Boolean(card.result));
+  const failed = !partial && (statusFailed || toolResultFailed(card.result));
   const running = card.started && !complete;
   const interactionInfo = interactionToolSummary(card.toolName, card.args);
   const hasParameters = hasToolParameterPayload(card.args);
   const parametersText = hasParameters ? formatJsonBlockValue(card.args) : "";
   const resultText = card.result ? formatJsonBlockValue(card.result) : "";
   const toolCopy = { ...defaultToolWorkLabels, ...labels.tool };
-  const toolName = toolCopy.resolveName(card.toolName, card.args);
+  const presentationLocale = resolveToolCardLocale(labels, locale);
+  // A host-provided name still wins unless it only echoes the raw tool id; the
+  // presenter parses and appends the subject.
+  const hostToolName = labels.tool?.resolveName?.(card.toolName, card.args);
+  const toolName = hostToolName
+    ? toolCompactLabel(card.toolName, card.args, hostToolName, presentationLocale)
+    : toolDisplayName(card.toolName, card.args, undefined, presentationLocale);
   const subagentDispatch = card.toolName.toLowerCase() === "agent_spawn";
-  const domainExpansion = card.toolName === "discovery_expand_tool_domain";
   const toolLabel = card.subagentName !== undefined || subagentDispatch && card.toolCallId.startsWith("subagent:")
     ? subagentDispatchedLabel(card.subagentName || "", labels)
-    : domainExpansion
-    ? (complete ? toolCopy.domainExpanded(toolName) : toolCopy.domainExpanding(toolName))
     : statusLabel ? toolName : (complete ? toolCopy.completed(toolName) : toolCopy.running(toolName));
-  const nestedToolLabel = card.subagentName !== undefined ? toolLabel : domainExpansion ? toolLabel : toolCompactLabel(card.toolName, card.args, toolCopy.resolveName(card.toolName, card.args));
+  const nestedToolLabel = card.subagentName !== undefined ? toolLabel : toolCompactLabel(card.toolName, card.args, toolName, presentationLocale);
   const [expanded, setExpanded] = useState(false);
   const [parametersExpanded, setParametersExpanded] = useState(false);
   const logRef = useRef<HTMLDivElement | null>(null);
@@ -803,7 +821,7 @@ function ToolCard({
                 {parametersExpanded ? <JsonBlock value={card.args} /> : null}
               </section>
             ) : null}
-            {complete ? (
+            {complete || partial ? (
               <section>
                 <div
                   className="ef-chat__tool-section-header"
@@ -817,12 +835,7 @@ function ToolCard({
                   />
                 </div>
                 {card.result ? (
-                  <div
-                    className="max-h-64"
-                    style={{ maxHeight: 256, overflowY: "auto" }}
-                  >
-                    <ToolResultView value={card.result} />
-                  </div>
+                  <ToolResultView value={card.result} locale={locale} />
                 ) : (
                   <div className="ef-chat__result-block">
                     {toolCopy.noResult}
@@ -864,7 +877,7 @@ function ToolCard({
   );
 }
 
-function ToolGroupCard({ card, labels = defaultWorkRailLabels, statusLabels, failedStatuses }: { card: ToolGroupWorkCard; labels?: ChatWorkRailLabels; statusLabels?: Record<string, string>; failedStatuses?: Record<string, boolean> }) {
+function ToolGroupCard({ card, labels = defaultWorkRailLabels, statusLabels, failedStatuses, locale, autoExpanded = false }: { card: ToolGroupWorkCard; labels?: ChatWorkRailLabels; statusLabels?: Record<string, string>; failedStatuses?: Record<string, boolean>; locale?: string; autoExpanded?: boolean }) {
   const toolCopy = { ...defaultToolWorkLabels, ...labels.tool };
   const toolCards = card.toolCards.filter((toolCard) => toolCard.started);
   const hasRunningTool = toolCards.some(
@@ -872,14 +885,13 @@ function ToolGroupCard({ card, labels = defaultWorkRailLabels, statusLabels, fai
   );
   const summary = toolCopy.groupSummary?.(summarizeToolActions(toolCards))
     ?? defaultToolActionSummaryLabel(summarizeToolActions(toolCards));
-  const [expanded, setExpanded] = useState(false);
+  const [expanded, setExpanded] = useState(autoExpanded);
 
   useEffect(() => {
-    if (!hasRunningTool) setExpanded(false);
-  }, [hasRunningTool]);
+    setExpanded(autoExpanded);
+  }, [autoExpanded]);
 
   if (!toolCards.length) return null;
-  if (toolCards.length === 1) return <ToolCard card={toolCards[0]} labels={labels} nested />;
 
   return (
     <section className="ef-chat__rail-entry" aria-label={toolCopy.ariaLabel}>
@@ -908,7 +920,7 @@ function ToolGroupCard({ card, labels = defaultWorkRailLabels, statusLabels, fai
         <ol className="ef-chat__rail-entry-list">
           {toolCards.map((toolCard) => (
             <li key={toolCard.id}>
-            <ToolCard card={toolCard} labels={labels} nested statusLabel={statusLabels?.[toolCard.id]} statusFailed={failedStatuses?.[toolCard.id]} />
+            <ToolCard card={toolCard} labels={labels} nested locale={locale} statusLabel={statusLabels?.[toolCard.id]} statusFailed={failedStatuses?.[toolCard.id]} />
             </li>
           ))}
         </ol>
@@ -1054,7 +1066,7 @@ function AguiRunStatus({ notices, labels }: { notices: AguiRunNotice[]; labels: 
   });
 }
 
-function StructuredMessageDetails({ message, workOnly = false, showReasoningCards = true, labels, hasRunError = false, historyLabels = defaultHistoryLabels }: { workOnly?: boolean; showReasoningCards?: boolean; hasRunError?: boolean; message: ChatMessage; labels?: ChatWorkRailLabels; historyLabels?: ChatHistoryLabels }) {
+function StructuredMessageDetails({ message, workOnly = false, showReasoningCards = true, labels, hasRunError = false, historyLabels = defaultHistoryLabels, locale }: { workOnly?: boolean; showReasoningCards?: boolean; hasRunError?: boolean; message: ChatMessage; labels?: ChatWorkRailLabels; historyLabels?: ChatHistoryLabels; locale?: string }) {
   const view = message.history;
   if (!view) return null;
   const reasoning = view.message.content.filter((b) => b.type === "Reasoning").map((b) => "text" in b ? b.text : "").join("");
@@ -1071,7 +1083,7 @@ function StructuredMessageDetails({ message, workOnly = false, showReasoningCard
     </div>)}
     {!workOnly && view.message.structured != null ? <pre>{JSON.stringify(view.message.structured, null, 2)}</pre> : null}
     {workOnly && view.tools.map((tool) => <div key={tool.id} data-tool-invocation-id={tool.id}>
-      <ToolCard labels={labels} statusLabel={historyLabels.statuses[tool.status]} card={{ id: tool.id, runId: tool.runId, toolCallId: tool.id, toolName: tool.toolName, args: tool.arguments,
+      <ToolCard labels={labels} locale={locale} statusLabel={historyLabels.statuses[tool.status]} card={{ id: tool.id, runId: tool.runId, toolCallId: tool.id, toolName: tool.toolName, args: tool.arguments,
         result: historyToolResult(tool), logs: [], parentReasoningId: null, firstMillis: tool.startedAtMs ?? view.message.createdAtMs,
         started: tool.status === "Running", ended: ["Completed", "Failed"].includes(tool.status) }} />
     </div>)}
@@ -1079,7 +1091,7 @@ function StructuredMessageDetails({ message, workOnly = false, showReasoningCard
   </section>;
 }
 
-function HistoryWorkRail({ messages, labels = defaultWorkRailLabels, historyLabels, showReasoningCards = true }: { messages: ChatMessage[]; labels?: ChatWorkRailLabels; historyLabels: ChatHistoryLabels; showReasoningCards?: boolean }) {
+function HistoryWorkRail({ messages, labels = defaultWorkRailLabels, historyLabels, showReasoningCards = true, locale }: { messages: ChatMessage[]; labels?: ChatWorkRailLabels; historyLabels: ChatHistoryLabels; showReasoningCards?: boolean; locale?: string }) {
   const completed = historyWorkCompleted(messages);
   const [expanded, setExpanded] = useState(false);
   useEffect(() => { if (completed) setExpanded(false); }, [completed]);
@@ -1097,7 +1109,7 @@ function HistoryWorkRail({ messages, labels = defaultWorkRailLabels, historyLabe
       {failed ? <CircleAlert aria-hidden="true" size={16} /> : <CircleX aria-hidden="true" size={16} />}
       <div className="ef-chat__run-notice-content"><div className="ef-chat__run-notice-title">{statusNotice}</div></div>
     </div> : null}
-    {expanded ? <div className="ef-chat__rail-stack">{messages.map(message => <StructuredMessageDetails key={message.messageId} message={message} workOnly showReasoningCards={showReasoningCards} labels={labels} historyLabels={historyLabels} />)}</div> : null}
+    {expanded ? <div className="ef-chat__rail-stack">{messages.map(message => <StructuredMessageDetails key={message.messageId} message={message} workOnly showReasoningCards={showReasoningCards} labels={labels} historyLabels={historyLabels} locale={locale} />)}</div> : null}
   </section>;
 }
 
@@ -1112,6 +1124,7 @@ function AguiRunWorkRail({
   renderMessage,
   historyLabels = defaultHistoryLabels,
   showReasoningCards = true,
+  locale,
 }: {
   historyCovered?: boolean;
   debugEvents: string[];
@@ -1123,6 +1136,7 @@ function AguiRunWorkRail({
   renderMessage?: (message: ChatMessage) => ReactNode;
   historyLabels?: ChatHistoryLabels;
   showReasoningCards?: boolean;
+  locale?: string;
 }) {
   const notices = useMemo(() => {
     const notices = buildAguiRunNotices(events);
@@ -1238,8 +1252,8 @@ function AguiRunWorkRail({
               {item.kind === "message" ? renderMessage?.(item.message) : item.kind === "reasoning"
                 ? <ReasoningCard card={item.value} labels={labels} />
                 : item.kind === "toolGroup"
-                  ? <ToolGroupCard card={item.value} labels={labels} statusLabels={item.historyStatuses ? Object.fromEntries(Object.entries(item.historyStatuses).map(([id, status]) => [id, historyLabels.statuses[status]])) : undefined} failedStatuses={item.historyStatuses ? Object.fromEntries(Object.entries(item.historyStatuses).map(([id, status]) => [id, status === "Failed"])) : undefined} />
-                  : <ToolCard card={item.value} labels={labels} compact statusLabel={item.historyStatus ? historyLabels.statuses[item.historyStatus] : undefined} statusFailed={item.historyStatus === "Failed"} />}
+                  ? <ToolGroupCard card={item.value} autoExpanded={!completed && item.value.isCurrentPhase === true} labels={labels} locale={locale} statusLabels={item.historyStatuses ? Object.fromEntries(Object.entries(item.historyStatuses).map(([id, status]) => [id, historyLabels.statuses[status]])) : undefined} failedStatuses={item.historyStatuses ? Object.fromEntries(Object.entries(item.historyStatuses).map(([id, status]) => [id, status === "Failed"])) : undefined} />
+                  : <ToolCard card={item.value} labels={labels} locale={locale} compact statusLabel={item.historyStatus ? historyLabels.statuses[item.historyStatus] : undefined} statusFailed={item.historyStatus === "Failed"} />}
             </div>)}</div>
           </section> : orderedWorkItems.length ? (
             <section
@@ -1251,9 +1265,9 @@ function AguiRunWorkRail({
                 {orderedWorkItems.map((item) => item.card.kind === "reasoning" ? (
                   <ReasoningCard card={item.card.value} key={item.card.value.id} labels={labels} />
                 ) : item.card.kind === "toolGroup" ? (
-                  <ToolGroupCard card={item.card.value} key={item.card.value.id} labels={labels} />
+                  <ToolGroupCard card={item.card.value} autoExpanded={!completed && item.card.value.isCurrentPhase === true} key={item.card.value.id} labels={labels} locale={locale} />
                 ) : (
-                  <ToolCard card={item.card.value} key={item.card.value.id} labels={labels} />
+                  <ToolCard card={item.card.value} key={item.card.value.id} labels={labels} locale={locale} />
                 ))}
               </div>
             </section>
@@ -1332,6 +1346,8 @@ export interface ChatPanelProps extends Pick<ComposerReactProps, "pendingAttachm
   liveAguiEvents?: ChatAguiStreamEvent[];
   liveAguiPendingAnchorMessageCode?: string;
   liveAguiPending?: boolean;
+  /** Host language for tool card titles ('zh-CN' | 'en-US' | anything). */
+  locale?: string;
   messages: ChatMessage[];
   historyLoading?: boolean;
   historyLoadingOlder?: boolean;
@@ -1412,6 +1428,7 @@ export function ChatPanel({
   liveAguiEvents,
   liveAguiPendingAnchorMessageCode,
   liveAguiPending,
+  locale,
   messages,
   historyLoading = false,
   historyLoadingOlder = false,
@@ -1551,8 +1568,8 @@ export function ChatPanel({
     () => buildChatHistoryTurns(transcriptMessages, presentation),
     [transcriptMessages, presentation],
   );
-  const workTimeline = useMemo(() => buildTranscriptWorkTimeline(transcriptMessages, presentation, userInputRequests),
-    [transcriptMessages, presentation, userInputRequests]);
+  const workTimeline = useMemo(() => buildTranscriptWorkTimeline(transcriptMessages, presentation, userInputRequests, { showReasoningCards }),
+    [transcriptMessages, presentation, userInputRequests, showReasoningCards]);
   const turnByMessageCode = useMemo(() => {
     const next = new Map<string, string>();
     historyTurns.forEach((turn) => {
@@ -1579,7 +1596,7 @@ export function ChatPanel({
 
   function renderProcessMessage(message: ChatMessage) {
     return <>
-      <StructuredMessageDetails message={message} labels={workRailLabels} historyLabels={historyLabels} hasRunError={workTimeline.managedMessageIds.has(message.messageId) || displayedErrorRuns.has(message.runId ?? "") || lastHistoryErrorByRun.get(message.runId) !== message.messageId} />
+      <StructuredMessageDetails message={message} labels={workRailLabels} historyLabels={historyLabels} locale={locale} hasRunError={workTimeline.managedMessageIds.has(message.messageId) || displayedErrorRuns.has(message.runId ?? "") || lastHistoryErrorByRun.get(message.runId) !== message.messageId} />
       {message.content.trim() || message.a2ui ? <ChatBubble currentUserDisplayName={currentUserDisplayName} processMessage
         isStreaming={message.messageId === streamingAssistantMessageCode} message={message} a2uiSession={a2uiSession}
         a2uiDisabled={a2uiDisabled} onA2UIAction={onA2UIAction} onEditMessage={onEditMessage} /> : null}
@@ -1587,7 +1604,7 @@ export function ChatPanel({
   }
   function renderWorkRun(run: TranscriptWorkRun) {
     return <AguiRunWorkRail key={run.id} timeline={run} renderMessage={renderProcessMessage} historyLabels={historyLabels}
-      showReasoningCards={showReasoningCards}
+      showReasoningCards={showReasoningCards} locale={locale}
       events={run.events as ChatAguiStreamEvent[]} labels={workRailLabels} userInputRequests={userInputRequests}
       debugEvents={(presentation.debugEventsByRunCode.get(run.runId) ?? []).map(describeDebugEvent)} />;
   }
@@ -1687,8 +1704,8 @@ export function ChatPanel({
                         <AnnotationContext.Provider key={message.messageId} value={annotationMap.get(message.messageId) ?? []}>
                           {showAgui ? workTimeline.before.get(message.messageId)?.map(renderWorkRun) : null}
                           {!showAgui || !workTimeline.processMessageIds.has(message.messageId) ? <>
-                          {!workTimeline.managedMessageIds.has(message.messageId) && historyWork.has(message.messageId) ? <HistoryWorkRail messages={historyWork.get(message.messageId)!} labels={workRailLabels} historyLabels={historyLabels} showReasoningCards={showReasoningCards} /> : null}
-                          <StructuredMessageDetails message={message} labels={workRailLabels} historyLabels={historyLabels} hasRunError={displayedErrorRuns.has(message.runId ?? "") || lastHistoryErrorByRun.get(message.runId) !== message.messageId} />
+                          {!workTimeline.managedMessageIds.has(message.messageId) && historyWork.has(message.messageId) ? <HistoryWorkRail messages={historyWork.get(message.messageId)!} labels={workRailLabels} historyLabels={historyLabels} showReasoningCards={showReasoningCards} locale={locale} /> : null}
+                          <StructuredMessageDetails message={message} labels={workRailLabels} historyLabels={historyLabels} locale={locale} hasRunError={displayedErrorRuns.has(message.runId ?? "") || lastHistoryErrorByRun.get(message.runId) !== message.messageId} />
                           {message.role === "USER" && message.provenance?.sender.kind.toUpperCase() !== "SYSTEM" ? (
                             <div className="ef-chat__user-message-group">
                               <AnnotationBadges annotations={message.annotations ?? []} formatCount={formatAnnotationCount} />

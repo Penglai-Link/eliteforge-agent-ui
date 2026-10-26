@@ -3,7 +3,7 @@ import { computed } from "vue";
 import { chatErrorPresentation, defaultHistoryLabels, historyToolResult, historyBlockUrl, type ChatHistoryLabels, type ChatMessage, type ToolWorkCard } from "@eliteforge/agent-ui-chat-core";
 import ReasoningCard from "./ReasoningCard.vue";
 import ToolCard from "./ToolCard.vue";
-const props = defineProps<{ message: ChatMessage; workOnly?: boolean; showReasoningCards?: boolean; labels?: ChatHistoryLabels; hideRunError?: boolean }>();
+const props = defineProps<{ message: ChatMessage; workOnly?: boolean; showReasoningCards?: boolean; labels?: ChatHistoryLabels; hideRunError?: boolean; locale?: string }>();
 const labels = computed(() => props.labels ?? defaultHistoryLabels);
 const view = computed(() => props.message.history);
 const error = computed(() => chatErrorPresentation(view.value?.run?.error ?? "", labels.value.statuses.Failed));
@@ -27,7 +27,7 @@ const tools = computed(() => view.value?.tools.map((tool) => ({ tool, card: {
     </template>
     <pre v-if="!workOnly && view.message.structured != null">{{ JSON.stringify(view.message.structured, null, 2) }}</pre>
     <div v-for="item in workOnly ? tools : []" :key="item.tool.id" :data-tool-invocation-id="item.tool.id">
-      <ToolCard :card="item.card" :status-label="labels.statuses[item.tool.status]" />
+      <ToolCard :card="item.card" :locale="props.locale" :status-label="labels.statuses[item.tool.status]" />
     </div>
     <div v-if="!workOnly && !hideRunError && message.role === 'ASSISTANT' && view.run?.error" role="status">{{ error.summary }}<details v-if="error.details" class="ef-chat__error-details"><summary>{{ /[\u3400-\u9fff]/.test(labels.statuses.Failed) ? "错误详情" : "Error details" }}</summary><pre>{{ error.details }}</pre></details></div>
   </section>

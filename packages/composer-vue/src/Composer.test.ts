@@ -110,6 +110,57 @@ it("works independently with suggestions, IME, multiline input, send/queue/steer
     container.remove();
   }
 });
+it("completes commands and skills with Tab, preserves focus and leaves other Tab actions native", async () => {
+  const draft = ref("/com"), send = vi.fn();
+  const container = document.createElement("div");
+  document.body.append(container);
+  const app = createApp({ render: () => h(Composer, {
+    draft: draft.value, onDraftChange: (value: string) => { draft.value = value; }, onSend: send,
+    inputSuggestions: [{ kind: "command", name: "goal" }, { kind: "command", name: "compact" }, { kind: "skill", name: "review" }],
+  }) });
+  try {
+    app.mount(container);
+    const editor = container.querySelector("textarea")!;
+    editor.focus();
+    const key = async (options: KeyboardEventInit) => {
+      const event = new KeyboardEvent("keydown", { bubbles: true, cancelable: true, ...options });
+      editor.dispatchEvent(event);
+      await nextTick();
+      return event;
+    };
+    for (const [query, moveDown, expected] of [
+      ["/com", false, "/compact "], ["/", false, "/goal "],
+      ["/", true, "/compact "], ["$rev", false, "$review "],
+    ] as const) {
+      draft.value = query;
+      await nextTick();
+      if (moveDown) await key({ key: "ArrowDown" });
+      expect((await key({ key: "Tab" })).defaultPrevented).toBe(true);
+      expect(draft.value).toBe(expected);
+      expect(document.activeElement).toBe(editor);
+      expect(editor.selectionStart).toBe(expected.length);
+      expect(editor.selectionEnd).toBe(expected.length);
+      expect(container.querySelector('[role="listbox"]')).toBeNull();
+    }
+    for (const options of [{ shiftKey: true }, { ctrlKey: true }, { metaKey: true }, { altKey: true }, { isComposing: true }]) {
+      draft.value = "/com";
+      await nextTick();
+      expect((await key({ key: "Tab", ...options })).defaultPrevented).toBe(false);
+      expect(draft.value).toBe("/com");
+    }
+    await key({ key: "Escape" });
+    expect((await key({ key: "Tab" })).defaultPrevented).toBe(false);
+    expect(draft.value).toBe("/com");
+    draft.value = "/missing";
+    await nextTick();
+    expect((await key({ key: "Tab" })).defaultPrevented).toBe(false);
+    expect(draft.value).toBe("/missing");
+    expect(send).not.toHaveBeenCalled();
+  } finally {
+    app.unmount();
+    container.remove();
+  }
+});
 it("supports attachment upload, paste and removal and releases downloaded image URLs", async () => {
   const upload = vi.fn(),
     paste = vi.fn(),

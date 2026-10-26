@@ -7,7 +7,6 @@ export const interactionTimelineDemoLabels: ChatWorkRailLabels = {
   askingQuestions: (count) => `正在询问 ${count} 个问题`, askedQuestions: (count) => `已询问 ${count} 个问题`,
   waitingForAnswer: "等待你的回答", skipped: "已跳过", failed: "运行失败",
   tool: { ariaLabel: "工具执行步骤", completed: (name) => `已执行：${name}`, running: (name) => `正在执行：${name}`,
-    domainExpanded: (name) => `已展开：${name}`, domainExpanding: (name) => `正在展开：${name}`,
     group: (count) => `${count} 个工具调用`, statusDone: "完成", statusRunning: "运行中", parameters: "参数", result: "结果", log: "日志",
     noResult: "暂无结果。", waitingActivity: "等待工具活动…", copyParameters: "复制参数", copyResult: "复制结果",
     reasoningCaptured: "推理完成。", reasoningThinking: "思考中…", reasoningAria: "思考过程", emptyReasoning: "未生成推理内容。",

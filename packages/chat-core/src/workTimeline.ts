@@ -1,3 +1,4 @@
+import { newerBatchRevision } from "./toolBatch";
 import type { ChatAguiStreamEvent, ChatMessage, ChatUserInputRequest, TranscriptAguiEvent } from "./types";
 import { historyEventRunId, historyToolResult, type HistoryStatus } from "./history";
 import { aguiWorkElapsedMilliseconds } from "./aguiWork";
@@ -174,7 +175,7 @@ function steerSegmentBoundaries(
  * segment, not the underlying run. A text END only closes that step.
  */
 export function buildTranscriptWorkTimeline(messages: ChatMessage[], presentation: TranscriptPresentation,
-  requests: ChatUserInputRequest[] = []) {
+  requests: ChatUserInputRequest[] = [], options: { showReasoningCards?: boolean } = {}) {
   const groups = new Map<string, Group>();
   const scopeByMessage = new Map<string, string>();
   const groupByMessage = new Map<string, Group>();
@@ -275,7 +276,15 @@ export function buildTranscriptWorkTimeline(messages: ChatMessage[], presentatio
   const after = new Map<string, TranscriptWorkRun[]>();
   const processMessageIds = new Set<string>();
   const managedMessageIds = new Set<string>();
-  for (const group of groups.values()) {
+  // Invocation state spans approval/steering boundaries; only its placement is
+  // segment-local. Resolve the whole run before rendering any one segment.
+  const tools = resolvedTools(messages, mergeTranscriptAguiEvents(...eventsByNativeId.values()));
+  const emittedTools = new Set<string>();
+  const firstMillis = (group: Group) => Math.min(
+    ...group.events.map(event => aguiEventMillis(event) ?? Infinity),
+    ...group.messages.map(message => Date.parse(message.createdAt)),
+  );
+  for (const group of [...groups.values()].sort((a, b) => firstMillis(a) - firstMillis(b))) {
     if (!group.events.length && !group.messages.some(message => message.history)) continue;
     const terminal = currentAguiTerminalEvent(group.events);
     const historyComplete = group.messages.length > 0 && group.messages.every(message => message.history)
@@ -301,7 +310,7 @@ export function buildTranscriptWorkTimeline(messages: ChatMessage[], presentatio
       events: group.events, messages: group.messages, completed, finalMessageId: final?.messageId,
       ...(group.segmentStartedAtMs !== undefined ? { segmentStartedAtMs: group.segmentStartedAtMs } : {}),
       ...(group.segmentFinishedAtMs !== undefined ? { segmentFinishedAtMs: group.segmentFinishedAtMs } : {}),
-      items: buildItems(group.messages, group.events, final?.messageId, historyComplete) };
+      items: buildItems(group.messages, group.events, final?.messageId, historyComplete, tools, emittedTools, group.nativeId, options.showReasoningCards !== false) };
     for (const message of group.messages) {
       managedMessageIds.add(message.messageId);
       if (message !== final) processMessageIds.add(message.messageId);
@@ -340,7 +349,43 @@ function executionSegments(events: TranscriptAguiEvent[]) {
   return segments;
 }
 
-function buildItems(messages: ChatMessage[], events: TranscriptAguiEvent[], finalId: string | undefined, historyComplete: boolean) {
+type ResolvedTool = { value: ToolWorkCard; historyStatus?: HistoryStatus };
+const toolKey = (runId: string, invocationId: string) => `${runId}:${invocationId}`;
+
+function resolvedTools(messages: ChatMessage[], events: TranscriptAguiEvent[]): Map<string, ResolvedTool> {
+  const tools = new Map<string, ResolvedTool>();
+  for (const card of buildAguiUserWorkCards(events)) {
+    if (card.kind === "reasoning") continue;
+    for (const value of card.kind === "toolGroup" ? card.value.toolCards : [card.value]) {
+      tools.set(value.id, { value });
+    }
+  }
+  for (const message of messages) for (const tool of message.history?.tools ?? []) {
+    const key = toolKey(tool.runId, tool.id);
+    const existing = tools.get(key) ?? tools.get(toolKey(tool.runId, tool.callId));
+    const ended = ["Completed", "Failed", "Interrupted", "Unknown"].includes(tool.status);
+    // Terminal records repair missed RESULT frames. Nonterminal history and
+    // snapshots share a durable parent revision, independent of transport order.
+    // Neither partial history nor replay can roll back a confirmed live result.
+    if (!existing || ended || (!existing.value.ended && newerBatchRevision(tool.batchRevision, existing.value.batchRevision))) {
+      tools.set(key, { historyStatus: tool.status, value: {
+        ...existing?.value,
+        batchRevision: tool.batchRevision,
+        id: key, runId: existing?.value.runId ?? tool.runId, stepId: message.messageId,
+        toolCallId: tool.id, toolName: tool.toolName, args: tool.arguments,
+        result: historyToolResult(tool), logs: existing?.value.logs ?? [],
+        parentReasoningId: existing?.value.parentReasoningId ?? null,
+        firstMillis: existing?.value.firstMillis ?? tool.startedAtMs ?? Date.parse(message.createdAt),
+        started: !["Planned", "Approved"].includes(tool.status), ended,
+      } });
+    } else tools.set(key, existing);
+    tools.set(toolKey(tool.runId, tool.callId), tools.get(key)!);
+  }
+  return tools;
+}
+
+function buildItems(messages: ChatMessage[], events: TranscriptAguiEvent[], finalId: string | undefined, historyComplete: boolean,
+  tools: Map<string, ResolvedTool>, emittedTools: Set<string>, nativeId: string, showReasoningCards: boolean) {
   const ranked: Array<{ item: WorkTimelineItem; time: number; order: number }> = [];
   const add = (item: WorkTimelineItem, time: number, order = 0) => ranked.push({ item, time, order });
   const at = (index: number) => aguiEventMillis(events[index]) ?? index;
@@ -350,6 +395,8 @@ function buildItems(messages: ChatMessage[], events: TranscriptAguiEvent[], fina
   // persist. Keep them alongside durable history and use tool call IDs below
   // to avoid rendering the same invocation twice.
   const cards = buildAguiUserWorkCards(events.map((event, index) => ({ ...event, timestamp: index + 1 })));
+  const currentPhaseTools = new Set(cards.flatMap(card => card.kind === "toolGroup" && card.value.isCurrentPhase
+    ? card.value.toolCards.map(tool => tool.id) : []));
   const eventToolIds = new Set<string>();
   for (const card of cards) {
     if (card.kind === "reasoning") {
@@ -359,9 +406,15 @@ function buildItems(messages: ChatMessage[], events: TranscriptAguiEvent[], fina
         add({ kind: "reasoning", id: card.value.id, value: card.value }, at(index), index);
     } else for (const tool of card.kind === "toolGroup" ? card.value.toolCards : [card.value]) {
       if (!tool.started) continue;
+      const resolved = tools.get(toolKey(nativeId, tool.toolCallId));
+      const key = resolved?.value.id ?? toolKey(nativeId, tool.toolCallId);
+      if (emittedTools.has(key)) continue;
+      emittedTools.add(key);
       eventToolIds.add(tool.toolCallId);
       const index = tool.firstMillis - 1;
-      add({ kind: "tool", id: tool.id, value: tool }, at(index), index);
+      add({ kind: "tool", id: tool.id, value: resolved ? { ...tool, ...resolved.value,
+        parentReasoningId: tool.parentReasoningId } : tool,
+        historyStatus: resolved?.historyStatus }, at(index), index);
     }
   }
   for (const message of messages) {
@@ -385,15 +438,16 @@ function buildItems(messages: ChatMessage[], events: TranscriptAguiEvent[], fina
       add({ kind: "message", id: message.messageId, message }, time, order);
     for (const tool of view?.tools ?? []) {
       if (eventToolIds.has(tool.id) || eventToolIds.has(tool.callId)) continue;
+      const resolved = tools.get(toolKey(tool.runId, tool.id))!;
+      if (emittedTools.has(resolved.value.id)) continue;
+      emittedTools.add(resolved.value.id);
       eventToolIds.add(tool.id);
-      add({ kind: "tool", id: tool.id, historyStatus: tool.status, value: { id: tool.id, runId: tool.runId, stepId: message.messageId, toolCallId: tool.id,
-        toolName: tool.toolName, args: tool.arguments, result: historyToolResult(tool), logs: [], parentReasoningId: null,
-        firstMillis: tool.startedAtMs ?? time, started: !["Planned", "Approved"].includes(tool.status),
-        ended: ["Completed", "Failed", "Interrupted", "Unknown"].includes(tool.status) } },
+      add({ kind: "tool", id: tool.id, ...resolved },
       tool.startedAtMs ?? time, order + 0.5);
     }
   }
-  const ordered = ranked.sort((a, b) => a.time - b.time || a.order - b.order).map(entry => entry.item);
+  const ordered = ranked.sort((a, b) => a.time - b.time || a.order - b.order).map(entry => entry.item)
+    .filter(item => showReasoningCards || item.kind !== "reasoning");
   const grouped: WorkTimelineItem[] = [];
   for (let index = 0; index < ordered.length;) {
     if (ordered[index]?.kind !== "tool") {
@@ -403,23 +457,21 @@ function buildItems(messages: ChatMessage[], events: TranscriptAguiEvent[], fina
     }
     const tools: Extract<WorkTimelineItem, { kind: "tool" }>[] = [];
     const firstTool = ordered[index] as Extract<WorkTimelineItem, { kind: "tool" }>;
-    const firstScope = `${firstTool.value.parentReasoningId ?? ""}:${firstTool.value.stepId ?? ""}`;
+    // A model/tool step is an execution detail, not a displayed phase boundary.
+    // Keep consecutive search and execution calls together across history steps.
+    const firstScope = firstTool.value.parentReasoningId;
     while (index < ordered.length) {
       const next = ordered[index];
       if (next?.kind !== "tool"
-        || `${next.value.parentReasoningId ?? ""}:${next.value.stepId ?? ""}` !== firstScope) break;
+        || (showReasoningCards && next.value.parentReasoningId !== firstScope)) break;
       tools.push(next);
       index += 1;
-    }
-    if (tools.length === 1) {
-      grouped.push(tools[0]!);
-      continue;
     }
     const first = tools[0]!;
     const id = `tool-group:${first.value.runId}:${tools.map(tool => tool.id).join(":")}`;
     const historyStatuses = Object.fromEntries(tools.flatMap(tool => tool.historyStatus ? [[tool.id, tool.historyStatus]] : []));
     grouped.push({ kind: "toolGroup", id, ...(Object.keys(historyStatuses).length ? { historyStatuses } : {}),
-      value: { id, runId: first.value.runId,
+      value: { id, runId: first.value.runId, isCurrentPhase: tools.some(tool => currentPhaseTools.has(tool.id)),
         firstMillis: first.value.firstMillis, toolCards: tools.map(tool => tool.value) } });
   }
   return grouped;

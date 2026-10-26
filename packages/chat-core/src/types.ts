@@ -244,8 +244,6 @@ export interface ChatToolWorkLabels {
   ariaLabel: string;
   completed: (name: string) => string;
   running: (name: string) => string;
-  domainExpanded: (name: string) => string;
-  domainExpanding: (name: string) => string;
   group: (count: number) => string;
   groupSummary?: (summary: ToolActionSummary) => string;
   statusDone: string;
@@ -336,6 +334,7 @@ export interface ChatActiveRun {
   runId: string;
   runtimeAdapterKey: string;
   supportsSteer: boolean;
+  operationKind?: string | null;
   state: ChatActiveRunState;
 }
 
@@ -346,6 +345,7 @@ export interface ChatRuntimeRunState {
   runId: string;
   sessionId: string;
   supportsSteer: boolean;
+  operationKind?: string | null;
 }
 
 export interface ChatActiveRunResult {
@@ -530,6 +530,8 @@ export interface ChatClientConfig {
   inputPlaceholder?: string;
   queuedInputPlaceholder?: string;
   steeringInputPlaceholder?: string;
+  /** Host language for localized tool card titles ('zh-CN' | 'en-US' | ...). */
+  locale?: string;
   runningEnterSubmitMode?: ChatRunningSubmitMode;
   maxFileSize?: number;
   maxLimitFile?: number;

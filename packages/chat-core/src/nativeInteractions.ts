@@ -1,3 +1,5 @@
+import { historyEventRunId, type SessionHistory } from "./history";
+import { parseToolApprovalDetails } from "./toolBatch";
 import { isAguiPresentationFailureEvent } from "./transcript";
 import type { ChatAguiStreamEvent, ChatUserInputAnswer, ChatUserInputAnswerInput, ChatUserInputLabels, ChatUserInputRequest } from "./types";
 
@@ -28,9 +30,28 @@ export function nativeUserInputRequests(events: ChatAguiStreamEvent[], sessionId
       ...(presentation.kind === "a2ui" && Array.isArray(presentation.messages) ? { a2uiInteraction: {messages: presentation.messages, surfaceId: String((presentation.messages[0] as any)?.createSurface?.surfaceId ?? "")} } : {}),
       requestedAt: terminal.timestamp ?? 0,
       questions: Array.isArray(presentation.questions) ? presentation.questions.map((q: any)=>({questionId:String(q.id),question:String(q.question),options:(q.options??[]).map((o:any)=>({optionId:String(o.id),label:String(o.label),description:o.description})),allowCustomAnswer:q.allow_free_text,allowSkip:q.allow_skip})) : [{ questionId: interrupt.id, question, options, allowCustomAnswer: !choices.length, allowSkip: false }],
-      nativeInteraction: { questionnaire:Array.isArray(presentation.questions), reason: interrupt.reason, responseSchema: interrupt.responseSchema, optionPayloads },
+      nativeInteraction: { questionnaire:Array.isArray(presentation.questions), reason: interrupt.reason, responseSchema: interrupt.responseSchema, optionPayloads, ...(approval ? {details:{...parseToolApprovalDetails(presentation)}} : {}) },
     };
   });
+}
+
+/** Terminal execution evidence wins over retained pending history. Presentation
+ * failures and individual DAG node endings do not close the owning run. */
+export function activeNativeUserInputRequests(requests: ChatUserInputRequest[], events: ChatAguiStreamEvent[],
+  sessionId: string, history?: SessionHistory | null): ChatUserInputRequest[] {
+  const closed = new Set((history?.runs ?? []).filter(run =>
+    !["Running", "Waiting", "Planned", "Approved"].includes(run.status)).map(run => run.id));
+  const answered = new Set((history?.records.interactions ?? []).filter(item => item.response != null).map(item => item.id));
+  const aliases = new Map<string, string>();
+  for (const event of events) {
+    if (event.threadId && event.threadId !== sessionId) continue;
+    const nativeId = historyEventRunId(event);
+    if (event.runId) aliases.set(event.runId, nativeId);
+    if (record(record(event.metadata).framework).node || isAguiPresentationFailureEvent(event)) continue;
+    if (event.type === "RUN_ERROR" || event.type === "RUN_FINISHED" && event.outcome?.type !== "interrupt") closed.add(nativeId);
+  }
+  return requests.filter(request => !request.nativeInteraction || request.status !== "Pending"
+    || !answered.has(request.requestId) && !closed.has(aliases.get(request.runId) ?? request.runId));
 }
 
 /** Keep native payloads as JSON values; the Framework remains the schema authority. */

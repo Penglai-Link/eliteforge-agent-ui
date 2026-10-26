@@ -1,5 +1,7 @@
+import { pendingBatchApprovalHistory } from "../../../contracts/batch-recovery";
+import { historyUserInputRequests } from "./history";
 import { describe, expect, it } from "vitest";
-import { nativeUserInputAnswer, nativeUserInputRequests } from "./nativeInteractions";
+import { activeNativeUserInputRequests, nativeUserInputAnswer, nativeUserInputRequests } from "./nativeInteractions";
 import type { ChatAguiStreamEvent } from "./types";
 const pause: ChatAguiStreamEvent = { type: "RUN_FINISHED", threadId: "SESSION", runId: "PRODUCT", timestamp: 10, outcome: { type: "interrupt", interrupts: [{ id: "SDK-INTERACTION", reason: "approval_required", message: "Allow the operation?", responseSchema: { type: "boolean" } }] } };
 describe("native interrupt presentation", () => {
@@ -38,4 +40,17 @@ describe("native interrupt presentation", () => {
   it("leaves the legacy product question projection with its existing handler", () => {
     expect(nativeUserInputRequests([{ ...pause, outcome: { type: "interrupt", interrupts: [{ id: "LEGACY", reason: "input_required", metadata: { questions: [] } }] } }], "SESSION")).toEqual([]);
   });
+});
+
+it("terminal evidence removes stale approval history without clearing siblings on node or presentation errors", () => {
+  const history = pendingBatchApprovalHistory();
+  const pending = historyUserInputRequests(history);
+  const error:ChatAguiStreamEvent = {type:"RUN_ERROR",code:"AGENT_RUN_FAILED",runId:"resume",threadId:"session",metadata:{framework:{runId:"logical-batch-run"}}};
+  expect(activeNativeUserInputRequests(pending, [error], "session", history)).toEqual([]);
+  expect(activeNativeUserInputRequests(pending, [{...error,code:"AGUI_STREAM_OVERFLOW"}], "session", history)).toHaveLength(2);
+  expect(activeNativeUserInputRequests(pending, [{...error,metadata:{framework:{runId:"logical-batch-run",node:{invocationId:"node"}}}}], "session", history)).toHaveLength(2);
+  history.records.interactions[0].response = false;
+  expect(activeNativeUserInputRequests(pending, [], "session", history)).toHaveLength(1);
+  history.runs[0].status = "Failed";
+  expect(activeNativeUserInputRequests(pending, [], "session", history)).toEqual([]);
 });

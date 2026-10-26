@@ -3,7 +3,7 @@ import { computed, ref, watch } from "vue";
 import { ChevronDown, ChevronRight, CircleAlert, CircleX } from "lucide-vue-next";
 import { defaultHistoryLabels, historyWorkCompleted, type ChatMessage, type ChatWorkRailLabels, type ChatHistoryLabels } from "@eliteforge/agent-ui-chat-core";
 import StructuredMessageDetails from "./StructuredMessageDetails.vue";
-const props = defineProps<{ messages: ChatMessage[]; labels?: ChatWorkRailLabels; historyLabels?: ChatHistoryLabels; showReasoningCards?: boolean }>();
+const props = defineProps<{ messages: ChatMessage[]; labels?: ChatWorkRailLabels; historyLabels?: ChatHistoryLabels; showReasoningCards?: boolean; locale?: string }>();
 const completed = computed(() => historyWorkCompleted(props.messages));
 const expanded = ref(false);
 watch(completed, value => { if (value) expanded.value = false; });
@@ -35,7 +35,7 @@ const statusNotice = computed(() => {
       <div class="ef-chat__run-notice-content"><div class="ef-chat__run-notice-title">{{ statusNotice.label }}</div></div>
     </div>
     <div v-if="expanded" class="ef-chat__rail-stack">
-      <StructuredMessageDetails v-for="message in messages" :key="message.messageId" :message="message" work-only :show-reasoning-cards="showReasoningCards" :labels="historyLabels" />
+      <StructuredMessageDetails v-for="message in messages" :key="message.messageId" :message="message" work-only :show-reasoning-cards="showReasoningCards" :labels="historyLabels" :locale="locale" />
     </div>
   </section>
 </template>

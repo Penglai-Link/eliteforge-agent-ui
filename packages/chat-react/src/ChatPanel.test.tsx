@@ -18,6 +18,8 @@ import type { ComponentProps } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ChatPanel } from "./ChatPanel";
+import { historyMessages } from "@eliteforge/agent-ui-chat-core";
+import { contiguousToolHistory, contiguousToolEvents } from "../../../contracts/tool-group-contiguous-history";
 
 beforeEach(() => {
   Object.defineProperty(HTMLElement.prototype, "scrollTo", {
@@ -57,6 +59,18 @@ function renderPanel(
     />,
   );
 }
+
+it.each([false, true])("shows search and execution in one collapsed summary across history steps (replay=%s)", replay => {
+  const { container } = renderPanel({ messages: historyMessages(contiguousToolHistory), protocolEvents: replay ? contiguousToolEvents : [], showReasoningCards: false });
+  fireEvent.click(screen.getByRole("button", { name: /Worked for/ }));
+  const groups = container.querySelectorAll<HTMLButtonElement>('[aria-label="Tool run steps"] > .ef-chat__rail-entry-toggle');
+  expect(groups).toHaveLength(1);
+  expect(groups[0].textContent).toBe("Searched 1 time · Performed 1 other action");
+  expect(groups[0].getAttribute("aria-expanded")).toBe("false");
+  expect(container.querySelectorAll(".ef-chat__tool-row")).toHaveLength(0);
+  fireEvent.click(groups[0]);
+  expect(container.querySelectorAll(".ef-chat__tool-row")).toHaveLength(2);
+});
 
 it("renders a child completion notification as system context without user editing", () => {
   renderPanel({
@@ -498,6 +512,7 @@ describe("ChatPanel submit controls", () => {
     expect(workSummary.getAttribute("aria-expanded")).toBe("false");
     expect(screen.queryByRole("button", { name: "Asked 1 questions" })).toBeNull();
 
+    fireEvent.click(workSummary);
     const workItems = screen.getByLabelText("Agent work rail");
     expect(within(workItems).queryByText("First option")).toBeNull();
     expect(screen.getByText("Which direction?").closest("article")?.className).toContain("ef-chat__message--user");
@@ -924,7 +939,7 @@ it("shows readable historical answers and interaction tool details without dupli
   renderPanel({messages:[{id:"u",messageId:"u",sessionId:"SESSION-1",role:"USER",actor:"User",channel:"history",content:"测试",createdAt:"2026-10-09T23:59:00Z"} as any,{id:"m",messageId:"m",sessionId:"SESSION-1",role:"ASSISTANT",actor:"Assistant",channel:"history",content:"",createdAt:"2026-10-10T00:00:00Z",history:{message:{id:"m",role:"Assistant",content:[],structured:null},tools:[tool],interactions:[interaction],step:null,run:null}} as any]});
   expect(screen.queryByText(/55 ms/)).toBeNull();
   fireEvent.click(screen.getByRole("button", {name:/Worked for/}));
-  fireEvent.click(screen.getByRole("button",{name:/Chat Ask User/}));
+  fireEvent.click(screen.getByRole("button",{name:/Ask the user/i}));
   expect(screen.queryByText("Parameters")).toBeNull();
   expect(screen.queryByText(/"kind"/)).toBeNull();
   const details=document.querySelector("[data-history-interaction-id=question]")!;
@@ -952,7 +967,7 @@ it("folds structured work when the run completes and keeps final text visible", 
   } } satisfies ChatMessage;
   const view = renderPanel({ messages: [running] });
   expect(screen.queryByRole("button", { name: "Thinking…" })).toBeNull();
-  fireEvent.click(screen.getByRole("button", { name: /Working for/ }));
+  expect(screen.getByRole("button", { name: /Working for/ }).getAttribute("aria-expanded")).toBe("true");
   expect(screen.getByText("Internal thought")).toBeTruthy();
   const completed: ChatMessage = { ...running, history: { ...running.history, message: { ...running.history.message, status: "Completed" }, run: { ...running.history.run, status: "Completed", finishedAtMs: 200 } } };
   view.rerender(<ChatPanel allowDraftSession messages={[completed]} draft="" onDraftChange={() => undefined} onSend={() => undefined} />);
@@ -1070,4 +1085,91 @@ it("jumps from a reply annotation to its source message with click or keyboard",
   expect(source.scrollIntoView).toHaveBeenCalledTimes(2);
   view.unmount();
   expect(source.classList.contains('ef-chat__annotation-source-highlight')).toBe(false);
+});
+
+it("localizes tool card titles from the host locale and keeps host names first", () => {
+  const user = message("USER", "Run a command");
+  const startedAt = Date.now() - 1_000;
+  const base = { runId: "RUN-LOCALE", threadId: "SESSION-1", timestamp: startedAt };
+  const eventsFor = (toolCallId: string, toolCallName: string, toolCallArgs: unknown): ChatAguiStreamEvent[] => [
+    { ...base, type: "RUN_STARTED" },
+    { ...base, timestamp: startedAt + 1, type: "TOOL_CALL_START", toolCallId, toolCallName, toolCallArgs },
+    { ...base, timestamp: startedAt + 2, type: "RUN_FINISHED" },
+  ];
+  const labels = {
+    ariaLabel: "Agent work", preparing: "Preparing", responding: "Responding", thinking: "Thinking",
+    workedFor: (duration: string) => `Worked for ${duration}`, workingFor: (duration: string) => `Working for ${duration}`,
+  };
+  const view = renderPanel({ messages: [user], protocolEvents: eventsFor("command", "bash_exec", { command: "cargo test" }), locale: "zh-CN", workRailLabels: labels });
+  fireEvent.click(screen.getByRole("button", { name: /Worked for/ }));
+  expect(view.container.querySelector('.ef-chat__rail-entry-toggle')?.getAttribute('aria-expanded')).toBe('false');
+  fireEvent.click(view.container.querySelector('.ef-chat__rail-entry-toggle')!);
+  expect(view.container.textContent).toContain("执行命令 cargo test");
+  expect(view.container.textContent).not.toContain("bash_exec");
+  view.unmount();
+
+  const readView = renderPanel({ messages: [user], protocolEvents: eventsFor("read", "fs_read_text", { path: "src/main.rs" }), locale: "zh-CN", workRailLabels: labels });
+  fireEvent.click(screen.getByRole("button", { name: /Worked for/ }));
+  fireEvent.click(readView.container.querySelector('.ef-chat__rail-entry-toggle')!);
+  expect(readView.container.textContent).toContain("读取文件 src/main.rs");
+  expect(readView.container.textContent).not.toContain("fs_read_text");
+  readView.unmount();
+
+  const hostView = renderPanel({ messages: [user], protocolEvents: eventsFor("command", "bash_exec", { command: "cargo test" }), locale: "zh-CN",
+    workRailLabels: { ...labels, tool: { resolveName: () => "自定义工具" } } });
+  fireEvent.click(screen.getByRole("button", { name: /Worked for/ }));
+  fireEvent.click(hostView.container.querySelector('.ef-chat__rail-entry-toggle')!);
+  expect(hostView.container.textContent).toContain("自定义工具 cargo test");
+});
+
+it("ignores a host tool name that only echoes the raw tool id", () => {
+  const user = message("USER", "Run a command");
+  const startedAt = Date.now() - 1_000;
+  const base = { runId: "RUN-RAW-HOST", threadId: "SESSION-1", timestamp: startedAt };
+  const events: ChatAguiStreamEvent[] = [
+    { ...base, type: "RUN_STARTED" },
+    { ...base, timestamp: startedAt + 1, type: "TOOL_CALL_START", toolCallId: "command", toolCallName: "bash_exec", toolCallArgs: { command: "cargo test" } },
+    { ...base, timestamp: startedAt + 2, type: "RUN_FINISHED" },
+  ];
+  const labels = {
+    ariaLabel: "Agent work", preparing: "Preparing", responding: "Responding", thinking: "Thinking",
+    workedFor: (duration: string) => `Worked for ${duration}`, workingFor: (duration: string) => `Working for ${duration}`,
+  };
+  const view = renderPanel({ messages: [user], protocolEvents: events, locale: "zh-CN",
+    workRailLabels: { ...labels, tool: { resolveName: (runtimeName: string) => runtimeName } } });
+  fireEvent.click(screen.getByRole("button", { name: /Worked for/ }));
+  fireEvent.click(view.container.querySelector('.ef-chat__rail-entry-toggle')!);
+  expect(view.container.textContent).toContain("执行命令 cargo test");
+  expect(view.container.textContent).not.toContain("bash_exec");
+  view.unmount();
+});
+
+
+import { executingTools, finishedTools, nextThought, nextTools, completedTools } from "../../../contracts/tool-group-phases";
+it.each([true, false])("expands current tools, folds on the next thought, and retains all groups under completed work (reasoning=%s)", showReasoningCards => {
+  const props={draft:"",messages:[{...message("USER","Inspect files"),createdAt:new Date(900).toISOString()}],
+    onDraftChange:()=>undefined,onSend:()=>undefined,session:activeSession(),showHeader:false,showReasoningCards};
+  const {container,rerender}=render(<ChatPanel {...props} protocolEvents={executingTools} />);
+  const groups=()=>Array.from(container.querySelectorAll<HTMLButtonElement>('[aria-label="Tool run steps"] > .ef-chat__rail-entry-toggle'));
+  const states=()=>groups().map(button=>button.getAttribute("aria-expanded"));
+  expect(states()).toEqual(["true"]);
+  expect(screen.getByRole("button",{name:/Working for/}).getAttribute("aria-expanded")).toBe("true");
+  rerender(<ChatPanel {...props} protocolEvents={finishedTools} />);
+  expect(states()).toEqual(["true"]);
+  fireEvent.click(groups()[0]);
+  rerender(<ChatPanel {...props} protocolEvents={[...finishedTools]} />);
+  expect(states()).toEqual(["false"]);
+  fireEvent.click(groups()[0]);
+  rerender(<ChatPanel {...props} protocolEvents={nextThought} />);
+  expect(states()).toEqual(["false"]);
+  rerender(<ChatPanel {...props} protocolEvents={nextTools} />);
+  expect(states()).toEqual(showReasoningCards ? ["false","true"] : ["true"]);
+  rerender(<ChatPanel {...props} protocolEvents={completedTools} />);
+  const overall=screen.getByRole("button",{name:/Worked for/});
+  expect(overall.getAttribute("aria-expanded")).toBe("false");
+  expect(groups()).toHaveLength(0);
+  fireEvent.click(overall);
+  expect(states()).toEqual(showReasoningCards ? ["false","false"] : ["false"]);
+  fireEvent.click(groups()[0]);
+  expect(container.querySelectorAll(".ef-chat__tool-row")).toHaveLength(showReasoningCards ? 2 : 4);
 });

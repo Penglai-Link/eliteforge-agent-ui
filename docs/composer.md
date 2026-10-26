@@ -23,7 +23,7 @@ React 示例见 [composer-react](../packages/composer-react/README.md)，Vue 示
 | 即时调整 | `runningSubmitModes` 包含 `steer`；⌘/Ctrl+Enter 发出 `steer` |
 | 停止 | `onStop` / `stop`；`showStop` 控制按钮 |
 | 换行与输入法 | Shift+Enter 在光标位置插入换行，IME 确认不发送 |
-| 命令与技能 | `inputSuggestions`，`/` 查询命令和技能，`$` 只查询技能；上下键、Enter 和 Escape 操作菜单 |
+| 命令与技能 | `inputSuggestions`，`/` 查询命令和技能，`$` 只查询技能；上下键切换候选，Enter 或 Tab 补全并保留输入焦点，Escape 关闭菜单；菜单关闭时 Tab、Shift+Tab 保持正常焦点导航 |
 | 技能标签 | `displayName`，回退到 `description`、`name`；草稿保留 `$name` |
 | 队列 | `queuedMessages`、`onEditQueuedMessage` / `edit-queued-message`、`onRemoveQueuedMessage` / `remove-queued-message` |
 | 附件选择 | `showAttachmentControl`、`onAttachFile`、`attachmentUploadPending` |

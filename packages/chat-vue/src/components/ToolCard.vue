@@ -9,10 +9,11 @@ import {
 } from "lucide-vue-next";
 import {
   formatJsonBlockValue,
+  hasPendingBatchItems,
   interactionToolSummary,
-  toolSummaryLabel,
   toolCompactLabel,
   toolDisplayName,
+  detectToolPresentationLocale,
   type ChatWorkRailLabels,
   type ToolWorkCard,
 } from "@eliteforge/agent-ui-chat-core";
@@ -29,6 +30,8 @@ const props = defineProps<{
   statusFailed?: boolean;
   nested?: boolean;
   compact?: boolean;
+  /** Host language ('zh-CN' | 'en-US' | anything); falls back to label heuristics. */
+  locale?: string;
 }>();
 
 const expanded = ref(false);
@@ -36,8 +39,10 @@ const parametersExpanded = ref(false);
 const logRef = ref<HTMLDivElement | null>(null);
 
 const interactionInfo = computed(() => interactionToolSummary(props.card.toolName, props.card.args));
-const complete = computed(() => props.card.ended || Boolean(props.card.result));
+const partial = computed(() => hasPendingBatchItems(props.card.result));
+const complete = computed(() => props.card.ended || (!partial.value && Boolean(props.card.result)));
 const failed = computed(() => {
+  if (partial.value) return false;
   if (props.statusFailed) return true;
   if (!props.card.result) return false;
   try {
@@ -55,26 +60,30 @@ const parametersText = computed(() =>
 const resultText = computed(() =>
   props.card.result ? formatJsonBlockValue(props.card.result) : "",
 );
-const domainExpansion = computed(() => props.card.toolName === "discovery_expand_tool_domain");
 const subagentDispatch = computed(() => props.card.toolName.toLowerCase() === "agent_spawn");
+const presentationLocale = computed(() => detectToolPresentationLocale(props.locale, [
+  props.labels?.ariaLabel,
+  props.labels?.thinking,
+  props.labels?.preparing,
+  props.labels?.responding,
+]));
+// A host-provided name still wins unless it only echoes the raw tool id; the
+// presenter parses and appends the subject.
+const hostToolName = computed(() => props.labels?.tool?.resolveName?.(props.card.toolName, props.card.args));
+const toolName = computed(() => hostToolName.value
+  ? toolCompactLabel(props.card.toolName, props.card.args, hostToolName.value, presentationLocale.value)
+  : toolDisplayName(props.card.toolName, props.card.args, undefined, presentationLocale.value));
 const toolLabel = computed(() => {
   if (props.card.subagentName !== undefined || subagentDispatch.value && props.card.toolCallId.startsWith("subagent:")) {
     const name = props.card.subagentName ?? "";
     return subagentDispatchedLabel(name);
   }
-  if (domainExpansion.value) {
-    const name = resolvedName.value;
-    return complete.value
-      ? (props.labels?.tool?.domainExpanded?.(name) ?? `Expand ${name} tools`)
-      : (props.labels?.tool?.domainExpanding?.(name) ?? `Expanding ${name} tools`);
-  }
-  return toolSummaryLabel(props.card.toolName, props.card.args);
+  return toolName.value;
 });
-const resolvedName = computed(() => props.labels?.tool?.resolveName?.(props.card.toolName, props.card.args) ?? toolDisplayName(props.card.toolName, props.card.args));
 const nestedToolLabel = computed(
-  () => props.card.subagentName !== undefined || domainExpansion.value
+  () => props.card.subagentName !== undefined
     ? toolLabel.value
-    : toolCompactLabel(props.card.toolName, props.card.args, resolvedName.value),
+    : toolCompactLabel(props.card.toolName, props.card.args, toolName.value, presentationLocale.value),
 );
 
 watch(
@@ -226,7 +235,7 @@ function subagentDispatchedLabel(name: string) {
           <JsonBlock v-if="parametersExpanded" :value="props.card.args" />
         </section>
 
-        <section v-if="complete">
+        <section v-if="complete || partial">
           <div
             class="ef-chat__tool-section-header"
             style="margin-bottom: 8px"
@@ -238,12 +247,7 @@ function subagentDispatchedLabel(name: string) {
               :value="resultText"
             />
           </div>
-          <div
-            v-if="props.card.result"
-            style="max-height: 256px; overflow-y: auto"
-          >
-            <ToolResultView :value="props.card.result" />
-          </div>
+          <ToolResultView v-if="props.card.result" :value="props.card.result" :locale="props.locale" />
           <div v-else class="ef-chat__result-block">No result payload.</div>
         </section>
 

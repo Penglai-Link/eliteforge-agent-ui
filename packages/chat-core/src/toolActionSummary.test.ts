@@ -16,7 +16,7 @@ it("summarizes known action types and counts distinct edited paths", () => {
     tool("patch", "fs_apply_patch", { patch: "*** Begin Patch\n*** Update File: src/chat.ts\n*** Add File: src/new.ts\n*** End Patch" }),
     tool("search", "search_grep", { query: "TODO" }),
     tool("read", "fs_read_text", { path: "README.md" }),
-    tool("domain", "discovery_expand_tool_domain", { domainCode: "git" }),
+    tool("spawn", "agent_spawn", {}),
   ]);
   expect(summary).toEqual({ commands: 2, editedFiles: 3, editOperations: 0, reads: 1, searches: 1, otherActions: 1 });
 });

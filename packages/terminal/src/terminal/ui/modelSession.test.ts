@@ -249,7 +249,8 @@ describe("renderModelSession agent activity", () => {
 
     expect(host.textContent).toContain("Elapsed 0m 0s");
     expect(host.textContent).toContain("Tools called 1");
-    expect(host.textContent).toContain("workspace.inspect");
+    expect(host.textContent).toContain("View workspace /workspace");
+    expect(host.textContent).not.toContain("workspace.inspect");
     expect(host.textContent).not.toContain("Loaded workspace");
     expect(host.textContent).toContain("Workspace context loaded.");
     expect(host.textContent).not.toContain("internal chain of thought");
@@ -263,6 +264,69 @@ describe("renderModelSession agent activity", () => {
     expect(host.querySelector(".ai-terminal-model-session__activity-item--nested")).toBeTruthy();
     (host.querySelector("summary") as HTMLElement).click();
     expect(host.querySelector("details")?.open).toBe(true);
+  });
+
+  it("renders localized tool titles instead of raw tool ids", () => {
+    const renderToolCard = (
+      host: HTMLDivElement,
+      toolCallName: string,
+      toolCallArgs: unknown,
+      locale: "zh-CN" | "en-US",
+    ) => {
+      renderModelSession(
+        host,
+        {
+          activityEvents: [
+            {
+              runId: "run-1",
+              timestamp: 1,
+              toolCallArgs,
+              toolCallId: "tool-1",
+              toolCallName,
+              type: "TOOL_CALL_START",
+            },
+            {
+              content: "done",
+              runId: "run-1",
+              timestamp: 2,
+              toolCallId: "tool-1",
+              toolCallName,
+              type: "TOOL_CALL_RESULT",
+            },
+            { runId: "run-1", timestamp: 3, toolCallId: "tool-1", type: "TOOL_CALL_END" },
+          ],
+          activityStartedAt: 0,
+          activityNow: 0,
+          activityComplete: true,
+          commandStates: new Map(),
+          i18n: createChatTerminalI18n({ locale }),
+          tokens: [],
+        },
+        {
+          onDraftCommandChange: vi.fn(),
+          onExecuteCommand: vi.fn(),
+          onCancelCommandEdit: vi.fn(),
+          onRejectCommand: vi.fn(),
+          onSaveCommandEdit: vi.fn(),
+          onStartEditCommand: vi.fn(),
+        },
+      );
+    };
+
+    const zhHost = document.createElement("div");
+    renderToolCard(zhHost, "workspace.inspect", undefined, "zh-CN");
+    expect(zhHost.textContent).toContain("查看工作区");
+    expect(zhHost.textContent).not.toContain("workspace.inspect");
+
+    const zhSearchHost = document.createElement("div");
+    renderToolCard(zhSearchHost, "tool_search", { query: "git" }, "zh-CN");
+    expect(zhSearchHost.textContent).toContain("搜索工具 git");
+    expect(zhSearchHost.textContent).not.toContain("tool_search");
+
+    const enSearchHost = document.createElement("div");
+    renderToolCard(enSearchHost, "tool_search", { query: "git" }, "en-US");
+    expect(enSearchHost.textContent).toContain("Search tools git");
+    expect(enSearchHost.textContent).not.toContain("tool_search");
   });
 
   it("shows a failed state when the run emits RUN_ERROR", () => {

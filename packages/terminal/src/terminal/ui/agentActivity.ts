@@ -4,6 +4,7 @@ import {
   buildAguiUserWorkCards,
   currentAguiWorkSnapshot,
   formatJsonBlockValue,
+  presentToolCall,
   type TranscriptAguiEvent,
 } from "@eliteforge/agent-ui-chat-core";
 
@@ -163,7 +164,8 @@ function renderToolActivity(
   const running = tool.started && !complete;
   const args = tool.args === undefined ? "" : formatJsonBlockValue(tool.args);
   const result = tool.result ? formatJsonBlockValue(tool.result) : "";
-  const label = tool.toolName || i18n.t("toolUnnamed");
+  const presentation = presentToolCall(tool.toolName, tool.args, { locale: i18n.locale });
+  const label = presentation.title || i18n.t("toolUnnamed");
 
   return html`<details class="ai-terminal-model-session__activity-item ai-terminal-model-session__activity-item--tool" ?open=${state.activityComplete ? nothing : false} @toggle=${(event: Event) => closeActivityToggle(event, state)}>
     <summary @click=${(event: MouseEvent) => preventActivityToggle(event, state)}>${renderActivityChevron()}<span>${running ? i18n.t("toolRunning") : i18n.t("toolRan")} ${label}</span></summary>

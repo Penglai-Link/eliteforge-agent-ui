@@ -48,10 +48,11 @@ it("restores background awakening, places resumed tools after the answer, and re
     observer?.onAguiEvent?.(frame("RUN_STARTED"));
     observer?.onAguiEvent?.(frame("TOOL_CALL_START", { toolCallId: "save-tool", toolCallName: "dude_soul_update" }));
   });
-  fireEvent.click(screen.getByRole("button", { name: /Working for/ }));
-  await waitFor(() => expect(view.container.querySelector('[data-work-item-id="product:save-tool"]')).toBeTruthy());
+  const runningWork = screen.getByRole("button", { name: /Working for/ });
+  if (runningWork.getAttribute("aria-expanded") === "false") fireEvent.click(runningWork);
+  await waitFor(() => expect(view.container.querySelector('[data-work-item="toolGroup"] .ef-chat__tool-row')).toBeTruthy());
   const answer = view.container.querySelector('[data-history-interaction-id="question"]')!;
-  const tool = view.container.querySelector('[data-work-item-id="product:save-tool"]')!;
+  const tool = view.container.querySelector('[data-work-item="toolGroup"] .ef-chat__tool-row')!;
   expect(answer.compareDocumentPosition(tool) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   expect(view.container.querySelectorAll('[data-history-interaction-id="question"]')).toHaveLength(1);
 
@@ -73,7 +74,8 @@ it("restores background awakening, places resumed tools after the answer, and re
   expect(view.container.querySelectorAll('[data-history-interaction-id="question"]')).toHaveLength(1);
   await waitFor(() => expect(view.container.querySelectorAll('.ef-chat__rail-summary[aria-expanded]')).toHaveLength(2));
   view.container.querySelectorAll('.ef-chat__rail-summary[aria-expanded]').forEach(button => fireEvent.click(button));
-  const persistedTool = view.container.querySelector('[data-work-item-id="save-tool"]')!;
+  view.container.querySelectorAll('.ef-chat__rail-entry-toggle[aria-expanded="false"]').forEach(button => fireEvent.click(button));
+  const persistedTool = Array.from(view.container.querySelectorAll('[data-work-item="toolGroup"] .ef-chat__tool-row')).at(-1)!;
   expect(persistedTool).toBeTruthy();
   expect(view.container.querySelector('[data-history-interaction-id="question"]')!.compareDocumentPosition(persistedTool) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   view.unmount();

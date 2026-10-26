@@ -1,10 +1,12 @@
+import { newerBatchRevision, parseToolBatchSnapshot, TOOL_BATCH_ACTIVITY_TYPE } from "./toolBatch";
 import {
   deriveReasoningPreview,
   formatTime,
   reasoningLastSentence,
   truncateLabel,
 } from "./display";
-import { historyEventRunId } from "./history";
+import { CONTEXT_COMPACTION_STEP, historyEventRunId, type SessionHistory } from "./history";
+import { parseToolPayload, presentToolCall, unwrapGatewayToolCall } from "./toolPresentation";
 import type {
   ChatAguiStreamEvent,
   ChatDebugOptions,
@@ -125,6 +127,7 @@ export interface ReasoningWorkCard {
 }
 
 export interface ToolWorkCard {
+  batchRevision?: string;
   args: unknown;
   ended: boolean;
   firstMillis: number;
@@ -141,6 +144,8 @@ export interface ToolWorkCard {
 }
 
 export interface ToolGroupWorkCard {
+  /** Tools from the latest reasoning phase; independent of reasoning visibility. */
+  isCurrentPhase?: boolean;
   firstMillis: number;
   id: string;
   runId: string;
@@ -439,45 +444,12 @@ export function appendReasoningDelta(content: string, delta: string) {
   return `${content} ${delta}`;
 }
 
-const toolTargetKeys = ["command", "cmd", "file", "fileName", "filePath", "path", "target", "query", "topic", "pattern", "url", "uri"];
-
-function valueAtKnownKey(value: unknown, depth = 0): string {
-  if (depth > 3 || value == null) return "";
-  if (typeof value === "string") return value;
-  if (typeof value !== "object") return "";
-  if (Array.isArray(value)) {
-    for (const item of value) {
-      const found = valueAtKnownKey(item, depth + 1);
-      if (found) return found;
-    }
-    return "";
-  }
-
-  const record = value as Record<string, unknown>;
-  for (const key of toolTargetKeys) {
-    const direct = record[key];
-    if (typeof direct === "string" && direct.trim()) return direct;
-  }
-  for (const child of Object.values(record)) {
-    const found = valueAtKnownKey(child, depth + 1);
-    if (found) return found;
-  }
-  return "";
-}
-
-function toolActionLabel(toolName: string, args: unknown) {
-  const normalizedTool = toolName.toLowerCase();
-  const target = valueAtKnownKey(args).toLowerCase();
-  if (normalizedTool.includes("edit") || normalizedTool.includes("write") || normalizedTool.includes("patch")) return "Edit";
-  if (target.includes("/") || target.includes(".")) {
-    if (!normalizedTool.includes("exec") && !normalizedTool.includes("run") && !normalizedTool.includes("shell")) return "Edit";
-  }
-  return "Run";
-}
-
-export function toolSummaryLabel(toolName: string, args: unknown) {
-  const displayName = toolDisplayName(toolName, args);
-  return `${toolActionLabel(displayName, args)} ${displayName}`;
+/**
+ * Localized, human-readable action title for a tool call (e.g.
+ * "执行命令 cargo test" / "Run command cargo test"). Never returns a raw id.
+ */
+export function toolSummaryLabel(toolName: string, args: unknown, locale?: string) {
+  return presentToolCall(toolName, args, { locale }).title;
 }
 
 function commandArgumentPreview(value: string, shellScript = false) {
@@ -492,65 +464,81 @@ function commandArgumentPreview(value: string, shellScript = false) {
  * Builds a compact, human-readable command line for command tools. This is a
  * display preview only; it must never be executed or used to reconstruct args.
  */
-export function toolCommandLinePreview(toolName: string, args: unknown, maxLength = 180) {
+export function toolCommandLinePreview(rawToolName: string, rawArgs: unknown, maxLength = 180) {
+  const { toolName, args } = unwrapGatewayToolCall(rawToolName, rawArgs);
   if (toolName.trim().toLowerCase() !== "bash_exec") return "";
   const payload = parseToolPayload(args);
   const command = typeof payload?.command === "string" ? payload.command.trim() : "";
   if (!command) return "";
-  const rawArgs = Array.isArray(payload?.args)
+  const commandArgs = Array.isArray(payload?.args)
     ? payload.args.filter((value): value is string => typeof value === "string")
     : [];
   const parts = [command];
-  rawArgs.forEach((value, index) => {
-    parts.push(commandArgumentPreview(value, rawArgs[index - 1] === "-c"));
+  commandArgs.forEach((value, index) => {
+    parts.push(commandArgumentPreview(value, commandArgs[index - 1] === "-c"));
   });
   return truncateLabel(parts.join(" "), maxLength);
 }
 
-/** Compact summary for a tool row inside a grouped run. */
-export function toolCompactLabel(toolName: string, args: unknown, displayName = humanizeToolName(toolName)) {
-  const command = toolCommandLinePreview(toolName, args);
-  if (command) return `Shell ${command}`;
-  if (toolName.trim().toLowerCase() === "search_grep") {
-    const payload = parseToolPayload(args);
-    const pattern = typeof payload?.pattern === "string" ? payload.pattern.trim() : "";
-    const root = typeof payload?.root === "string" ? payload.root.trim() : "";
-    if (pattern && root) return `${displayName}: ${pattern} (${root})`;
-    if (pattern) return `${displayName}: ${pattern}`;
-  }
-  const target = valueAtKnownKey(args);
-  return target ? `${displayName} ${target}` : displayName;
+/**
+ * Normalizes a tool id or a host-supplied label so the two can be compared for
+ * identity: case, surrounding whitespace and `_`/`-`/space separators are all
+ * ignored, so `Tool_Search`, `tool search` and `tool_search` collapse together.
+ */
+export function normalizeToolNameIdentity(value: string | undefined | null): string {
+  return typeof value === "string" ? value.trim().toLowerCase().replace(/[\s_-]+/g, "") : "";
 }
 
-export function toolDisplayName(toolName: string, args: unknown = undefined) {
-  const normalizedName = toolName.trim();
-  const domainCode = domainCodeFromToolPayload(normalizedName) || domainCodeFromToolPayload(args);
-
-  if (normalizedName === "discovery_expand_tool_domain" || domainCode) {
-    return humanizeToolName(domainCode || normalizedName);
-  }
-  return humanizeToolName(normalizedName);
+/**
+ * True when a host-supplied display name carries no information because it is
+ * the raw tool id echoed back (or the gateway envelope id, compared through the
+ * unwrapped inner tool name) — callers must fall back to the presenter title.
+ * An empty/blank host name is treated the same way.
+ */
+export function isRawToolNameOverride(
+  rawToolName: string,
+  hostName: string | undefined,
+  rawArgs?: unknown,
+): boolean {
+  if (typeof hostName !== "string" || !hostName.trim()) return true;
+  const host = normalizeToolNameIdentity(hostName);
+  if (!host) return true;
+  const trimmed = typeof rawToolName === "string" ? rawToolName.trim() : "";
+  if (!trimmed) return false;
+  const { toolName } = unwrapGatewayToolCall(trimmed, rawArgs);
+  return host === normalizeToolNameIdentity(toolName) || host === normalizeToolNameIdentity(trimmed);
 }
 
-function domainCodeFromToolPayload(value: unknown) {
-  const payload = parseToolPayload(value);
-  if (!payload || typeof payload.domainCode !== "string") return "";
-  return payload.domainCode.trim();
+/**
+ * Compact summary for a tool row inside a grouped run. A host-supplied display
+ * name still wins, but only when it is actually readable: a name that merely
+ * echoes the raw tool id is ignored in favor of the presenter title. The
+ * argument subject is always parsed by the presenter.
+ */
+export function toolCompactLabel(rawToolName: string, rawArgs: unknown, displayName?: string, locale?: string) {
+  const presentation = presentToolCall(rawToolName, rawArgs, { locale });
+  const hostName = displayName?.trim();
+  const label = hostName && !isRawToolNameOverride(rawToolName, hostName, rawArgs)
+    ? hostName
+    : presentation.title;
+  const subject = presentation.subject;
+  if (!subject || label.includes(subject)) return label;
+  return `${label} ${subject}`;
 }
 
-function parseToolPayload(value: unknown): Record<string, unknown> | null {
-  if (value && typeof value === "object" && !Array.isArray(value)) {
-    return value as Record<string, unknown>;
-  }
-  if (typeof value !== "string") return null;
-  try {
-    const parsed = JSON.parse(value);
-    return parsed && typeof parsed === "object" && !Array.isArray(parsed)
-      ? parsed as Record<string, unknown>
-      : null;
-  } catch {
-    return null;
-  }
+/**
+ * Localized, human-readable tool title. Never returns a raw tool id: a host
+ * display name that only echoes the tool id is ignored.
+ */
+export function toolDisplayName(
+  toolName: string,
+  args: unknown = undefined,
+  displayName?: string,
+  locale?: string,
+) {
+  const hostName = displayName?.trim();
+  if (hostName && !isRawToolNameOverride(toolName, hostName, args)) return hostName;
+  return presentToolCall(toolName, args, { locale }).title;
 }
 
 function subagentNameFromArgs(value: unknown): string {
@@ -578,15 +566,6 @@ function subagentNameFromEvent(event: TranscriptAguiEvent): string {
   const name = subagentNameFromArgs(event);
   if (name) return name;
   return "subagentName" in event && typeof event.subagentName === "string" ? event.subagentName.trim() : "";
-}
-
-function humanizeToolName(value: string) {
-  return value
-    .trim()
-    .split(/[._-]+/)
-    .filter(Boolean)
-    .map((part) => `${part.slice(0, 1).toUpperCase()}${part.slice(1)}`)
-    .join(" ") || "tool";
 }
 
 function activityLines(event: TranscriptAguiEvent) {
@@ -686,7 +665,9 @@ function ensureToolCard(
 ) {
   const toolCallId = aguiEventToolCallId(event);
   if (!toolCallId) return null;
-  const key = `${aguiEventRunId(event)}:${toolCallId}`;
+  // Approval resumes have a new transport execution ID but retain the logical
+  // run and parent invocation. Update the original card across that boundary.
+  const key = `${historyEventRunId(event)}:${toolCallId}`;
   const existing = cards.get(key);
   if (existing) return existing;
   const toolName = aguiEventToolName(event);
@@ -819,6 +800,22 @@ export function buildAguiUserWorkCards(events: TranscriptAguiEvent[]): AguiUserW
       }
       return;
     }
+    if (type === "ACTIVITY_SNAPSHOT" && "activityType" in event && event.activityType === TOOL_BATCH_ACTIVITY_TYPE) {
+      const snapshot = parseToolBatchSnapshot("content" in event ? event.content : null);
+      if (!snapshot) return;
+      const card = ensureToolCard(toolCards, reasoningCards, latestReasoningCardIdsByRun, {
+        ...event, toolCallId:snapshot.toolCallId, toolCallName:snapshot.toolName,
+      });
+      // A replayed/late pause cannot overwrite a final result. Snapshots also
+      // reconstruct the card when reconnect starts after its original START.
+      if (card && !card.ended && (!card.batchRevision || newerBatchRevision(snapshot.revision, card.batchRevision))) {
+        card.batchRevision = snapshot.revision;
+        card.started = true;
+        card.args = snapshot.arguments;
+        card.result = JSON.stringify(snapshot.output);
+      }
+      return;
+    }
     if (type === "ACTIVITY_SNAPSHOT" && "activityType" in event && event.activityType === "tron.tool.progress") {
       const content = "content" in event && event.content && typeof event.content === "object" ? event.content as Record<string, unknown> : {};
       if (typeof content.toolCallId !== "string" || typeof content.line !== "string") return;
@@ -866,6 +863,7 @@ export function buildAguiUserWorkCards(events: TranscriptAguiEvent[]): AguiUserW
         return;
       }
       toolGroupCards.set(groupKey, {
+        isCurrentPhase: (latestReasoningCardIdsByRun.get(toolCard.runId) ?? null) === toolCard.parentReasoningId,
         firstMillis: toolCard.firstMillis,
         id: groupKey,
         runId: toolCard.runId,
@@ -879,12 +877,8 @@ export function buildAguiUserWorkCards(events: TranscriptAguiEvent[]): AguiUserW
       .map((value) => ({ kind: "reasoning" as const, value })),
     ...Array.from(toolGroupCards.values())
       .map((value) => ({
-        kind: value.toolCards.length === 1 && value.toolCards[0].parentReasoningId === null
-          ? "tool"
-          : "toolGroup",
-        value: value.toolCards.length === 1 && value.toolCards[0].parentReasoningId === null
-          ? value.toolCards[0]
-          : value,
+        kind: "toolGroup",
+        value,
       } as AguiUserWorkCard)),
   ].sort((left, right) => left.value.firstMillis - right.value.firstMillis);
 }
@@ -894,14 +888,15 @@ function aguiRunsWithWorkDetails(events: TranscriptAguiEvent[], limit: number) {
   events.forEach((event) => {
     const runId = aguiEventRunId(event);
     if (!runId) return;
+    const logicalRunId = historyEventRunId(event) || runId;
     const firstMillis = aguiEventMillis(event) ?? Date.now();
-    const existing = runs.get(runId);
+    const existing = runs.get(logicalRunId);
     if (existing) {
       existing.events.push(event);
       existing.firstMillis = Math.min(existing.firstMillis, firstMillis);
       return;
     }
-    runs.set(runId, {
+    runs.set(logicalRunId, {
       events: [event],
       firstMillis,
       runId,
@@ -1110,4 +1105,26 @@ export function summarizeReasoning(card: ReasoningWorkCard) {
 
 export function describeDebugEvent(event: TranscriptAguiEvent) {
   return `${aguiEventType(event)} · ${formatTime(aguiEventTime(event))} · ${aguiEventSummary(event)}`;
+}
+
+/** Replay and live streams share the same maintenance lock lifecycle. */
+export function contextCompactionInProgress(events: ChatAguiStreamEvent[], runId: string): boolean {
+  if (!runId) return false;
+  return buildAguiRunNotices(events.filter(event => event.runId === runId))
+    .some(notice => notice.kind === "compaction" && (notice.status === "started" || notice.status === "requested"));
+}
+
+/** Framework history is sufficient to restore cards without protocol replay. */
+export function historyCompactionEvents(history: SessionHistory): ChatAguiStreamEvent[] {
+  const steps = history.records.steps.filter(step => step.name === CONTEXT_COMPACTION_STEP);
+  const output: ChatAguiStreamEvent[] = [];
+  for (const step of steps) {
+    const run = history.runs.find(run => run.id === step.runId);
+    const base = {runId:step.runId,threadId:history.sessionId};
+    output.push({ ...base, type:"RUN_STARTED", timestamp:run?.startedAtMs ?? step.startedAtMs });
+    output.push({ ...base, type:"CUSTOM", name:"agent.memory.compaction.started", value:{}, timestamp:step.startedAtMs });
+    if (step.status !== "Running") output.push({ ...base, type:"CUSTOM", name:step.status === "Completed" ? "agent.memory.compaction.completed" : "agent.memory.compaction.failed", value:{}, timestamp:step.finishedAtMs ?? step.startedAtMs });
+    if (run && !["Running","Waiting"].includes(run.status)) output.push({ ...base, type:"RUN_FINISHED", timestamp:run.finishedAtMs ?? step.finishedAtMs ?? step.startedAtMs });
+  }
+  return mergeTranscriptAguiEvents([], output) as ChatAguiStreamEvent[];
 }

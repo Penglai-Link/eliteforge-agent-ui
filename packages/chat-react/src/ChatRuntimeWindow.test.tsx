@@ -1566,3 +1566,26 @@ it.each(["Explain", ""])("delivers native annotation metadata separately from th
   expect(delivered.content).toBe(content);
   expect(delivered.annotations).toEqual([annotation]);
 });
+
+it("restores a compaction lock, renders its AG-UI card and keeps navigation independent", async () => {
+  const {adapter}=createAdapter();
+  adapter.capabilities={...adapter.capabilities,supportsAgui:true,supportsProtocolReplay:true,supportsActiveRun:true,supportsStop:true,supportsSteer:true};
+  adapter.getActiveRun=vi.fn().mockResolvedValue({sessionId:"SESSION-RESTORED",activeRun:{runId:"COMPACT",runtimeAdapterKey:"REACT",supportsSteer:false,state:"RUNNING",operationKind:"ContextCompaction"}});
+  adapter.loadMessages=vi.fn().mockResolvedValue([{id:1,messageId:"compact-input",sessionId:"SESSION-RESTORED",role:"USER",channel:"MAIN_AGENT",content:"/compact",createdAt:new Date(0).toISOString()}]);
+  const run={id:"COMPACT",sessionId:"SESSION-RESTORED",rootRunId:"COMPACT",parentRunId:null,status:"Running" as const,startedAtMs:1,finishedAtMs:null,error:null};
+  adapter.loadHistory=vi.fn().mockResolvedValue({sessionId:"SESSION-RESTORED",version:"1",nextCursor:null,runs:[run],activeRuns:[run],pendingInteractions:[],records:{steps:[{id:"compact-step",runId:"COMPACT",nodeInvocationId:null,sequence:0,attempt:1,name:"framework.context.compaction",model:null,status:"Running",usage:null,startedAtMs:2,finishedAtMs:null}],toolInvocations:[],interactions:[],messages:[{id:"compact-input",runId:"COMPACT",stepId:null,role:"User",content:[{type:"Text",text:"/compact"}],structured:null,status:"Completed",createdAtMs:0}]}});
+  adapter.loadProtocolEvents=vi.fn().mockResolvedValue([]);
+  adapter.stopRun=vi.fn(); adapter.steerMessage=vi.fn();
+  const ref={current:null as ChatRuntimeSubmitter|null};
+  const view=render(<ChatRuntimeWindow adapter={adapter} config={{floating:false,showAgui:true}} initialSession={restoredSession()} submitterRef={ref} footerAddon={<button>Change model</button>} />);
+  await waitFor(()=>expect((screen.getByRole("textbox") as HTMLTextAreaElement).disabled).toBe(true));
+  expect(await screen.findByText("Compacting context…")).toBeTruthy();
+  expect(screen.queryByRole("button",{name:/stop/i})).toBeNull();
+  const button=screen.getByRole("button",{name:"Change model"}) as HTMLButtonElement;
+  expect(button.closest("fieldset")?.disabled).toBe(true);
+  await act(async()=>{expect(await ref.current!.submit({content:"blocked"})).toBe(false);});
+  expect(adapter.streamMessage).not.toHaveBeenCalled();
+  view.unmount();
+  expect(adapter.stopRun).not.toHaveBeenCalled();
+  expect(adapter.loadProtocolEvents).not.toHaveBeenCalled();
+});

@@ -49,6 +49,7 @@ const props = withDefaults(defineProps<ChatPanelProps>(), {
   liveAguiEvents: () => [],
   liveAguiPendingAnchorMessageCode: "",
   liveAguiPending: false,
+  locale: undefined,
   onCreateSession: undefined,
   onEditMessage: undefined,
   onEditQueuedMessage: undefined,
@@ -172,7 +173,7 @@ const presentation = computed(() =>
     sessionId: props.session?.sessionId ?? "",
   }),
 );
-const workTimeline = computed(() => buildTranscriptWorkTimeline(transcriptMessages.value, presentation.value, props.userInputRequests));
+const workTimeline = computed(() => buildTranscriptWorkTimeline(transcriptMessages.value, presentation.value, props.userInputRequests, { showReasoningCards: props.showReasoningCards }));
 
 function scrollToBottom(behavior: ScrollBehavior = "auto") {
   const element = transcriptRef.value;
@@ -291,9 +292,9 @@ onMounted(() => {
                 <AguiRunWorkRail v-for="run in workRailsForMessage(message, true)" :key="run.id"
                   :show-reasoning-cards="props.showReasoningCards"
                   :timeline="run" :events="run.events" :debug-events="debugEventsForRun(run.runId)"
-                  :labels="props.workRailLabels" :history-labels="props.historyLabels" :user-input-requests="props.userInputRequests">
+                  :labels="props.workRailLabels" :locale="props.locale" :history-labels="props.historyLabels" :user-input-requests="props.userInputRequests">
                   <template #message="{ message: processMessage }">
-                    <StructuredMessageDetails :message="processMessage" :labels="props.historyLabels" hide-run-error />
+                    <StructuredMessageDetails :message="processMessage" :labels="props.historyLabels" :locale="props.locale" hide-run-error />
                     <ChatBubble v-if="processMessage.content.trim() || processMessage.a2ui" :annotation-labels="props.annotationLabels" :format-annotation-count="formatAnnotationCount" :annotations="annotationMap.get(processMessage.messageId)" :message="processMessage"
                       :current-user-display-name="currentUserDisplayName" :is-streaming="processMessage.messageId === streamingAssistantMessageCode"
                       :on-a2-u-i-action="props.onA2UIAction" :a2ui-session="props.a2uiSession" :a2ui-disabled="props.a2uiDisabled"
@@ -302,8 +303,8 @@ onMounted(() => {
                 </AguiRunWorkRail>
               </template>
               <template v-if="!showAgui || !workTimeline.processMessageIds.has(message.messageId)">
-              <HistoryWorkRail v-if="!workTimeline.managedMessageIds.has(message.messageId) && historyWork.has(message.messageId)" :messages="historyWork.get(message.messageId)!" :labels="props.workRailLabels" :history-labels="props.historyLabels" :show-reasoning-cards="props.showReasoningCards" />
-              <StructuredMessageDetails :message="message" :labels="props.historyLabels" />
+              <HistoryWorkRail v-if="!workTimeline.managedMessageIds.has(message.messageId) && historyWork.has(message.messageId)" :messages="historyWork.get(message.messageId)!" :labels="props.workRailLabels" :locale="props.locale" :history-labels="props.historyLabels" :show-reasoning-cards="props.showReasoningCards" />
+              <StructuredMessageDetails :message="message" :labels="props.historyLabels" :locale="props.locale" />
               <ChatBubble
                 v-if="(!message.history || message.a2ui || message.content.trim())"
                 :current-user-display-name="currentUserDisplayName"
@@ -340,12 +341,13 @@ onMounted(() => {
                   :events="run.events"
                   :timeline="run"
                   :labels="props.workRailLabels"
+                  :locale="props.locale"
                   :history-labels="props.historyLabels"
                   :message-id="message.messageId"
                   :user-input-requests="props.userInputRequests"
                 >
                   <template #message="{ message: processMessage }">
-                    <StructuredMessageDetails :message="processMessage" :labels="props.historyLabels" hide-run-error />
+                    <StructuredMessageDetails :message="processMessage" :labels="props.historyLabels" :locale="props.locale" hide-run-error />
                     <ChatBubble v-if="processMessage.content.trim() || processMessage.a2ui" :annotation-labels="props.annotationLabels" :format-annotation-count="formatAnnotationCount" :annotations="annotationMap.get(processMessage.messageId)" :message="processMessage"
                       :current-user-display-name="currentUserDisplayName" :is-streaming="processMessage.messageId === streamingAssistantMessageCode"
                       :on-a2-u-i-action="props.onA2UIAction" :a2ui-session="props.a2uiSession" :a2ui-disabled="props.a2uiDisabled"

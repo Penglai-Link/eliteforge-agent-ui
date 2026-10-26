@@ -8,6 +8,7 @@ export * from "./display";
 export * from "./mock";
 export * from "./normalize";
 export * from "./transcript";
+export * from "./toolPresentation";
 export * from "./types";
 export * from "./window-state";
 
@@ -32,3 +33,6 @@ export * from "./messageProvenance";
 export { requestedSkillsFromDraft } from "@eliteforge/agent-ui-composer-core";
 
 export * from "./annotations";
+
+export * from "./toolBatch";
+export { contextBlockPlacements, type ContextBlockPlacement } from "./contextLayout";

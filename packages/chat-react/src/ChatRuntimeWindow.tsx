@@ -1,3 +1,4 @@
+import { contextCompactionInProgress, historyCompactionEvents } from "@eliteforge/agent-ui-chat-core";
 import type { ChatAnnotation } from "@eliteforge/agent-ui-chat-core";
 import { ChatA2uiSession, AGENT_CATALOG_ID, type ChatA2uiActionHandler as ActionHandler } from "@eliteforge/agent-ui-chat-core";
 import {
@@ -22,6 +23,7 @@ import {
   isAguiPresentationFailureEvent,
   isAguiExecutionTerminalEvent,
   nativeUserInputRequests,
+  activeNativeUserInputRequests,
   nativeUserInputAnswer,
   historyMessages,
   historyEventRunId,
@@ -379,10 +381,15 @@ export function ChatRuntimeWindow({
   }
   const aguiEnabled = config.showAgui !== false && activeAdapter.capabilities.supportsAgui;
   const protocolReplayEnabled = aguiEnabled
+    && !activeAdapter.loadHistory
     && activeAdapter.capabilities.supportsProtocolReplay
     && Boolean(activeAdapter.loadProtocolEvents);
   const effectiveActiveRunCode = activeRunCode || remoteActiveRun?.runId || "";
   const runActive = sending || Boolean(remoteActiveRun);
+  const [localCompactionSession, setLocalCompactionSession] = useState("");
+  const operationKind = runActive ? remoteActiveRun?.operationKind ?? (localCompactionSession === session?.sessionId || contextCompactionInProgress(protocolEvents, effectiveActiveRunCode) ? "ContextCompaction" : undefined) : undefined;
+  const compacting = operationKind === "ContextCompaction";
+  useEffect(() => { if (!runActive) setLocalCompactionSession(""); }, [runActive]);
   const effectiveRunState = remoteActiveRun?.runId === effectiveActiveRunCode
     ? remoteActiveRun.state
     : "RUNNING";
@@ -390,7 +397,7 @@ export function ChatRuntimeWindow({
     ? remoteActiveRun.supportsSteer
     : activeRunSupportsSteer;
   const canSteer = Boolean(
-    activeAdapter.capabilities.supportsSteer
+    !compacting && activeAdapter.capabilities.supportsSteer
       && activeAdapter.steerMessage
       && effectiveActiveRunCode
       && effectiveRunState === "RUNNING"
@@ -401,7 +408,7 @@ export function ChatRuntimeWindow({
     [canSteer],
   );
   const canStop = Boolean(
-    session
+    !compacting && session
       && !stopping
       && (
         (
@@ -428,8 +435,10 @@ export function ChatRuntimeWindow({
       runId: effectiveActiveRunCode,
       sessionId: session?.sessionId ?? "",
       supportsSteer: canSteer,
+      operationKind,
     });
   }, [
+    operationKind,
     canSteer,
     effectiveActiveRunCode,
     onRunStateChange,
@@ -744,8 +753,9 @@ export function ChatRuntimeWindow({
     const durable = historySnapshot ? historyUserInputRequests(historySnapshot, config.userInputLabels).filter((r) => r.nativeInteraction) : [];
     const pending = new Map(durable.map((r) => [r.requestId, r]));
     liveNativePendingRequests.forEach((r) => pending.set(r.requestId, r));
-    return [...pending.values()];
-  }, [historySnapshot, liveNativePendingRequests, config.userInputLabels]);
+    return activeNativeUserInputRequests([...pending.values()],
+      mergeTranscriptAguiEvents(protocolEvents, liveAguiEvents) as ChatAguiStreamEvent[], session?.sessionId ?? "", historySnapshot);
+  }, [historySnapshot, liveNativePendingRequests, config.userInputLabels, protocolEvents, liveAguiEvents, session?.sessionId]);
   useEffect(() => { answeredNativeInteractionsRef.current.clear(); setAcceptedUserInputRequests([]); }, [session?.sessionId]);
   useEffect(() => {
     const pending = nativePendingRequests.filter((request) => !answeredNativeInteractionsRef.current.has(request.requestId));
@@ -769,8 +779,9 @@ export function ChatRuntimeWindow({
       } else {
         foreground = running ? { runId: running.id, runtimeAdapterKey: "framework", supportsSteer: activeAdapter.capabilities.supportsSteer ?? false, state: "RUNNING" } : null;
       }
-      return { nextHistory: page, nextMessages: historyMessages(page, config.userInputLabels), nextAguiEvents: [] as ChatAguiEvent[], nextProtocolEvents: [] as ChatAguiStreamEvent[],
-        healthyProtocolEvents: [] as ChatAguiStreamEvent[], healthNotice: undefined,
+      const notices = historyCompactionEvents(page);
+      return { nextHistory: page, nextMessages: historyMessages(page, config.userInputLabels), nextAguiEvents: [] as ChatAguiEvent[], nextProtocolEvents: notices,
+        healthyProtocolEvents: notices, healthNotice: undefined,
         nextActiveRun: foreground,
         nextUserInputRequests: historyUserInputRequests(page, config.userInputLabels), errors };
     }
@@ -1030,13 +1041,13 @@ export function ChatRuntimeWindow({
   }, [protocolEvents, protocolReplayEnabled, remoteActiveRun, session]);
 
   const sendDisabled = useMemo(() => {
-    if (loading || creatingSession || config.disabledInput || userInputRequest || userInputAnswerPending) return true;
+    if (compacting || loading || creatingSession || config.disabledInput || userInputRequest || userInputAnswerPending) return true;
     if (!draft.trim() && !pendingAttachments.length && !pendingAnnotations.length) return true;
     return false;
-  }, [config.disabledInput, creatingSession, draft, loading, pendingAttachments.length, pendingAnnotations.length, session, userInputAnswerPending, userInputRequest]);
+  }, [compacting, config.disabledInput, creatingSession, draft, loading, pendingAttachments.length, pendingAnnotations.length, session, userInputAnswerPending, userInputRequest]);
   const queueDisabled = useMemo(
-    () => loading || Boolean(config.disabledInput) || Boolean(userInputRequest) || userInputAnswerPending || (!draft.trim() && !pendingAttachments.length && !pendingAnnotations.length) || !session,
-    [config.disabledInput, draft, loading, pendingAttachments.length, pendingAnnotations.length, session, userInputAnswerPending, userInputRequest],
+    () => compacting || loading || Boolean(config.disabledInput) || Boolean(userInputRequest) || userInputAnswerPending || (!draft.trim() && !pendingAttachments.length && !pendingAnnotations.length) || !session,
+    [compacting, config.disabledInput, draft, loading, pendingAttachments.length, pendingAnnotations.length, session, userInputAnswerPending, userInputRequest],
   );
   const steerDisabled = queueDisabled || steering || !canSteer;
 
@@ -1132,6 +1143,7 @@ export function ChatRuntimeWindow({
       for (const id of [optimisticAssistantCode, ...textStream.messageIds]) assistantReplyQueueRef.current?.flush(id);
     };
     setStreamingAssistantMessageCode(optimisticAssistantCode);
+    setLocalCompactionSession(sendInput.content.trim().toLowerCase() === "/compact" ? activeSession.sessionId : "");
     setSendingState(true);
     setLiveAguiPending(aguiEnabled);
     setMessages((current) => [
@@ -1405,6 +1417,7 @@ export function ChatRuntimeWindow({
   };
 
   async function handleAnswerUserInput(answers: ChatUserInputAnswer[]) {
+    if (compacting) return;
     if (!session || !userInputRequest || !activeAdapter.answerUserInputRequestStream) return;
     const submittedRequest = userInputRequest;
     const submittedSessionId = session.sessionId;
@@ -1487,7 +1500,7 @@ export function ChatRuntimeWindow({
   }
 
   async function handleSend(submitted?: Pick<SendChatMessageInput, "content" | "attachments">): Promise<boolean> {
-    if (initialSubmitPendingRef.current || sendingRef.current || config.disabledInput || creatingSession || (!submitted && sendDisabled) || userInputRequest || userInputAnswerPending) return false;
+    if (compacting || initialSubmitPendingRef.current || sendingRef.current || config.disabledInput || creatingSession || (!submitted && sendDisabled) || userInputRequest || userInputAnswerPending) return false;
     // Capture the submitted draft before awaiting session creation. Subsequent
     // input changes must not alter the message being admitted.
     const content = (submitted?.content ?? draft).trim();
@@ -1764,7 +1777,7 @@ export function ChatRuntimeWindow({
   }
 
   async function handleStop() {
-    if (!session || stopping) return;
+    if (compacting || !session || stopping) return;
     let stoppedRunCode = effectiveActiveRunCode;
     if (
       !stoppedRunCode
@@ -1893,11 +1906,11 @@ export function ChatRuntimeWindow({
       createSessionLabel={createSessionLabel}
       currentUserDisplayName={currentUserDisplayName}
       debugOptions={resolvedDebugOptions}
-      disabledInput={creatingSession || Boolean(config.disabledInput) || userInputRequest?.status === "Pending"}
+      disabledInput={compacting || creatingSession || Boolean(config.disabledInput) || userInputRequest?.status === "Pending"}
       draft={draft}
       emptyDescription={emptyDescription ?? "Create a session to start chatting."}
       emptyTitle={emptyTitle}
-      footerAddon={footerAddon}
+      footerAddon={compacting ? <fieldset disabled style={{ display: "contents" }}>{footerAddon}</fieldset> : footerAddon}
       pendingAttachments={pendingAttachments}
       pendingAnnotations={pendingAnnotations}
       onPendingAnnotationsChange={setPendingAnnotations}
@@ -1927,7 +1940,7 @@ export function ChatRuntimeWindow({
       onNewSession={handleNewSession}
       onDraftChange={setDraft}
       onPasteAttachment={onPasteAttachment ?? handleAttachmentUpload}
-      onEditMessage={handleEditMessage}
+      onEditMessage={compacting ? undefined : handleEditMessage}
       onEditQueuedMessage={handleEditQueuedMessage}
       onRemoveQueuedMessage={handleRemoveQueuedMessage}
       onSteerQueuedMessage={(id) => { void handleSteer(id); }}
@@ -1954,10 +1967,11 @@ export function ChatRuntimeWindow({
       title={config.title || floatingTitle}
       userInputLabels={config.userInputLabels}
       userInputRequests={presentedUserInputRequests}
+      locale={config.locale}
       workRailLabels={config.workRailLabels}
       userInputAnswerPending={userInputAnswerPending}
       userInputRequest={userInputRequest}
-      onAnswerUserInput={(answers) => { void handleAnswerUserInput(answers); }}
+      onAnswerUserInput={compacting ? undefined : (answers) => { void handleAnswerUserInput(answers); }}
       a2uiSession={a2uiSession}
       a2uiDisabled={sending || session?.status === "ARCHIVED"}
       onA2UIAction={handleA2uiAction}
@@ -1978,11 +1992,11 @@ export function ChatRuntimeWindow({
         composerHeader={composerFeedback}
         currentUserDisplayName={currentUserDisplayName}
         debugOptions={resolvedDebugOptions}
-        disabledInput={creatingSession || Boolean(config.disabledInput) || userInputRequest?.status === "Pending"}
+        disabledInput={compacting || creatingSession || Boolean(config.disabledInput) || userInputRequest?.status === "Pending"}
         draft={draft}
         emptyDescription={emptyDescription ?? "Create a session to start chatting."}
         emptyTitle={emptyTitle}
-        footerAddon={footerAddon}
+        footerAddon={compacting ? <fieldset disabled style={{ display: "contents" }}>{footerAddon}</fieldset> : footerAddon}
         pendingAttachments={pendingAttachments}
       pendingAnnotations={pendingAnnotations}
       onPendingAnnotationsChange={setPendingAnnotations}
@@ -2011,7 +2025,7 @@ export function ChatRuntimeWindow({
         onNewSession={handleNewSession}
         onDraftChange={setDraft}
         onPasteAttachment={onPasteAttachment ?? handleAttachmentUpload}
-        onEditMessage={handleEditMessage}
+        onEditMessage={compacting ? undefined : handleEditMessage}
         onEditQueuedMessage={handleEditQueuedMessage}
         onRemoveQueuedMessage={handleRemoveQueuedMessage}
         onSteerQueuedMessage={(id) => { void handleSteer(id); }}
@@ -2040,10 +2054,11 @@ export function ChatRuntimeWindow({
         titleSubtitle={floatingSubtitle}
         userInputLabels={config.userInputLabels}
         userInputRequests={presentedUserInputRequests}
+        locale={config.locale}
         workRailLabels={config.workRailLabels}
         userInputAnswerPending={userInputAnswerPending}
         userInputRequest={userInputRequest}
-        onAnswerUserInput={(answers) => { void handleAnswerUserInput(answers); }}
+        onAnswerUserInput={compacting ? undefined : (answers) => { void handleAnswerUserInput(answers); }}
         onStateChange={onWindowStateChange}
         a2uiSession={a2uiSession}
       a2uiDisabled={sending || session?.status === "ARCHIVED"}

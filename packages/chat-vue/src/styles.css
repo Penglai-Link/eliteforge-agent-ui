@@ -641,6 +641,18 @@
   white-space: pre-wrap;
 }
 
+/* Keep the disclosure outside the preview's scroll area so opening it
+   immediately reveals JSON, even when the preview fills its height limit. */
+.ef-chat__tool-result-content,
+.ef-chat__tool-result-raw > .ef-chat__result-block {
+  max-height: 256px;
+  overflow: auto;
+}
+
+.ef-chat__tool-result-raw > .ef-chat__result-block {
+  box-sizing: border-box;
+}
+
 .ef-chat__result-block {
   overflow: auto;
   border-radius: 10px;

@@ -1,0 +1,409 @@
+{
+  "parallelCancellation": {
+    "live": {
+      "content": [
+        {
+          "type": "text",
+          "text": "{\"results\":[{\"index\":0,\"status\":\"Unknown\"},{\"index\":1,\"status\":\"Completed\",\"isError\":false,\"result\":\"confirmed success\"},{\"index\":2,\"status\":\"NotExecuted\"}]}"
+        }
+      ],
+      "structured": {
+        "kind": "toolBatch",
+        "results": [
+          {
+            "invocationId": "00000000-0000-0000-0000-00000000000a",
+            "callId": "00000000-0000-0000-0000-00000000000a",
+            "parentCallId": "provider-batch",
+            "parentInvocationId": "00000000-0000-0000-0000-000000000001",
+            "index": 0,
+            "status": "Unknown",
+            "content": []
+          },
+          {
+            "invocationId": "00000000-0000-0000-0000-00000000000b",
+            "callId": "00000000-0000-0000-0000-00000000000b",
+            "parentCallId": "provider-batch",
+            "parentInvocationId": "00000000-0000-0000-0000-000000000001",
+            "index": 1,
+            "status": "Completed",
+            "content": [
+              {
+                "type": "text",
+                "text": "confirmed success"
+              }
+            ],
+            "result": "confirmed success",
+            "isError": false
+          },
+          {
+            "invocationId": "00000000-0000-0000-0000-00000000000c",
+            "callId": "00000000-0000-0000-0000-00000000000c",
+            "parentCallId": "provider-batch",
+            "parentInvocationId": "00000000-0000-0000-0000-000000000001",
+            "index": 2,
+            "status": "NotExecuted",
+            "content": []
+          }
+        ]
+      },
+      "isError": true,
+      "effect": "Continue",
+      "resultReference": null
+    },
+    "history": {
+      "id": "00000000-0000-0000-0000-000000000001",
+      "callId": "provider-batch",
+      "toolName": "batch_outcome",
+      "arguments": {
+        "items": [
+          {
+            "n": 0
+          },
+          {
+            "n": 1
+          },
+          {
+            "n": 2
+          }
+        ]
+      },
+      "status": "Unknown",
+      "content": [
+        {
+          "type": "Text",
+          "text": "{\"results\":[{\"index\":0,\"status\":\"Unknown\"},{\"index\":1,\"status\":\"Completed\",\"isError\":false,\"result\":\"confirmed success\"},{\"index\":2,\"status\":\"NotExecuted\"}]}"
+        }
+      ],
+      "structured": {
+        "kind": "toolBatch",
+        "results": [
+          {
+            "invocationId": "00000000-0000-0000-0000-00000000000a",
+            "callId": "00000000-0000-0000-0000-00000000000a",
+            "parentCallId": "provider-batch",
+            "parentInvocationId": "00000000-0000-0000-0000-000000000001",
+            "index": 0,
+            "status": "Unknown",
+            "content": []
+          },
+          {
+            "invocationId": "00000000-0000-0000-0000-00000000000b",
+            "callId": "00000000-0000-0000-0000-00000000000b",
+            "parentCallId": "provider-batch",
+            "parentInvocationId": "00000000-0000-0000-0000-000000000001",
+            "index": 1,
+            "status": "Completed",
+            "content": [
+              {
+                "type": "text",
+                "text": "confirmed success"
+              }
+            ],
+            "result": "confirmed success",
+            "isError": false
+          },
+          {
+            "invocationId": "00000000-0000-0000-0000-00000000000c",
+            "callId": "00000000-0000-0000-0000-00000000000c",
+            "parentCallId": "provider-batch",
+            "parentInvocationId": "00000000-0000-0000-0000-000000000001",
+            "index": 2,
+            "status": "NotExecuted",
+            "content": []
+          }
+        ]
+      },
+      "isError": true
+    }
+  },
+  "exposeFailure": {
+    "live": {
+      "content": [
+        {
+          "type": "text",
+          "text": "{\"results\":[{\"index\":0,\"status\":\"Failed\",\"isError\":true,\"result\":\"tool not-authorized was not authorized by a provider\"},{\"index\":1,\"status\":\"Failed\",\"isError\":true,\"result\":\"tool not-authorized was not authorized by a provider\"},{\"index\":2,\"status\":\"Failed\",\"isError\":true,\"result\":\"tool not-authorized was not authorized by a provider\"}]}"
+        }
+      ],
+      "structured": {
+        "kind": "toolBatch",
+        "results": [
+          {
+            "invocationId": "00000000-0000-0000-0000-00000000000a",
+            "callId": "00000000-0000-0000-0000-00000000000a",
+            "parentCallId": "provider-batch",
+            "parentInvocationId": "00000000-0000-0000-0000-000000000001",
+            "index": 0,
+            "status": "Failed",
+            "content": [
+              {
+                "type": "text",
+                "text": "tool not-authorized was not authorized by a provider"
+              }
+            ],
+            "result": "tool not-authorized was not authorized by a provider",
+            "isError": true
+          },
+          {
+            "invocationId": "00000000-0000-0000-0000-00000000000b",
+            "callId": "00000000-0000-0000-0000-00000000000b",
+            "parentCallId": "provider-batch",
+            "parentInvocationId": "00000000-0000-0000-0000-000000000001",
+            "index": 1,
+            "status": "Failed",
+            "content": [
+              {
+                "type": "text",
+                "text": "tool not-authorized was not authorized by a provider"
+              }
+            ],
+            "result": "tool not-authorized was not authorized by a provider",
+            "isError": true
+          },
+          {
+            "invocationId": "00000000-0000-0000-0000-00000000000c",
+            "callId": "00000000-0000-0000-0000-00000000000c",
+            "parentCallId": "provider-batch",
+            "parentInvocationId": "00000000-0000-0000-0000-000000000001",
+            "index": 2,
+            "status": "Failed",
+            "content": [
+              {
+                "type": "text",
+                "text": "tool not-authorized was not authorized by a provider"
+              }
+            ],
+            "result": "tool not-authorized was not authorized by a provider",
+            "isError": true
+          }
+        ]
+      },
+      "isError": true,
+      "effect": "Continue",
+      "resultReference": null
+    },
+    "history": {
+      "id": "00000000-0000-0000-0000-000000000001",
+      "callId": "provider-batch",
+      "toolName": "batch_outcome",
+      "arguments": {
+        "items": [
+          {
+            "n": 0
+          },
+          {
+            "n": 1
+          },
+          {
+            "n": 2
+          }
+        ]
+      },
+      "status": "Failed",
+      "content": [
+        {
+          "type": "Text",
+          "text": "{\"results\":[{\"index\":0,\"status\":\"Failed\",\"isError\":true,\"result\":\"tool not-authorized was not authorized by a provider\"},{\"index\":1,\"status\":\"Failed\",\"isError\":true,\"result\":\"tool not-authorized was not authorized by a provider\"},{\"index\":2,\"status\":\"Failed\",\"isError\":true,\"result\":\"tool not-authorized was not authorized by a provider\"}]}"
+        }
+      ],
+      "structured": {
+        "kind": "toolBatch",
+        "results": [
+          {
+            "invocationId": "00000000-0000-0000-0000-00000000000a",
+            "callId": "00000000-0000-0000-0000-00000000000a",
+            "parentCallId": "provider-batch",
+            "parentInvocationId": "00000000-0000-0000-0000-000000000001",
+            "index": 0,
+            "status": "Failed",
+            "content": [
+              {
+                "type": "text",
+                "text": "tool not-authorized was not authorized by a provider"
+              }
+            ],
+            "result": "tool not-authorized was not authorized by a provider",
+            "isError": true
+          },
+          {
+            "invocationId": "00000000-0000-0000-0000-00000000000b",
+            "callId": "00000000-0000-0000-0000-00000000000b",
+            "parentCallId": "provider-batch",
+            "parentInvocationId": "00000000-0000-0000-0000-000000000001",
+            "index": 1,
+            "status": "Failed",
+            "content": [
+              {
+                "type": "text",
+                "text": "tool not-authorized was not authorized by a provider"
+              }
+            ],
+            "result": "tool not-authorized was not authorized by a provider",
+            "isError": true
+          },
+          {
+            "invocationId": "00000000-0000-0000-0000-00000000000c",
+            "callId": "00000000-0000-0000-0000-00000000000c",
+            "parentCallId": "provider-batch",
+            "parentInvocationId": "00000000-0000-0000-0000-000000000001",
+            "index": 2,
+            "status": "Failed",
+            "content": [
+              {
+                "type": "text",
+                "text": "tool not-authorized was not authorized by a provider"
+              }
+            ],
+            "result": "tool not-authorized was not authorized by a provider",
+            "isError": true
+          }
+        ]
+      },
+      "isError": true
+    }
+  },
+  "setExposureFailure": {
+    "live": {
+      "content": [
+        {
+          "type": "text",
+          "text": "{\"results\":[{\"index\":0,\"status\":\"Failed\",\"isError\":true,\"result\":\"Tool exposure contains an unauthorized ID\"},{\"index\":1,\"status\":\"Failed\",\"isError\":true,\"result\":\"Tool exposure contains an unauthorized ID\"},{\"index\":2,\"status\":\"Failed\",\"isError\":true,\"result\":\"Tool exposure contains an unauthorized ID\"}]}"
+        }
+      ],
+      "structured": {
+        "kind": "toolBatch",
+        "results": [
+          {
+            "invocationId": "00000000-0000-0000-0000-00000000000a",
+            "callId": "00000000-0000-0000-0000-00000000000a",
+            "parentCallId": "provider-batch",
+            "parentInvocationId": "00000000-0000-0000-0000-000000000001",
+            "index": 0,
+            "status": "Failed",
+            "content": [
+              {
+                "type": "text",
+                "text": "Tool exposure contains an unauthorized ID"
+              }
+            ],
+            "result": "Tool exposure contains an unauthorized ID",
+            "isError": true
+          },
+          {
+            "invocationId": "00000000-0000-0000-0000-00000000000b",
+            "callId": "00000000-0000-0000-0000-00000000000b",
+            "parentCallId": "provider-batch",
+            "parentInvocationId": "00000000-0000-0000-0000-000000000001",
+            "index": 1,
+            "status": "Failed",
+            "content": [
+              {
+                "type": "text",
+                "text": "Tool exposure contains an unauthorized ID"
+              }
+            ],
+            "result": "Tool exposure contains an unauthorized ID",
+            "isError": true
+          },
+          {
+            "invocationId": "00000000-0000-0000-0000-00000000000c",
+            "callId": "00000000-0000-0000-0000-00000000000c",
+            "parentCallId": "provider-batch",
+            "parentInvocationId": "00000000-0000-0000-0000-000000000001",
+            "index": 2,
+            "status": "Failed",
+            "content": [
+              {
+                "type": "text",
+                "text": "Tool exposure contains an unauthorized ID"
+              }
+            ],
+            "result": "Tool exposure contains an unauthorized ID",
+            "isError": true
+          }
+        ]
+      },
+      "isError": true,
+      "effect": "Continue",
+      "resultReference": null
+    },
+    "history": {
+      "id": "00000000-0000-0000-0000-000000000001",
+      "callId": "provider-batch",
+      "toolName": "batch_outcome",
+      "arguments": {
+        "items": [
+          {
+            "n": 0
+          },
+          {
+            "n": 1
+          },
+          {
+            "n": 2
+          }
+        ]
+      },
+      "status": "Failed",
+      "content": [
+        {
+          "type": "Text",
+          "text": "{\"results\":[{\"index\":0,\"status\":\"Failed\",\"isError\":true,\"result\":\"Tool exposure contains an unauthorized ID\"},{\"index\":1,\"status\":\"Failed\",\"isError\":true,\"result\":\"Tool exposure contains an unauthorized ID\"},{\"index\":2,\"status\":\"Failed\",\"isError\":true,\"result\":\"Tool exposure contains an unauthorized ID\"}]}"
+        }
+      ],
+      "structured": {
+        "kind": "toolBatch",
+        "results": [
+          {
+            "invocationId": "00000000-0000-0000-0000-00000000000a",
+            "callId": "00000000-0000-0000-0000-00000000000a",
+            "parentCallId": "provider-batch",
+            "parentInvocationId": "00000000-0000-0000-0000-000000000001",
+            "index": 0,
+            "status": "Failed",
+            "content": [
+              {
+                "type": "text",
+                "text": "Tool exposure contains an unauthorized ID"
+              }
+            ],
+            "result": "Tool exposure contains an unauthorized ID",
+            "isError": true
+          },
+          {
+            "invocationId": "00000000-0000-0000-0000-00000000000b",
+            "callId": "00000000-0000-0000-0000-00000000000b",
+            "parentCallId": "provider-batch",
+            "parentInvocationId": "00000000-0000-0000-0000-000000000001",
+            "index": 1,
+            "status": "Failed",
+            "content": [
+              {
+                "type": "text",
+                "text": "Tool exposure contains an unauthorized ID"
+              }
+            ],
+            "result": "Tool exposure contains an unauthorized ID",
+            "isError": true
+          },
+          {
+            "invocationId": "00000000-0000-0000-0000-00000000000c",
+            "callId": "00000000-0000-0000-0000-00000000000c",
+            "parentCallId": "provider-batch",
+            "parentInvocationId": "00000000-0000-0000-0000-000000000001",
+            "index": 2,
+            "status": "Failed",
+            "content": [
+              {
+                "type": "text",
+                "text": "Tool exposure contains an unauthorized ID"
+              }
+            ],
+            "result": "Tool exposure contains an unauthorized ID",
+            "isError": true
+          }
+        ]
+      },
+      "isError": true
+    }
+  }
+}

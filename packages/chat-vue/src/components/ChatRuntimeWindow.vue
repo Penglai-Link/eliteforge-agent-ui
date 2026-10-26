@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { contextCompactionInProgress, historyCompactionEvents } from "@eliteforge/agent-ui-chat-core";
 import type { ChatAnnotation } from "@eliteforge/agent-ui-chat-core";
 import {
   AssistantReplyQueue,
@@ -10,6 +11,7 @@ import {
   historyEventRunId,
   historyUserInputRequests,
   nativeUserInputAnswer,
+  activeNativeUserInputRequests,
   type SessionHistory,
   type HistoryCursor,
   type ChatAdapter,
@@ -203,6 +205,15 @@ const sending = ref(false);
 const steering = ref(false);
 const loading = ref(false);
 const historySnapshot = shallowRef<SessionHistory | null>(null);
+watch([historySnapshot, protocolEvents, liveAguiEvents], () => {
+  const events = mergeTranscriptAguiEvents(protocolEvents.value, liveAguiEvents.value) as ChatAguiStreamEvent[];
+  const active = (requests: ChatUserInputRequest[]) => activeNativeUserInputRequests(
+    requests, events, session.value?.sessionId ?? "", historySnapshot.value);
+  userInputRequests.value = active(userInputRequests.value);
+  if (userInputRequest.value && !active([userInputRequest.value]).length) {
+    userInputRequest.value = userInputRequests.value.find(request => request.status === "Pending") ?? null;
+  }
+}, {deep:true});
 const historyCursor = ref<HistoryCursor | null>(null);
 const historyLoadingOlder = ref(false);
 const liveAguiPending = ref(false);
@@ -253,6 +264,10 @@ const runActive = computed(
     Boolean(pendingProtocolTerminalRun.value) ||
     activeRunStatusPending.value,
 );
+const localCompactionSession = ref("");
+const operationKind = computed(() => runActive.value ? remoteActiveRun.value?.operationKind ?? (localCompactionSession.value === session.value?.sessionId || contextCompactionInProgress(protocolEvents.value, effectiveActiveRunCode.value) ? "ContextCompaction" : undefined) : undefined);
+const compacting = computed(() => operationKind.value === "ContextCompaction");
+watch(runActive, active => { if (!active) localCompactionSession.value = ""; });
 const effectiveRunState = computed(() => {
   if (
     pendingProtocolTerminalRun.value?.runId === effectiveActiveRunCode.value
@@ -275,7 +290,7 @@ const effectiveSupportsSteer = computed(() => {
 });
 const canSteer = computed(() =>
   Boolean(
-    activeAdapter.value.capabilities.supportsSteer &&
+    !compacting.value && activeAdapter.value.capabilities.supportsSteer &&
       activeAdapter.value.steerMessage &&
       effectiveActiveRunCode.value &&
       effectiveRunState.value === "RUNNING" &&
@@ -292,7 +307,7 @@ const visibleQueuedSubmissions = computed(() =>
 );
 const canStop = computed(() =>
   Boolean(
-    session.value &&
+    !compacting.value && session.value &&
       !stopping.value &&
       ((effectiveActiveRunCode.value &&
         effectiveRunState.value === "RUNNING" &&
@@ -308,7 +323,7 @@ const canStop = computed(() =>
 );
 
 watch(
-  [runActive, effectiveActiveRunCode, canSteer, () => session.value?.sessionId ?? "", loading, activeRunStatusPending],
+  [runActive, effectiveActiveRunCode, canSteer, () => session.value?.sessionId ?? "", loading, activeRunStatusPending, operationKind],
   ([active, runId, supportsSteer, sessionId, historyLoading, statusPending]) => {
     props.onRunStateChange?.({
       loading: historyLoading || statusPending,
@@ -316,6 +331,7 @@ watch(
       runId,
       sessionId,
       supportsSteer,
+      operationKind: operationKind.value,
     });
   },
   { immediate: true },
@@ -362,7 +378,7 @@ async function loadActiveRunSnapshot(
   signal?: AbortSignal,
 ) {
   const adapter = activeAdapter.value;
-  if (adapter.loadHistory) {
+  if (adapter.loadHistory && (!adapter.capabilities.supportsActiveRun || !adapter.getActiveRun)) {
     return historyActiveRun(await adapter.loadHistory(sessionId, { limit: 20, cursor: null }, signal));
   }
   if (!adapter.capabilities.supportsActiveRun || !adapter.getActiveRun) {
@@ -382,7 +398,6 @@ async function queryActiveRunSnapshot(
   signal?: AbortSignal,
 ): Promise<ActiveRunQueryResult> {
   const adapter = activeAdapter.value;
-  if (adapter.loadHistory) return { kind: "unsupported" };
   if (!adapter.capabilities.supportsActiveRun || !adapter.getActiveRun) {
     return { kind: "unsupported" };
   }
@@ -620,7 +635,7 @@ watch(
       ),
       queryActiveRunSnapshot(nextSessionCode, abortController.signal),
     ]);
-    const activeRunResult = dataResult.kind === "success" && dataResult.nextHistory
+    const activeRunResult = queriedActiveRunResult.kind !== "success" && dataResult.kind === "success" && dataResult.nextHistory
       ? { kind: "success" as const, activeRun: historyActiveRun(dataResult.nextHistory) }
       : queriedActiveRunResult;
     if (!active || abortController.signal.aborted) return;
@@ -660,7 +675,8 @@ watch(
 async function readPresentation(sessionId: string, signal?: AbortSignal, adapter: ChatAdapter = activeAdapter.value) {
   if (adapter.loadHistory) {
     const page = await adapter.loadHistory(sessionId, { limit: 20, cursor: null }, signal);
-    return [historyMessages(page, props.config.userInputLabels), [] as ChatAguiEvent[], [] as ChatAguiStreamEvent[], historyUserInputRequests(page, props.config.userInputLabels), page] as const;
+    const notices = historyCompactionEvents(page);
+    return [historyMessages(page, props.config.userInputLabels), [] as ChatAguiEvent[], notices, historyUserInputRequests(page, props.config.userInputLabels), page] as const;
   }
   const parts = await Promise.all([
     adapter.loadMessages(sessionId),
@@ -786,14 +802,14 @@ watch(
 );
 
 const sendDisabled = computed(() => {
-  if (loading.value || props.config.disabledInput || userInputRequest.value) return true;
+  if (compacting.value || loading.value || props.config.disabledInput || userInputRequest.value) return true;
   if (!draft.value.trim() && !pendingAttachments.value.length && !pendingAnnotations.value.length) return true;
   return false;
 });
 const queueDisabled = computed(
   () =>
     loading.value ||
-    Boolean(props.config.disabledInput) ||
+    compacting.value || Boolean(props.config.disabledInput) ||
     Boolean(userInputRequest.value) ||
     (!draft.value.trim() && !pendingAttachments.value.length && !pendingAnnotations.value.length) ||
     !session.value,
@@ -867,6 +883,7 @@ async function runMessage(
     return false;
   }
   sendInput = {...sendInput, clientCapabilities: {...sendInput.clientCapabilities, a2ui: {version: "v0.9.1", catalogIds: [AGENT_CATALOG_ID]}}, a2uiMetadata: a2uiSession.value.metadata(sendInput.metadata?.agentId as string | undefined ?? "main-agent")};
+  localCompactionSession.value = sendInput.content.trim().toLowerCase() === "/compact" ? activeSession.sessionId : "";
   const content = sendInput.content.trim();
   if (!content && !sendInput.attachments?.length && !sendInput.annotations?.length) {
     restoreSourceSubmission(sourceSubmission, queueGeneration);
@@ -1364,6 +1381,7 @@ const handleA2uiAction: ChatA2uiActionHandler = (message, metadata, context) => 
   }).catch(e => props.onError?.(String(e), "A2UI action failed")).finally(() => { if(activeObserverRef.value === observer) {assistantReplyQueue.flush(); streamingAssistantMessageCode.value = null; activeObserverRef.value = null; sending.value = false; activeRunCode.value = "";} });
 };
 async function handleAnswerUserInput(answers: ChatUserInputAnswer[]) {
+  if (compacting.value) return;
   const activeSession = session.value;
   const request = userInputRequest.value;
   const textStream = activeSession ? new AssistantMessageStream(activeSession) : null;
@@ -1502,6 +1520,7 @@ function handleReorderQueuedMessage(sourceId: string, targetId: string) {
 }
 
 async function handleStop() {
+  if (compacting.value) return;
   if (stopping.value) return;
   const activeSession = session.value;
   if (!activeSession) return;
@@ -1699,7 +1718,7 @@ const panelCommonProps = computed(() => ({
   createSessionLabel: "Start chat",
   currentUserDisplayName: props.currentUserDisplayName,
   debugOptions: resolvedDebugOptions.value,
-  disabledInput: Boolean(props.config.disabledInput) || Boolean(userInputRequest.value),
+  disabledInput: compacting.value || Boolean(props.config.disabledInput) || Boolean(userInputRequest.value),
   draft: draft.value,
   emptyDescription: props.emptyDescription ?? "Create a session to start chatting.",
   emptyTitle: props.emptyTitle,
@@ -1723,7 +1742,7 @@ const panelCommonProps = computed(() => ({
   onNewSession: handleNewSession,
   onDraftChange: handleDraftChange,
   onPasteAttachment: handleAttachmentUpload,
-  onEditMessage: handleEditMessage,
+  onEditMessage: compacting.value ? undefined : handleEditMessage,
   onEditQueuedMessage: handleEditQueuedMessage,
   onRemoveQueuedMessage: handleRemoveQueuedMessage,
   onSteerQueuedMessage: (id: string) => { void handleSteer(id); },
@@ -1755,6 +1774,7 @@ const panelCommonProps = computed(() => ({
   title: props.config.title || props.floatingTitle,
   userInputLabels: props.config.userInputLabels,
   userInputRequests: presentedUserInputRequests.value,
+  locale: props.locale ?? props.config.locale,
   workRailLabels: props.config.workRailLabels,
   userInputAnswerPending: userInputAnswerPending.value,
   userInputRequest: userInputRequest.value,
@@ -1777,7 +1797,7 @@ function handleWindowStateChange(state: ChatFloatingState) {
     :title-subtitle="floatingSubtitle"
     @state-change="handleWindowStateChange"
   >
-    <template #footerAddon><slot name="footerAddon" /></template>
+    <template #footerAddon><fieldset :disabled="compacting" style="display: contents"><slot name="footerAddon" /></fieldset></template>
     <template v-for="name in forwardedSlotNames" #[name]="slotProps">
       <slot :name="name" v-bind="slotProps || {}" />
     </template>
@@ -1787,7 +1807,7 @@ function handleWindowStateChange(state: ChatFloatingState) {
     v-bind="panelCommonProps"
     :show-header="props.showHeader ?? true"
   >
-    <template #footerAddon><slot name="footerAddon" /></template>
+    <template #footerAddon><fieldset :disabled="compacting" style="display: contents"><slot name="footerAddon" /></fieldset></template>
     <template v-for="name in forwardedSlotNames" #[name]="slotProps">
       <slot :name="name" v-bind="slotProps || {}" />
     </template>

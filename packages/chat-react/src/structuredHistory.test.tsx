@@ -29,7 +29,8 @@ it("reads one structured snapshot and renders records without any event replay",
   const work = screen.getByRole("button", { name: /Worked for/ });
   expect(work.getAttribute("aria-expanded")).toBe("false");
   fireEvent.click(work);
-  fireEvent.click(await screen.findByRole("button", { name: /Lookup/i }));
+  for (const group of document.querySelectorAll("button.ef-chat__rail-entry-toggle[aria-expanded=\"false\"]")) fireEvent.click(group);
+  fireEvent.click(await screen.findByRole("button", { name: /Run tool Lookup/i }));
   expect(await screen.findByText("No result payload.")).toBeTruthy();
   expect(screen.queryByText("Ran lookup")).toBeNull();
   expect(screen.getByText('"public": true', { exact: false })).toBeTruthy();
@@ -88,6 +89,10 @@ it.each(["system-trigger", "assistant-only"])("renders completed background hist
 
 it("keeps a background interaction visible when its system trigger and assistant have no text", async () => {
   const adapter=host(); const snapshot=page();
+  // A pending interaction belongs to a waiting run, never a terminal one.
+  snapshot.runs[0].status = "Waiting";
+  snapshot.runs[0].finishedAtMs = null;
+  snapshot.activeRuns = [snapshot.runs[0]];
   snapshot.records.messages.forEach(message => { message.content=[]; if(message.role === "User") message.provenance={sender:{kind:"SYSTEM",displayName:"Task reminder"},source:"TaskReminder"}; });
   const interaction={id:"awaiting-background-input",runId:"R",invocationId:"TOOL",prompt:[{type:"Text" as const,text:"Proceed with background work?"}],responseSchema:{type:"boolean"},presentation:null,response:null,expiresAtMs:null};
   snapshot.records.interactions=[interaction];snapshot.pendingInteractions=[interaction];
@@ -112,28 +117,29 @@ it("restores an answered questionnaire as a user card from durable history", asy
   await waitFor(()=>expect(restored.container.querySelectorAll('[data-history-interaction-id="ASK"]')).toHaveLength(1));
   expect(restored.container.querySelector('[data-history-interaction-id="ASK"]')?.textContent).toContain("Keep it brief");
 });
-it("keeps the domain expansion action in completed structured tool rows", async () => {
+it("keeps a completed structured tool row expandable", async () => {
   const adapter = host();
   const snapshot = page();
   Object.assign(snapshot.records.toolInvocations[0], {
-    toolId: "discovery_expand_tool_domain", toolName: "discovery_expand_tool_domain",
-    arguments: { domainCode: "dude" }, status: "Completed", finishedAtMs: 2,
-    structured: { status: "expanded", toolCount: 4 },
+    toolId: "fs_read_text", toolName: "fs_read_text",
+    arguments: { path: "README.md" }, status: "Completed", finishedAtMs: 2,
+    structured: { status: "done" },
   });
   vi.mocked(adapter.loadHistory!).mockResolvedValue(snapshot);
   render(<ChatRuntimeWindow adapter={adapter} initialSession={session} config={{ floating: false,
     workRailLabels: {
       ariaLabel: "Work", preparing: "Preparing", responding: "Responding", thinking: "Thinking",
       workedFor: (duration) => `Worked for ${duration}`, workingFor: (duration) => `Working for ${duration}`,
-      tool: { resolveName: () => "Dude", domainExpanded: (name) => `Expand ${name} tools` },
+      tool: { resolveName: () => "Dude" },
     },
   }} onError={vi.fn()} />);
   await screen.findByText("Durable answer");
   fireEvent.click(screen.getByRole("button", { name: /Worked for/ }));
-  const tool = screen.getByRole("button", { name: "Expand Dude tools" });
+  for (const group of document.querySelectorAll("button.ef-chat__rail-entry-toggle[aria-expanded=\"false\"]")) fireEvent.click(group);
+  const tool = screen.getByRole("button", { name: "Dude README.md" });
   expect(tool).toBeTruthy();
   fireEvent.click(tool);
-  expect(screen.getByRole("button", { name: "Expand Dude tools" }).getAttribute("aria-expanded")).toBe("true");
+  expect(screen.getByRole("button", { name: "Dude README.md" }).getAttribute("aria-expanded")).toBe("true");
 });
 it("reports loading while restoring history, then reports the authoritative idle state", async () => {
   const adapter = host();

@@ -54,10 +54,9 @@ it("renders real native progress while argument END does not mark execution comp
  const events=[{type:"RUN_STARTED" as const,runId:"RUN",threadId:"SESSION",timestamp:time,metadata},{type:"TOOL_CALL_START" as const,runId:"RUN",threadId:"SESSION",toolCallId:"TOOL",toolCallName:"progress",timestamp:time,metadata},{type:"TOOL_CALL_END" as const,runId:"RUN",threadId:"SESSION",toolCallId:"TOOL",timestamp:time,metadata},{type:"ACTIVITY_SNAPSHOT" as const,runId:"RUN",threadId:"SESSION",messageId:"ACTIVITY",activityType:"tron.tool.progress",timestamp:time,content:{toolCallId:"TOOL",toolName:"progress",line:"live native progress"},metadata}];
  const rendered=render(<ChatPanel {...props} protocolEvents={events}/>);
  const workSummary = screen.getByRole("button", { name: /Working for/ });
- expect(workSummary.getAttribute("aria-expanded")).toBe("false");
- fireEvent.click(workSummary);
- fireEvent.click(screen.getByRole("button", {name:/Running progress/i}));
- expect(screen.getByText("Running Progress")).toBeTruthy();expect(screen.getByText("live native progress")).toBeTruthy();expect(screen.queryByText("Completed Progress")).toBeNull();
+ expect(workSummary.getAttribute("aria-expanded")).toBe("true");
+ fireEvent.click(screen.getByRole("button", {name:/Run tool Progress/i}));
+ expect(rendered.container.querySelector(".ef-chat__tool-title")?.textContent).toContain("Progress");expect(screen.getByText("live native progress")).toBeTruthy();expect(rendered.container.querySelector(".ef-chat__tool-badge--done")).toBeNull();
  rendered.rerender(<ChatPanel {...props} protocolEvents={[...events,{type:"TOOL_CALL_RESULT",runId:"RUN",threadId:"SESSION",toolCallId:"TOOL",content:"actual result",timestamp:time+1,metadata}]}/>);
- expect(screen.getByText("Completed Progress")).toBeTruthy();expect(screen.queryByText("Running Progress")).toBeNull();
+ expect(rendered.container.querySelector(".ef-chat__tool-title")?.textContent).toContain("Progress");expect(rendered.container.querySelector(".ef-chat__tool-badge--done")).toBeTruthy();
 });

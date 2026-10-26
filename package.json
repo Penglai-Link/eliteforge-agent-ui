@@ -11,7 +11,9 @@
     "build": "node scripts/build.mjs",
     "postinstall": "patch-package && node packages/terminal/scripts/patch-xterm-ime.mjs",
     "test": "npm run test --workspaces --if-present",
-    "check": "npm run build && npm test"
+    "check": "npm run build && npm test",
+    "test:batch-contract": "npm run build --workspace @eliteforge/agent-ui-chat-core && npm run test --workspace @eliteforge/agent-ui-chat-core --workspace @eliteforge/agent-ui-chat-react --workspace @eliteforge/agent-ui-chat-vue -- toolBatch.test.ts batchRecoveryTimeline.test.ts batchRecoveryRuntime.test.ts batchRecoveryRuntime.test.tsx nativeInteractions.test.ts nativeInteractions.test.tsx workTimeline.test.ts toolResults.test.ts ToolResultView.test.tsx toolPresentation.test.ts",
+    "test:tool-search-contract": "npm run build --workspace @eliteforge/agent-ui-chat-core && npm run test --workspace @eliteforge/agent-ui-chat-core --workspace @eliteforge/agent-ui-chat-react --workspace @eliteforge/agent-ui-chat-vue -- toolSearchContract.test.ts ToolResultView.test.tsx toolResults.test.ts"
   },
   "devDependencies": {
     "@changesets/cli": "^2.31.1",

@@ -9,6 +9,8 @@ const props = defineProps<{
   labels?: ChatWorkRailLabels;
   statusLabels?: Record<string, string>;
   failedStatuses?: Record<string, boolean>;
+  locale?: string;
+  autoExpanded?: boolean;
 }>();
 
 const toolCards = computed(() =>
@@ -19,21 +21,20 @@ const hasRunningTool = computed(() =>
 );
 const summary = computed(() => props.labels?.tool?.groupSummary?.(summarizeToolActions(toolCards.value))
   ?? defaultToolActionSummaryLabel(summarizeToolActions(toolCards.value)));
-const expanded = ref(false);
+const expanded = ref(props.autoExpanded ?? false);
 
 watch(
-  hasRunningTool,
-  () => {
-    if (!hasRunningTool.value) expanded.value = false;
+  () => props.autoExpanded,
+  (value) => {
+    expanded.value = value ?? false;
   },
   { immediate: true },
 );
 </script>
 
 <template>
-  <ToolCard v-if="toolCards.length === 1" :card="toolCards[0]" :labels="props.labels" :nested="true" />
   <section
-    v-else-if="toolCards.length > 1"
+    v-if="toolCards.length > 0"
     :aria-label="props.labels?.tool?.ariaLabel ?? 'Tool run steps'"
     class="ef-chat__rail-entry"
   >
@@ -60,7 +61,7 @@ watch(
     </button>
     <ol v-if="expanded" class="ef-chat__rail-entry-list">
       <li v-for="tc in toolCards" :key="tc.id">
-            <ToolCard :card="tc" :labels="props.labels" :nested="true" :status-label="props.statusLabels?.[tc.id]" :status-failed="props.failedStatuses?.[tc.id]" />
+            <ToolCard :card="tc" :labels="props.labels" :locale="props.locale" :nested="true" :status-label="props.statusLabels?.[tc.id]" :status-failed="props.failedStatuses?.[tc.id]" />
       </li>
     </ol>
   </section>

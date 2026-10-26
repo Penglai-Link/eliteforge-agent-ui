@@ -55,6 +55,8 @@ export interface ChatPanelProps extends Pick<ComposerVueProps, "pendingAttachmen
   liveAguiEvents?: ChatAguiStreamEvent[];
   liveAguiPendingAnchorMessageCode?: string;
   liveAguiPending?: boolean;
+  /** Host language for tool card titles ('zh-CN' | 'en-US' | anything). */
+  locale?: string;
   messages: ChatMessage[];
   historyLoading?: boolean;
   historyLoadingOlder?: boolean;
@@ -125,6 +127,8 @@ export interface ChatRuntimeWindowProps {
   formatAnnotationCount?: (count: number) => string;
   footerAddon?: unknown;
   initialSession?: ChatSession | null;
+  /** Host language for tool card titles; `config.locale` is used when omitted. */
+  locale?: string;
   onCreateSession?: () => void;
   onDraftChange?: (draft: string) => void;
   onError?: ToastLikeCallback;

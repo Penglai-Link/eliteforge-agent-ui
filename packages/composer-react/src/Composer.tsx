@@ -555,7 +555,7 @@ export function Composer({
               if (
                 suggestionsOpen &&
                 visibleSuggestions.length &&
-                event.key === "Enter" &&
+                (event.key === "Enter" || (event.key === "Tab" && !event.altKey)) &&
                 !event.shiftKey && !event.metaKey && !event.ctrlKey
               ) {
                 event.preventDefault();

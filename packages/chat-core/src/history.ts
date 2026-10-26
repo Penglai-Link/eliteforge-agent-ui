@@ -1,8 +1,11 @@
+import { type ToolBatchItem, parseToolApprovalDetails } from "./toolBatch";
 import type { ChatAnnotation } from "./annotations";
 import type { ChatMessage, MessageProvenance, ChatUserInputLabels, ChatUserInputRequest } from "./types";
 import { interactionMessages } from "./interactionMessages";
 
 export type HistoryStatus = "Running" | "Waiting" | "Completed" | "Interrupted" | "Failed" | "Unknown" | "Planned" | "Approved";
+/** Framework's public maintenance step name, with ordinary HistoryStep status. */
+export const CONTEXT_COMPACTION_STEP = "framework.context.compaction";
 export type HistoryContentBlock =
   | { type: "Text" | "Reasoning"; text: string }
   | { type: "Json"; value: unknown }
@@ -21,6 +24,8 @@ export interface HistoryStep {
   usage: { inputTokens: number; outputTokens: number } | null; startedAtMs: number; finishedAtMs: number | null;
 }
 export interface HistoryToolInvocation {
+  batchRevision?: string;
+  batch?: ToolBatchItem | null;
   id: string; runId: string; stepId: string; messageId: string; callId: string; toolId: string; toolName: string;
   arguments: unknown; status: HistoryStatus; content: HistoryContentBlock[]; structured: unknown; isError: boolean | null;
   resultReference: HistoryContentBlock | null; startedAtMs: number | null; finishedAtMs: number | null;
@@ -60,7 +65,7 @@ export function historyMessages(page: SessionHistory, labels?: ChatUserInputLabe
   const steps = new Map(page.records.steps.map((s) => [s.id, s]));
   const runs = new Map(page.runs.map((r) => [r.id, r]));
   const tools = new Map<string, HistoryToolInvocation[]>();
-  page.records.toolInvocations.forEach((t) => { const group = tools.get(t.messageId) ?? []; group.push(t); tools.set(t.messageId, group); });
+  page.records.toolInvocations.filter(t => !t.batch).forEach((t) => { const group = tools.get(t.messageId) ?? []; group.push(t); tools.set(t.messageId, group); });
   const interactionTools = new Map(page.records.interactions.map(i => [i.id,
     page.records.toolInvocations.find(t => t.runId === i.runId && (t.id === i.id || t.id === i.invocationId))
       ?? page.records.toolInvocations.find(t => {
@@ -143,7 +148,7 @@ export function historyUserInputRequests(page: SessionHistory, labels?: Partial<
         allowCustomAnswer: entry.allow_free_text === true || entry.allowCustomAnswer === true,
         allowSkip: entry.allow_skip === true || entry.allowSkip === true,
       })) : [{ questionId: interaction.id, question, options, allowCustomAnswer: !choices.length, allowSkip: false }],
-      nativeInteraction: { questionnaire:Array.isArray(presented), reason: approval ? "approval_required" : "input_required", responseSchema: schema, optionPayloads, ...(approval ? {details: {tool: page.records.toolInvocations.find(t=>t.id===interaction.invocationId)?.toolName ?? "", parameters: page.records.toolInvocations.find(t=>t.id===interaction.invocationId)?.arguments ?? {}}} : {}) },
+      nativeInteraction: { questionnaire:Array.isArray(presented), reason: approval ? "approval_required" : "input_required", responseSchema: schema, optionPayloads, ...(approval ? {details: {...(parseToolApprovalDetails(interaction.presentation) ?? {tool: page.records.toolInvocations.find(t=>t.id===interaction.invocationId)?.toolName ?? "", parameters: page.records.toolInvocations.find(t=>t.id===interaction.invocationId)?.arguments ?? {}})}} : {}) },
     };
   });
 }

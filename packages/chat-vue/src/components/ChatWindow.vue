@@ -384,6 +384,7 @@ function endResize(event: PointerEvent) {
           :live-agui-events="liveAguiEvents"
           :live-agui-pending-anchor-message-code="liveAguiPendingAnchorMessageCode"
           :live-agui-pending="liveAguiPending"
+          :locale="props.locale"
           :messages="messages"
           :on-answer-user-input="onAnswerUserInput"
           :on-paste-attachment="onPasteAttachment"
