@@ -1102,15 +1102,14 @@ it("localizes tool card titles from the host locale and keeps host names first",
   };
   const view = renderPanel({ messages: [user], protocolEvents: eventsFor("command", "bash_exec", { command: "cargo test" }), locale: "zh-CN", workRailLabels: labels });
   fireEvent.click(screen.getByRole("button", { name: /Worked for/ }));
-  expect(view.container.querySelector('.ef-chat__rail-entry-toggle')?.getAttribute('aria-expanded')).toBe('false');
-  fireEvent.click(view.container.querySelector('.ef-chat__rail-entry-toggle')!);
+  expect(view.container.querySelector('.ef-chat__rail-entry-toggle')).toBeNull();
   expect(view.container.textContent).toContain("执行命令 cargo test");
   expect(view.container.textContent).not.toContain("bash_exec");
   view.unmount();
 
   const readView = renderPanel({ messages: [user], protocolEvents: eventsFor("read", "fs_read_text", { path: "src/main.rs" }), locale: "zh-CN", workRailLabels: labels });
   fireEvent.click(screen.getByRole("button", { name: /Worked for/ }));
-  fireEvent.click(readView.container.querySelector('.ef-chat__rail-entry-toggle')!);
+  expect(readView.container.querySelector('.ef-chat__rail-entry-toggle')).toBeNull();
   expect(readView.container.textContent).toContain("读取文件 src/main.rs");
   expect(readView.container.textContent).not.toContain("fs_read_text");
   readView.unmount();
@@ -1118,7 +1117,7 @@ it("localizes tool card titles from the host locale and keeps host names first",
   const hostView = renderPanel({ messages: [user], protocolEvents: eventsFor("command", "bash_exec", { command: "cargo test" }), locale: "zh-CN",
     workRailLabels: { ...labels, tool: { resolveName: () => "自定义工具" } } });
   fireEvent.click(screen.getByRole("button", { name: /Worked for/ }));
-  fireEvent.click(hostView.container.querySelector('.ef-chat__rail-entry-toggle')!);
+  expect(hostView.container.querySelector('.ef-chat__rail-entry-toggle')).toBeNull();
   expect(hostView.container.textContent).toContain("自定义工具 cargo test");
 });
 
@@ -1138,7 +1137,7 @@ it("ignores a host tool name that only echoes the raw tool id", () => {
   const view = renderPanel({ messages: [user], protocolEvents: events, locale: "zh-CN",
     workRailLabels: { ...labels, tool: { resolveName: (runtimeName: string) => runtimeName } } });
   fireEvent.click(screen.getByRole("button", { name: /Worked for/ }));
-  fireEvent.click(view.container.querySelector('.ef-chat__rail-entry-toggle')!);
+  expect(view.container.querySelector('.ef-chat__rail-entry-toggle')).toBeNull();
   expect(view.container.textContent).toContain("执行命令 cargo test");
   expect(view.container.textContent).not.toContain("bash_exec");
   view.unmount();

@@ -407,3 +407,26 @@ describe("batch tool presentation", () => {
     expect(presentToolCall("tool_execute", {tool:"fs_write_text",arguments:{path:"a.txt",content:"x"}}, {locale:"en-US"}).title).toBe("Edit file a.txt");
   });
 });
+
+
+describe("subagent dispatch target", () => {
+  it.each([
+    { agentCode: "fast-coding-luna" },
+    { agent_code: "fast-coding-luna" },
+    { items: [{ agentCode: "fast-coding-luna", task: "Only reply OK" }] },
+    JSON.stringify({ items: [{ agentCode: "fast-coding-luna" }] }),
+  ])("includes the real target in a collapsed title: %j", args => {
+    expect(toolDisplayName("agent_spawn", args, undefined, "zh-CN"))
+      .toBe("分派子代理 fast-coding-luna");
+    expect(toolCompactLabel("agent_spawn", args, "分派子代理", "zh-CN"))
+      .toBe("分派子代理 fast-coding-luna");
+  });
+
+  it("prefers a supplied display name and does not duplicate it", () => {
+    const args = { agentCode: "fast-coding-luna", agentName: "gpt快速编码" };
+    expect(toolDisplayName("agent_spawn", args, undefined, "zh-CN"))
+      .toBe("分派子代理 gpt快速编码");
+    expect(toolCompactLabel("agent_spawn", args, "分派子代理 gpt快速编码", "zh-CN"))
+      .toBe("分派子代理 gpt快速编码");
+  });
+});

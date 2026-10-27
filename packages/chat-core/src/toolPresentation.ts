@@ -240,7 +240,7 @@ export const TOOL_OVERRIDES: ToolPresentationOverride[] = [
   {
     match: "agent_spawn",
     titleKey: "tool.title.spawn.agent",
-    subjectKeys: ["agent_name", "agentName", "name", "subagent"],
+    subjectKeys: ["agent_name", "agentName", "subagentName", "subagent_name", "name", "subagent", "agentCode", "agent_code", "agent"],
     nounKey: "assistant",
     verbKey: "spawn",
   },

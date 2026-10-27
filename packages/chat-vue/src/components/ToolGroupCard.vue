@@ -33,8 +33,17 @@ watch(
 </script>
 
 <template>
+  <!-- A single invocation, including a batch, does not need a group wrapper. -->
+  <ToolCard
+    v-if="toolCards.length === 1"
+    :card="toolCards[0]!"
+    :labels="props.labels"
+    :locale="props.locale"
+    :status-label="props.statusLabels?.[toolCards[0]!.id]"
+    :status-failed="props.failedStatuses?.[toolCards[0]!.id]"
+  />
   <section
-    v-if="toolCards.length > 0"
+    v-else-if="toolCards.length > 1"
     :aria-label="props.labels?.tool?.ariaLabel ?? 'Tool run steps'"
     class="ef-chat__rail-entry"
   >

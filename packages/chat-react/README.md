@@ -85,6 +85,18 @@ const adapter: ChatAdapter = {
 
 组件名称、配置和数据类型均不绑定业务项目。文案可通过组件 props、主题 CSS 变量及 `@eliteforge/agent-ui-chat-theme` 覆盖；侧栏、头部和底部可通过 `sidebarContent`、`headerContent`、`footerAddon` 扩展。
 
+## 工具展示
+
+整轮工作过程可以折叠。展开后，每个连续工具阶段按工具调用数量展示：
+
+```text
+0 个调用 -> 不展示工具卡片
+1 个调用 -> 直接展示工具卡片
+多个调用 -> 分组摘要 -> 展开后展示工具卡片
+```
+
+一次调用中的批量条目仍属于同一个工具调用。实时运行、历史恢复和事件重放均遵循此规则。
+
 ## 导出
 
 - `ChatRuntimeWindow`：包含会话和消息状态管理的完整运行时。

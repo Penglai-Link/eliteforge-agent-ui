@@ -880,11 +880,6 @@ function ToolCard({
 function ToolGroupCard({ card, labels = defaultWorkRailLabels, statusLabels, failedStatuses, locale, autoExpanded = false }: { card: ToolGroupWorkCard; labels?: ChatWorkRailLabels; statusLabels?: Record<string, string>; failedStatuses?: Record<string, boolean>; locale?: string; autoExpanded?: boolean }) {
   const toolCopy = { ...defaultToolWorkLabels, ...labels.tool };
   const toolCards = card.toolCards.filter((toolCard) => toolCard.started);
-  const hasRunningTool = toolCards.some(
-    (toolCard) => toolCard.started && !toolCard.ended && !toolCard.result,
-  );
-  const summary = toolCopy.groupSummary?.(summarizeToolActions(toolCards))
-    ?? defaultToolActionSummaryLabel(summarizeToolActions(toolCards));
   const [expanded, setExpanded] = useState(autoExpanded);
 
   useEffect(() => {
@@ -892,6 +887,17 @@ function ToolGroupCard({ card, labels = defaultWorkRailLabels, statusLabels, fai
   }, [autoExpanded]);
 
   if (!toolCards.length) return null;
+  // A phase is not necessarily a group: one invocation (even a batch) is one card.
+  if (toolCards.length === 1) {
+    const tool = toolCards[0]!;
+    return <ToolCard card={tool} labels={labels} locale={locale}
+      statusLabel={statusLabels?.[tool.id]} statusFailed={failedStatuses?.[tool.id]} />;
+  }
+  const hasRunningTool = toolCards.some(
+    (toolCard) => toolCard.started && !toolCard.ended && !toolCard.result,
+  );
+  const summary = toolCopy.groupSummary?.(summarizeToolActions(toolCards))
+    ?? defaultToolActionSummaryLabel(summarizeToolActions(toolCards));
 
   return (
     <section className="ef-chat__rail-entry" aria-label={toolCopy.ariaLabel}>
