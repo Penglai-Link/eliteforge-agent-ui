@@ -1734,3 +1734,16 @@
   background: transparent;
   color: inherit;
 }
+
+.ef-chat-goal { display: flex; align-items: center; gap: 10px; padding: 9px 10px; margin-bottom: 8px; border: 1px solid var(--agent-ui-chat-border); border-radius: 8px; background: var(--agent-ui-chat-surface); color: var(--agent-ui-chat-text); min-width: 0; }
+.ef-chat-goal__icon { flex: none; color: var(--agent-ui-chat-text-muted); }
+.ef-chat-goal__content { flex: 1; min-width: 0; }
+.ef-chat-goal__heading { display: flex; align-items: center; gap: 8px; font-size: 11px; font-weight: 600; color: var(--agent-ui-chat-text-muted); }
+.ef-chat-goal__status { color: var(--agent-ui-chat-text); }
+.ef-chat-goal__progress { font-weight: 400; }
+.ef-chat-goal__objective { max-height: 4.5em; overflow: auto; overflow-wrap: anywhere; white-space: pre-wrap; font-size: 13px; line-height: 1.5; }
+.ef-chat-goal__actions { display: flex; flex: none; gap: 2px; }
+.ef-chat-goal__actions button { display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; border: 0; border-radius: 5px; background: transparent; color: var(--agent-ui-chat-text-muted); cursor: pointer; }
+.ef-chat-goal__actions button:hover:not(:disabled), .ef-chat-goal__actions button:focus-visible { background: var(--agent-ui-chat-hover); color: var(--agent-ui-chat-text); }
+.ef-chat-goal__actions button:focus-visible { outline: 2px solid currentColor; outline-offset: 1px; }
+.ef-chat-goal__actions button:disabled { opacity: .45; cursor: default; }

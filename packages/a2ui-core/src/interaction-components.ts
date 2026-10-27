@@ -87,7 +87,7 @@ export function renderInteraction(ctx: RenderContext, h: Element, props: Record<
                 ...q.options.map((o: any) => {
                     const selected = answer?.optionId === o.optionId && answer?.answerKind === "Option";
                     return h("label", { ...part("option"), "data-selected": selected }, [
-                        h("input", { ...part("radio"), type: "radio", disabled, name: [surfaceId, c.id, scope, q.questionId].join(":"), checked: selected, onChange: () => update({ questionId: q.questionId, answerKind: "Option", optionId: o.optionId, otherText: null }) }, []),
+                        h("input", { ...part("radio"), type: "radio", disabled, name: [surfaceId, c.id, scope, q.questionId].join(":"), checked: selected, onChange: () => { if (disabled) return; update({ questionId: q.questionId, answerKind: "Option", optionId: o.optionId, otherText: null }); if (!last) move(index + 1); } }, []),
                         h("span", part("content"), [h("strong", {}, [o.label]), o.description ? h("small", {}, [o.description]) : null]),
                         selected ? h("span", part("arrow"), [icon("M5 12h14m-6-6 6 6-6 6")]) : null,
                     ]);

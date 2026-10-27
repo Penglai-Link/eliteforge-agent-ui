@@ -1,6 +1,7 @@
 import "./styles.css";
 
 export * from "./ChatPanel";
+export * from "./ChatGoalIndicator";
 export * from "./ChatRuntimeWindow";
 export * from "./ChatWindow";
 

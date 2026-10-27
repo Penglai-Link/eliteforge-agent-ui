@@ -34,6 +34,35 @@ function createMessage(input: Partial<ChatMessage> & Pick<ChatMessage, "messageI
 }
 
 describe("ChatHistoryRail", () => {
+  it("selects the newest turn at the bottom and follows the viewport again when scrolling up", () => {
+    const transcriptRef = createRef<HTMLElement>();
+    const transcript = document.createElement("section");
+    transcript.innerHTML = '<section data-chat-turn-id="turn-user-1"></section><section data-chat-turn-id="turn-user-2"></section>';
+    Object.defineProperties(transcript, {
+      clientHeight: { value: 500 },
+      scrollHeight: { value: 1000 },
+      scrollTop: { value: 499.5, writable: true },
+    });
+    const nodes = transcript.querySelectorAll<HTMLElement>("section");
+    nodes[0]!.getBoundingClientRect = () => ({ top: 24 } as DOMRect);
+    nodes[1]!.getBoundingClientRect = () => ({ top: 400 } as DOMRect);
+    transcript.getBoundingClientRect = () => ({ top: 0 } as DOMRect);
+    transcriptRef.current = transcript;
+
+    render(<ChatHistoryRail messages={[
+      createMessage({ messageId: "user-1", role: "USER", content: "第一条" }),
+      createMessage({ messageId: "user-2", role: "USER", content: "最新消息" }),
+    ]} presentation={createPresentation()} transcriptRef={transcriptRef} />);
+
+    const first = screen.getByRole("button", { name: "第一条" });
+    const latest = screen.getByRole("button", { name: "最新消息" });
+    expect(latest.getAttribute("data-active")).toBe("true");
+    transcript.scrollTop = 300;
+    fireEvent.scroll(transcript);
+    expect(first.getAttribute("data-active")).toBe("true");
+    expect(latest.getAttribute("data-active")).toBe("false");
+  });
+
   it("renders a two-line preview when the turn contains an assistant reply", () => {
     const transcriptRef = createRef<HTMLElement>();
     const transcript = document.createElement("section");

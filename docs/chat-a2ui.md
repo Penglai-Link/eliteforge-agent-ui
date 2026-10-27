@@ -26,13 +26,13 @@ A2UI 是可选能力。宿主安装 Framework 的 `A2uiPack`，Agent 选择对�
 简短指引 + 技能摘要
   → skill_load(name: "a2ui-interface")
   → skill_read_resource（按需读取 Catalog 索引、具体组件或示例）
-  → a2ui_expand
-  → a2ui_publish / a2ui_request_input
+  → tool_search（a2ui 领域）
+  → tool_execute（a2ui_publish / a2ui_request_input）
 ```
 
-`a2ui_expand` 是 Framework 插件提供的领域展开入口，初始不暴露两个生成工具的完整 Schema。它只展开界面工具，不授予业务执行权限。Tron 不再复制这些工具或注入协议说明；负责客户端能力声明、产品文案和权限配置。
+客户端能力协商和权限检查通过后，Framework 插件提供的工具可通过网关搜索与调用。Tron 负责客户端能力声明、产品文案和权限配置。
 
-展开后可使用两个生成工具：
+可使用两个生成工具：
 
 - `a2ui_publish`：发布、更新、删除普通卡片，创建时明确选择 `Display` 或 `Reusable`。
 - `a2ui_request_input`：发布 `SubmitOnce` 表单，提供答案 Schema，绑定真实 interaction，提交后恢复原运行。

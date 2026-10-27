@@ -62,6 +62,8 @@ defineProps<{ adapter: ChatAdapter }>();
 
 组件文案可通过 props、主题 CSS 变量及 `@eliteforge/agent-ui-chat-theme` 覆盖；头部、侧栏和底部可用 `#header`、`#sidebar`、`#footerAddon` slots 扩展。
 
+历史定位栏默认显示，可通过 `:show-history-rail="false"` 关闭。滚动到底部时选中最新消息，向上滚动时跟随当前视口；点击标记可跳转，悬停或聚焦可预览消息。
+
 ## 工具展示
 
 整轮工作过程可以折叠。展开后，每个连续工具阶段按工具调用数量展示：

@@ -1,3 +1,4 @@
+import { ChatGoalIndicator, type ChatGoalIndicatorProps } from "./ChatGoalIndicator";
 import { hasPendingBatchItems } from "@eliteforge/agent-ui-chat-core";
 import { chatAnnotationsByMessage, chatAnnotationForHref, chatAnnotationTooltip, mountChatAnnotationSelection, mountChatAnnotationPreviews, openChatAnnotationEditor, defaultChatAnnotationLabels, type ChatAnnotationLabels, type ChatAnnotation } from "@eliteforge/agent-ui-chat-core";
 import { Composer, type ComposerReactProps } from "@eliteforge/agent-ui-composer-react";
@@ -1157,7 +1158,7 @@ function AguiRunWorkRail({
   const matchingUserInputRequests = useMemo(() => {
     const runCodes = new Set(events.map((event) => aguiEventRunId(event)));
     return userInputRequests.filter((request) => (
-      runCodes.has(request.runId) || request.assistantMessageId === messageId
+      runCodes.has(request.runId) || Boolean(messageId && request.assistantMessageId === messageId)
     ));
   }, [events, messageId, userInputRequests]);
   const orderedWorkItems = useMemo(() => [
@@ -1188,17 +1189,18 @@ function AguiRunWorkRail({
   }, [events, notices, terminalEvent]);
   const displayedTerminalSummary = terminalSummary;
   const completed = timeline?.completed ?? (historyCovered || Boolean(displayedTerminalSummary) && !pendingUserInputRequest);
+  const waiting = timeline?.waitingAtMs !== undefined || Boolean(pendingUserInputRequest);
   const [expanded, setExpanded] = useState(!completed);
   const [now, setNow] = useState(() => Date.now());
   const duration = timeline ? formatAguiDuration(workTimelineElapsedMilliseconds(timeline, now)) : completed
     ? displayedTerminalSummary?.duration ?? "<1s"
-    : formatAguiDuration(aguiWorkElapsedMilliseconds(events, now));
+    : formatAguiDuration(aguiWorkElapsedMilliseconds(events, now, pendingUserInputRequest?.requestedAt || undefined));
   useEffect(() => {
-    if (completed) return;
+    if (completed || waiting) return;
     setNow(Date.now());
     const timer = window.setInterval(() => setNow(Date.now()), 1_000);
     return () => window.clearInterval(timer);
-  }, [completed]);
+  }, [completed, waiting]);
 
   useEffect(() => {
     setExpanded(!completed);
@@ -1223,7 +1225,7 @@ function AguiRunWorkRail({
   const presentationClosedWithoutOutcome = !displayedTerminalSummary && events.some(isAguiPresentationFailureEvent);
   const summary = completed
     ? labels.workedFor(duration)
-    : labels.workingFor(duration);
+    : waiting ? `${labels.waitingForAnswer ?? "Waiting for your answer"} · ${duration}` : labels.workingFor(duration);
   const summaryContent = (
     <span className="ef-chat__rail-summary-label">
       <span>{summary}</span>
@@ -1298,7 +1300,7 @@ function AguiRunWorkRail({
           ) : null}
         </div>
       ) : null}
-      {!completed && !presentationClosedWithoutOutcome ? <div className="ef-chat__rail-current ef-chat__rail-current--working" role="status">
+      {!completed && !waiting && !presentationClosedWithoutOutcome ? <div className="ef-chat__rail-current ef-chat__rail-current--working" role="status">
         <Bot className="ef-chat__rail-current-icon" size={15} aria-hidden="true" />
         <span className="ef-chat__rail-current-text">{labels.working ?? (/^[\u3400-\u9fff]/.test(labels.thinking) ? "工作中" : "Working")}</span>
       </div> : null}
@@ -1340,6 +1342,7 @@ export interface ChatPanelProps extends Pick<ComposerReactProps, "pendingAttachm
   emptyDescription?: string;
   emptyTitle?: string;
   footerAddon?: ReactNode;
+  goal?: ChatGoalIndicatorProps | null;
   formatAnnotationCount?: (count: number) => string;
   headerContent?: ReactNode;
   inputPlaceholder?: string;
@@ -1424,6 +1427,7 @@ export function ChatPanel({
   emptyDescription = "Create a session to start chatting.",
   emptyTitle = "No session selected",
   footerAddon,
+  goal,
   formatAnnotationCount = defaultFormatAnnotationCount,
   headerContent,
   inputPlaceholder = "Enter to send, Shift+Enter for newline",
@@ -1800,6 +1804,7 @@ export function ChatPanel({
                 <button type="button" aria-label={annotationLabels.removeAnnotation(index + 1)} onClick={() => changeAnnotationsRef.current(annotations.filter(item => item.id !== annotation.id))}>×</button>
               </div>)}
             </div> : null}
+            {showComposer && goal ? <ChatGoalIndicator {...goal} /> : null}
             {showComposer ? <Composer
               composerKey={session?.sessionId}
               autoFocusComposer={autoFocusComposer}

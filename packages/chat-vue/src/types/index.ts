@@ -87,6 +87,7 @@ export interface ChatPanelProps extends Pick<ComposerVueProps, "pendingAttachmen
   showAgui?: boolean;
   showReasoningCards?: boolean;
   showHeader?: boolean;
+  showHistoryRail?: boolean;
   showComposer?: boolean;
   showStop?: boolean;
   steerDisabled?: boolean;
@@ -145,6 +146,7 @@ export interface ChatRuntimeWindowProps {
   ) => import("@eliteforge/agent-ui-chat-core").SendChatMessageInput | null;
   showAttachmentControl?: boolean;
   showHeader?: boolean;
+  showHistoryRail?: boolean;
   onWindowStateChange?: (state: ChatFloatingState) => void;
   windowState?: ChatFloatingState;
 }

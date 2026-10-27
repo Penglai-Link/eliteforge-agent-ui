@@ -25,6 +25,8 @@ import ChatUserInputCard from "./ChatUserInputCard.vue";
 import AguiRunWorkRail from "./AguiRunWorkRail.vue";
 import ChatAttachments from "./ChatAttachments.vue";
 import { ChatPanelProps } from "../types";
+import { buildChatHistoryTurns } from "../chatHistory";
+import ChatHistoryRail from "./ChatHistoryRail.vue";
 
 const props = withDefaults(defineProps<ChatPanelProps>(), {
   annotationLabels: () => defaultChatAnnotationLabels,
@@ -70,6 +72,7 @@ const props = withDefaults(defineProps<ChatPanelProps>(), {
   session: null,
   showAgui: true,
   showHeader: true,
+  showHistoryRail: true,
   showComposer: true,
   showStop: true,
   steerDisabled: false,
@@ -175,6 +178,8 @@ const presentation = computed(() =>
   }),
 );
 const workTimeline = computed(() => buildTranscriptWorkTimeline(transcriptMessages.value, presentation.value, props.userInputRequests, { showReasoningCards: props.showReasoningCards }));
+const historyTurns = computed(() => buildChatHistoryTurns(transcriptMessages.value, presentation.value));
+const messagesById = computed(() => new Map(transcriptMessages.value.map(message => [message.messageId, message])));
 
 function scrollToBottom(behavior: ScrollBehavior = "auto") {
   const element = transcriptRef.value;
@@ -280,6 +285,7 @@ onMounted(() => {
           )
         "
       >
+        <ChatHistoryRail v-if="showHistoryRail && !historyLoading" :turns="historyTurns" :transcript="transcriptRef" />
         <section
           ref="transcriptRef"
           aria-label="Chat transcript"
@@ -288,7 +294,8 @@ onMounted(() => {
         >
           <button v-if="!props.historyLoading && props.onLoadOlderHistory" type="button" :disabled="props.historyLoadingOlder" @click="props.onLoadOlderHistory">{{ props.historyLoadingOlder ? (props.historyLabels ?? defaultHistoryLabels).loading : (props.historyLabels ?? defaultHistoryLabels).loadOlder }}</button>
           <div v-if="!props.historyLoading && transcriptMessages.length" class="ef-chat__transcript-inner">
-            <template v-for="message in transcriptMessages" :key="message.messageId">
+            <section v-for="turn in historyTurns" :key="turn.id" class="ef-chat__turn" :data-chat-turn-id="turn.id">
+            <template v-for="message in turn.messageCodes.map(id => messagesById.get(id)).filter((item): item is ChatMessage => !!item)" :key="message.messageId">
               <template v-if="showAgui">
                 <AguiRunWorkRail v-for="run in workRailsForMessage(message, true)" :key="run.id"
                   :show-reasoning-cards="props.showReasoningCards"
@@ -357,6 +364,7 @@ onMounted(() => {
                 </AguiRunWorkRail>
               </template>
             </template>
+            </section>
           </div>
           <div v-else class="ef-chat__transcript-empty">
             <Bot :size="40" :strokeWidth="1" class="ef-chat__transcript__bot" />

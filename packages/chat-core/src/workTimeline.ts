@@ -21,6 +21,7 @@ export interface TranscriptWorkRun {
   messages: ChatMessage[];
   items: WorkTimelineItem[];
   completed: boolean;
+  waitingAtMs?: number;
   segmentStartedAtMs?: number;
   segmentFinishedAtMs?: number;
   finalMessageId?: string;
@@ -28,7 +29,7 @@ export interface TranscriptWorkRun {
 
 export function workTimelineElapsedMilliseconds(run: TranscriptWorkRun, now = Date.now()) {
   if (run.events.length && run.segmentStartedAtMs === undefined && run.segmentFinishedAtMs === undefined) {
-    return aguiWorkElapsedMilliseconds(run.events, now);
+    return aguiWorkElapsedMilliseconds(run.events, now, run.waitingAtMs);
   }
   const eventTimes = run.events.map(aguiEventMillis).filter((value): value is number => value !== null);
   const records = run.messages.flatMap(message => message.history?.run ? [message.history.run] : []);
@@ -43,6 +44,7 @@ export function workTimelineElapsedMilliseconds(run: TranscriptWorkRun, now = Da
   if (start === null) return 0;
   const end = run.segmentFinishedAtMs
     ?? (terminal ? aguiEventMillis(terminal) : null)
+    ?? run.waitingAtMs
     ?? (run.completed && ends.length ? Math.max(...ends) : null)
     ?? (eventTimes.length ? Math.max(now, ...eventTimes) : now);
   return Math.max(0, end - start);
@@ -295,9 +297,22 @@ export function buildTranscriptWorkTimeline(messages: ChatMessage[], presentatio
     const answeredBoundary = Boolean(nextUser?.interactionResponse
       && (nextUser.runId === group.nativeId || group.wireIds.has(nextUser.runId ?? "")));
     const segmentEndedBySteer = group.segmentFinishedAtMs !== undefined;
-    const pending = !answeredBoundary && requests.some(request => request.status === "Pending"
+    const pendingRequest = !answeredBoundary ? requests.find(request => request.status === "Pending"
       && (request.runId === group.nativeId || group.wireIds.has(request.runId)
-        || group.messages.some(message => message.messageId === request.assistantMessageId)));
+        || group.messages.some(message => message.messageId === request.assistantMessageId))) : undefined;
+    const pending = Boolean(pendingRequest);
+    // A history-only request may have no creation timestamp; in that case use
+    // the latest known work record instead of allowing wall time to keep growing.
+    const eventTimes = group.events.map(aguiEventMillis).filter((value): value is number => value !== null);
+    const startEvent = [...group.events].reverse().find(event => aguiEventType(event).toUpperCase() === "RUN_STARTED");
+    const start = group.segmentStartedAtMs ?? (startEvent ? aguiEventMillis(startEvent) : null)
+      ?? Math.min(...group.messages.flatMap(message => message.history?.run ? [message.history.run.startedAtMs] : []), ...eventTimes);
+    const requestedAt = pendingRequest?.requestedAt;
+    const knownTimes = [...eventTimes, ...group.messages.flatMap(message => [Date.parse(message.createdAt), ...(message.history?.tools ?? []).flatMap(tool => [tool.startedAtMs, tool.finishedAtMs])])]
+      .filter((value): value is number => typeof value === "number" && Number.isFinite(value));
+    const waitingAtMs = pending ? (terminal ? aguiEventMillis(terminal) : null)
+      ?? (typeof requestedAt === "number" && Number.isFinite(requestedAt) && requestedAt > start ? requestedAt : null)
+      ?? (knownTimes.length ? Math.max(...knownTimes) : Number.isFinite(start) ? start : 0) : undefined;
     const outcome = terminal && "outcome" in terminal ? terminal.outcome as { type?: string } | undefined : undefined;
     const interrupted = answeredBoundary || outcome?.type === "interrupt"
       || group.messages.some(message => message.history?.run?.status === "Waiting");
@@ -307,7 +322,7 @@ export function buildTranscriptWorkTimeline(messages: ChatMessage[], presentatio
     const final = successful ? [...group.messages].reverse().find(message =>
       message.content.trim() || message.a2ui || message.history?.message.structured != null) : undefined;
     const run: TranscriptWorkRun = { id: group.id, runId: [...group.wireIds][0] ?? group.nativeId,
-      events: group.events, messages: group.messages, completed, finalMessageId: final?.messageId,
+      events: group.events, messages: group.messages, completed, ...(waitingAtMs !== undefined ? { waitingAtMs } : {}), finalMessageId: final?.messageId,
       ...(group.segmentStartedAtMs !== undefined ? { segmentStartedAtMs: group.segmentStartedAtMs } : {}),
       ...(group.segmentFinishedAtMs !== undefined ? { segmentFinishedAtMs: group.segmentFinishedAtMs } : {}),
       items: buildItems(group.messages, group.events, final?.messageId, historyComplete, tools, emittedTools, group.nativeId, options.showReasoningCards !== false) };

@@ -48,9 +48,6 @@ describe("ChatUserInputCard", () => {
       expect(result.container.querySelector('[data-agent-motion="enter"]')).toBeTruthy();
       expect(animate).toHaveBeenCalledTimes(2);
       fireEvent.click(screen.getByRole("radio", { name: /Option one/ }));
-      expect(animate).toHaveBeenCalledTimes(2);
-      expect(result.container.querySelector('[data-agent-motion="fade"]')).toBe(fieldset);
-      fireEvent.click(screen.getByRole("button", { name: "Next" }));
       expect(animate).toHaveBeenCalledTimes(3);
       expect(result.container.querySelector('[data-agent-motion="fade"]')).toBe(fieldset);
     } finally { delete (HTMLElement.prototype as any).animate; }
@@ -64,7 +61,6 @@ describe("ChatUserInputCard", () => {
     expect(screen.queryByText("What is the scope?")).toBeNull();
 
     fireEvent.click(screen.getByRole("radio", { name: /Option one/ }));
-    fireEvent.click(screen.getByRole("button", { name: "Next" }));
 
     expect(screen.getByText("Question 2 of 2")).toBeTruthy();
     expect(screen.getByRole("group", {name:"What is the scope?"})).toBeTruthy();
@@ -80,7 +76,6 @@ describe("ChatUserInputCard", () => {
     render(<ChatUserInputCard onSubmit={onSubmit} request={request} />);
 
     fireEvent.click(screen.getByRole("radio", { name: /Option two/ }));
-    fireEvent.click(screen.getByRole("button", { name: "Next" }));
     expect(onSubmit).not.toHaveBeenCalled();
 
     fireEvent.click(screen.getByRole("radio", { name: /Keep it simple/ }));
@@ -107,7 +102,6 @@ describe("ChatUserInputCard", () => {
     render(<ChatUserInputCard onSubmit={onSubmit} request={request} />);
     expect(screen.getByRole("button", { name: "Skip" })).toBeTruthy();
     fireEvent.click(screen.getByRole("radio", { name: /Option two/ }));
-    fireEvent.click(screen.getByRole("button", { name: "Next" }));
     expect(screen.queryByRole("button", { name: "Skip" })).toBeNull();
     expect((screen.getByRole("button", { name: "Confirm" }) as HTMLButtonElement).disabled).toBe(true);
     fireEvent.click(screen.getByRole("radio", { name: /Keep it simple/ }));

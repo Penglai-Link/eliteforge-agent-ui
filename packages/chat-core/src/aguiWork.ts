@@ -23,6 +23,7 @@ export function currentAguiTerminalEvent(events: TranscriptAguiEvent[]) {
 export function aguiWorkElapsedMilliseconds(
   events: TranscriptAguiEvent[],
   now = Date.now(),
+  waitingAtMs?: number,
 ) {
   const reverseStart = [...events].reverse().findIndex(event => aguiEventType(event).toUpperCase() === "RUN_STARTED");
   const start = reverseStart < 0 ? -1 : events.length - 1 - reverseStart;
@@ -35,7 +36,8 @@ export function aguiWorkElapsedMilliseconds(
   const first = Math.min(...timestamps);
   const latest = Math.max(...timestamps);
   const terminal = currentAguiTerminalEvent(segment);
-  const end = terminal ? aguiEventMillis(terminal) ?? latest : Math.max(latest, now);
+  const end = terminal ? aguiEventMillis(terminal) ?? latest
+    : waitingAtMs !== undefined ? Math.max(first, waitingAtMs) : Math.max(latest, now);
   return Math.max(0, end - first);
 }
 

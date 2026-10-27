@@ -1767,6 +1767,7 @@ const panelCommonProps = computed(() => ({
   showAgui: aguiEnabled.value,
   showReasoningCards: props.config.showReasoningCards,
   showHeader: props.showHeader ?? props.config.floating !== false,
+  showHistoryRail: props.showHistoryRail,
   showStop: canStop.value,
   steerDisabled: steerDisabled.value || Boolean(userInputRequest.value),
   queuedSteerDisabled: steering.value || !canSteer.value || Boolean(userInputRequest.value) || userInputAnswerPending.value,

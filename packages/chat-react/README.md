@@ -85,6 +85,10 @@ const adapter: ChatAdapter = {
 
 组件名称、配置和数据类型均不绑定业务项目。文案可通过组件 props、主题 CSS 变量及 `@eliteforge/agent-ui-chat-theme` 覆盖；侧栏、头部和底部可通过 `sidebarContent`、`headerContent`、`footerAddon` 扩展。
 
+## 目标提示
+
+`ChatRuntimeWindow` 和 `ChatPanel` 接受可选的 `goal` 属性，在输入框上方显示宿主提供的目标、状态和进度。宿主传入本地化的 `labels` 和可用操作回调（`onPause`、`onResume`、`onRestart`、`onDelete`）；未提供的操作不会显示。`busy` 禁用全部操作，`resumeDisabled` 单独禁用恢复。传入 `null` 或不传时不显示提示。组件只负责展示和触发回调，目标读取、生命周期与持久化由宿主管理。
+
 ## 工具展示
 
 整轮工作过程可以折叠。展开后，每个连续工具阶段按工具调用数量展示：

@@ -19,3 +19,17 @@ it("skips an earlier question and confirms the last custom answer",async()=>{
  expect(action.mock.calls[0][0].action.context.answer).toEqual({first:{questionId:"first",answerKind:"Skipped",optionId:null,otherText:null},q:{questionId:"q",answerKind:"Other",optionId:null,otherText:"custom"}});
  app.unmount();host.remove();
 });
+
+it("advances on a selected option, preserves answers on back, and confirms the last question",async()=>{
+ const c=client({component:"QuestionCard",questions:[{questionId:"first",question:"First?",options:[{optionId:"a",label:"A"},{optionId:"b",label:"B"}]},{questionId:"second",question:"Second?",options:[{optionId:"c",label:"C"}]}]}),host=document.createElement("div"),action=vi.fn();document.body.append(host);const app=createApp({render:()=>h(A2UISurface,{client:c,surfaceId:"s",onAction:action})});app.mount(host);
+ host.querySelector<HTMLInputElement>('input[type="radio"]')!.click();await nextTick();
+ expect(host.textContent).toContain("Second?");expect(action).not.toHaveBeenCalled();
+ host.querySelector<HTMLButtonElement>('button[aria-label="Back"]')!.click();await nextTick();
+ expect(host.querySelector<HTMLInputElement>('input[type="radio"]')!.checked).toBe(true);
+ host.querySelector<HTMLButtonElement>('button[aria-label="Next"]')!.click();await nextTick();
+ host.querySelector<HTMLInputElement>('input[type="radio"]')!.click();await nextTick();
+ expect(host.textContent).toContain("Second?");expect(action).not.toHaveBeenCalled();
+ host.querySelector<HTMLButtonElement>('button[aria-label="Confirm"]')!.click();
+ expect(action.mock.calls[0][0].action.context.answer).toEqual({first:{questionId:"first",answerKind:"Option",optionId:"a",otherText:null},second:{questionId:"second",answerKind:"Option",optionId:"c",otherText:null}});
+ app.unmount();host.remove();
+});

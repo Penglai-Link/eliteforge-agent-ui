@@ -27,6 +27,10 @@ function closestTurnToViewportTop(
   container: HTMLElement,
   turnIds: string[],
 ) {
+  const scrollableDistance = container.scrollHeight - container.clientHeight;
+  if (scrollableDistance > 0 && container.scrollTop >= scrollableDistance - 1) {
+    return turnIds.at(-1) ?? "";
+  }
   const containerTop = container.getBoundingClientRect().top;
   let activeTurnId = turnIds[0] ?? "";
   let bestDistance = Number.POSITIVE_INFINITY;

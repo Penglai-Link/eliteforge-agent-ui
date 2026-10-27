@@ -1,3 +1,4 @@
+import type { ChatGoalIndicatorProps } from "./ChatGoalIndicator";
 import { contextCompactionInProgress, historyCompactionEvents } from "@eliteforge/agent-ui-chat-core";
 import type { ChatAnnotation } from "@eliteforge/agent-ui-chat-core";
 import { ChatA2uiSession, AGENT_CATALOG_ID, type ChatA2uiActionHandler as ActionHandler } from "@eliteforge/agent-ui-chat-core";
@@ -106,6 +107,7 @@ export interface ChatRuntimeWindowProps {
   floatingSubtitle?: string;
   formatAnnotationCount?: (count: number) => string;
   footerAddon?: ReactNode;
+  goal?: ChatGoalIndicatorProps | null;
   headerContent?: ReactNode;
   initialSession?: ChatSession | null;
   onCreateSession?: () => void;
@@ -188,6 +190,7 @@ export function ChatRuntimeWindow({
   floatingTitle = "Assistant",
   formatAnnotationCount,
   footerAddon,
+  goal,
   headerContent,
   initialSession = null,
   onCreateSession,
@@ -1910,6 +1913,7 @@ export function ChatRuntimeWindow({
       draft={draft}
       emptyDescription={emptyDescription ?? "Create a session to start chatting."}
       emptyTitle={emptyTitle}
+      goal={goal}
       footerAddon={compacting ? <fieldset disabled style={{ display: "contents" }}>{footerAddon}</fieldset> : footerAddon}
       pendingAttachments={pendingAttachments}
       pendingAnnotations={pendingAnnotations}
@@ -1996,6 +2000,7 @@ export function ChatRuntimeWindow({
         draft={draft}
         emptyDescription={emptyDescription ?? "Create a session to start chatting."}
         emptyTitle={emptyTitle}
+        goal={goal}
         footerAddon={compacting ? <fieldset disabled style={{ display: "contents" }}>{footerAddon}</fieldset> : footerAddon}
         pendingAttachments={pendingAttachments}
       pendingAnnotations={pendingAnnotations}

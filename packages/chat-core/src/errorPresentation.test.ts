@@ -1,13 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { historyMessages, type SessionHistory } from "./history";
 import { chatErrorPresentation } from "./errorPresentation";
-const raw = 'operation result is unknown: model stream failed before completion: ' + JSON.stringify({ type: "response.failed", response: { error: { code: "InvalidParameter", message: "Please check the schema definition for tool: a2ui_expand." } } });
+const raw = 'operation result is unknown: model stream failed before completion: ' + JSON.stringify({ type: "response.failed", response: { error: { code: "InvalidParameter", message: "Please check the schema definition for tool: a2ui_publish." } } });
 describe("provider error presentation", () => {
   it("keeps diagnostics separate from a localized tool schema summary", () => {
     const view = chatErrorPresentation(raw, "运行失败");
-    expect(view.summary).toBe("模型服务拒绝了工具 a2ui_expand 的参数定义，请检查工具 Schema。");
+    expect(view.summary).toBe("模型服务拒绝了工具 a2ui_publish 的参数定义，请检查工具 Schema。");
     expect(view.details).toBe(raw);
-    expect(chatErrorPresentation(raw).summary).toContain("a2ui_expand");
+    expect(chatErrorPresentation(raw).summary).toContain("a2ui_publish");
   });
   it("preserves ordinary messages and degrades incomplete diagnostic frames", () => {
     expect(chatErrorPresentation("Access denied")).toEqual({ summary: "Access denied", details: "" });

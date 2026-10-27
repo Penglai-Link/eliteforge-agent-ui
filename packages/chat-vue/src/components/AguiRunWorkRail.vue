@@ -71,7 +71,7 @@ const matchingUserInputRequests = computed(() => {
     return "";
   }));
   return props.userInputRequests.filter((request) => (
-    runCodes.has(request.runId) || request.assistantMessageId === props.messageId
+    runCodes.has(request.runId) || Boolean(props.messageId && request.assistantMessageId === props.messageId)
   ));
 });
 const pendingUserInputRequest = computed(() => matchingUserInputRequests.value.find(
@@ -85,8 +85,9 @@ const expanded = ref(!terminalEvent.value);
 const hasDetails = computed(() => (props.timeline ? visibleTimelineItems.value.length > 0 : visibleUserCards.value.length > 0) || props.debugEvents.length > 0);
 const now = ref(Date.now());
 const labels = computed(() => props.labels ?? defaultLabels);
-const duration = computed(() => formatAguiDuration(props.timeline ? workTimelineElapsedMilliseconds(props.timeline, now.value) : aguiWorkElapsedMilliseconds(props.events, now.value)));
-const summary = computed(() => terminalEvent.value ? labels.value.workedFor(duration.value) : labels.value.workingFor(duration.value));
+const waiting = computed(() => props.timeline?.waitingAtMs !== undefined || Boolean(pendingUserInputRequest.value));
+const duration = computed(() => formatAguiDuration(props.timeline ? workTimelineElapsedMilliseconds(props.timeline, now.value) : aguiWorkElapsedMilliseconds(props.events, now.value, pendingUserInputRequest.value?.requestedAt || undefined)));
+const summary = computed(() => terminalEvent.value ? labels.value.workedFor(duration.value) : waiting.value ? `${labels.value.waitingForAnswer ?? "Waiting for your answer"} · ${duration.value}` : labels.value.workingFor(duration.value));
 const historyStatusNotice = computed(() => {
   if (props.timeline?.events.length) return null;
   const runs = props.timeline?.messages.flatMap(message => message.history?.run ? [message.history.run] : []) ?? [];
@@ -106,10 +107,10 @@ function historyGroupFailedStatuses(item: WorkTimelineItem) {
 }
 let timer: ReturnType<typeof setInterval> | undefined;
 
-watch(terminalEvent, (completed) => {
+watch([terminalEvent, waiting], ([completed, isWaiting]) => {
   if (timer) clearInterval(timer);
   expanded.value = !completed;
-  if (completed) {
+  if (completed || isWaiting) {
     return;
   }
   now.value = Date.now();
@@ -196,7 +197,7 @@ onBeforeUnmount(() => {
         </div>
       </section>
     </div>
-    <div v-if="!terminalEvent" class="ef-chat__rail-current ef-chat__rail-current--working" role="status">
+    <div v-if="!waiting && !terminalEvent" class="ef-chat__rail-current ef-chat__rail-current--working" role="status">
       <Bot class="ef-chat__rail-current-icon" :size="15" aria-hidden="true" />
       <span class="ef-chat__rail-current-text">{{ labels.working ?? (/^[\u3400-\u9fff]/.test(labels.thinking) ? '工作中' : 'Working') }}</span>
     </div>

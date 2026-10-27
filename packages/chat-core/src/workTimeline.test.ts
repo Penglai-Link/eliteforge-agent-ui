@@ -250,3 +250,26 @@ it("reconstructs steer segment timing after AG-UI events have been replaced by h
   expect(final).toMatchObject({ completed: true, segmentStartedAtMs: 2000, finalMessageId: "final" });
   expect(workTimelineElapsedMilliseconds(final, 9000)).toBe(2000);
 });
+
+it("freezes an unanswered interaction at its request time and resumes on a new execution", () => {
+  const source = events();
+  const pending = { requestId: "q", status: "Pending", runId: "native", requestedAt: 2500 } as ChatUserInputRequest;
+  const waiting = buildTranscriptWorkTimeline(messages(), presentation(source), [pending]).before.get("step-1")![0];
+  expect(waiting.waitingAtMs).toBe(2500);
+  expect(workTimelineElapsedMilliseconds(waiting, 9000)).toBe(1500);
+  expect(workTimelineElapsedMilliseconds(waiting, 30000)).toBe(1500);
+  const resumedEvents = [{ ...source[0], timestamp: 12000 }];
+  const resumed = buildTranscriptWorkTimeline(messages(), presentation(resumedEvents), [{ ...pending, status: "Answered" }]).before.get("step-1")![0];
+  expect(resumed.waitingAtMs).toBeUndefined();
+  expect(workTimelineElapsedMilliseconds(resumed, 14000)).toBe(2000);
+});
+
+it("uses the interruption timestamp over later events while waiting", () => {
+  const source = events();
+  source.push({ ...source[0], type: "RUN_FINISHED", timestamp: 3000, outcome: { type: "interrupt", interrupts: [] } });
+  source.push({ ...source[0], type: "CUSTOM", timestamp: 8000, name: "late" });
+  const pending = { requestId: "q", status: "Pending", runId: "native", requestedAt: 1000 } as ChatUserInputRequest;
+  const waiting = buildTranscriptWorkTimeline(messages(), presentation(source), [pending]).before.get("step-1")![0];
+  expect(waiting.waitingAtMs).toBe(3000);
+  expect(workTimelineElapsedMilliseconds(waiting, 12000)).toBe(2000);
+});
