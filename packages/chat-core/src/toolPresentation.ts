@@ -206,6 +206,13 @@ export const GLOBAL_SUBJECT_KEYS: string[] = [
 /** Data-only special cases. Adding a case is a table row, not a code branch. */
 export const TOOL_OVERRIDES: ToolPresentationOverride[] = [
   {
+    match: "command_execution",
+    titleKey: "tool.title.exec.command",
+    subjectKeys: ["command"],
+    nounKey: "command",
+    verbKey: "exec",
+  },
+  {
     match: "tool_search",
     titleKey: "tool.title.search.tool",
     subjectKeys: ["query", "domainCode"],

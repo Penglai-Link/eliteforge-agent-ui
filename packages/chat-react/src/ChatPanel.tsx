@@ -1387,6 +1387,8 @@ export interface ChatPanelProps extends Pick<ComposerReactProps, "pendingAttachm
   showAgui?: boolean;
   showReasoningCards?: boolean;
   showHeader?: boolean;
+  /** Read-only transcripts reuse the same work rail without an input composer. */
+  showComposer?: boolean;
   showHistoryRail?: boolean;
   showStop?: boolean;
   sidebarContent?: ReactNode;
@@ -1468,6 +1470,7 @@ export function ChatPanel({
   showAgui = true,
   showReasoningCards = true,
   showHeader = true,
+  showComposer = true,
   showHistoryRail = true,
   showStop = true,
   sidebarContent,
@@ -1797,7 +1800,7 @@ export function ChatPanel({
                 <button type="button" aria-label={annotationLabels.removeAnnotation(index + 1)} onClick={() => changeAnnotationsRef.current(annotations.filter(item => item.id !== annotation.id))}>×</button>
               </div>)}
             </div> : null}
-            <Composer
+            {showComposer ? <Composer
               composerKey={session?.sessionId}
               autoFocusComposer={autoFocusComposer}
               composerRef={composerRef}
@@ -1842,7 +1845,7 @@ export function ChatPanel({
               removeAttachmentLabel={removeAttachmentLabel}
               editQueuedLabel={editQueuedLabel}
               removeQueuedLabel={removeQueuedLabel}
-            />
+            /> : null}
           </footer>
         </>
       ) : (

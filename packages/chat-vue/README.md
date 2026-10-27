@@ -81,3 +81,5 @@ defineProps<{ adapter: ChatAdapter }>();
 - `ChatWindow`：悬浮、拖动和调整大小的聊天窗口。
 
 完整 props 与 adapter 类型以包导出的 TypeScript 声明为准。
+
+只读会话可设置 `showComposer={false}`（Vue 使用 `:show-composer="false"`），复用相同的消息、工作过程和工具卡片，不渲染输入框。

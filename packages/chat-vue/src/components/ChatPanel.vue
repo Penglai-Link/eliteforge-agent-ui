@@ -70,6 +70,7 @@ const props = withDefaults(defineProps<ChatPanelProps>(), {
   session: null,
   showAgui: true,
   showHeader: true,
+  showComposer: true,
   showStop: true,
   steerDisabled: false,
   stopLabel: "Stop",
@@ -394,6 +395,7 @@ onMounted(() => {
           </div>
         </div>
         <Composer
+          v-if="showComposer"
           :composer-key="session?.sessionId"
           :auto-focus-composer="props.autoFocusComposer"
           :composer-header="props.composerHeader"

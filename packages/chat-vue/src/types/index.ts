@@ -87,6 +87,7 @@ export interface ChatPanelProps extends Pick<ComposerVueProps, "pendingAttachmen
   showAgui?: boolean;
   showReasoningCards?: boolean;
   showHeader?: boolean;
+  showComposer?: boolean;
   showStop?: boolean;
   steerDisabled?: boolean;
   queuedSteerDisabled?: boolean;

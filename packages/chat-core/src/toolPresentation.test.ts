@@ -430,3 +430,8 @@ describe("subagent dispatch target", () => {
       .toBe("分派子代理 gpt快速编码");
   });
 });
+
+it("localizes native command execution through the shared presenter", () => {
+  expect(toolDisplayName("command_execution", {}, undefined, "zh-CN")).toBe("执行命令");
+  expect(toolDisplayName("command_execution", {}, undefined, "en-US")).toBe("Run command");
+});
