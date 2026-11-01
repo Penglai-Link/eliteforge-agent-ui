@@ -1114,17 +1114,34 @@ export function contextCompactionInProgress(events: ChatAguiStreamEvent[], runId
     .some(notice => notice.kind === "compaction" && (notice.status === "started" || notice.status === "requested"));
 }
 
-/** Framework history is sufficient to restore cards without protocol replay. */
+/** Restore maintenance notices and failed run outcomes from Framework history. */
 export function historyCompactionEvents(history: SessionHistory): ChatAguiStreamEvent[] {
   const steps = history.records.steps.filter(step => step.name === CONTEXT_COMPACTION_STEP);
   const output: ChatAguiStreamEvent[] = [];
+  const runs = new Map(history.runs.map(run => [run.id, run]));
+  const started = new Set<string>();
+  const lastStepTime = new Map<string, number>();
   for (const step of steps) {
-    const run = history.runs.find(run => run.id === step.runId);
-    const base = {runId:step.runId,threadId:history.sessionId};
-    output.push({ ...base, type:"RUN_STARTED", timestamp:run?.startedAtMs ?? step.startedAtMs });
-    output.push({ ...base, type:"CUSTOM", name:"agent.memory.compaction.started", value:{}, timestamp:step.startedAtMs });
-    if (step.status !== "Running") output.push({ ...base, type:"CUSTOM", name:step.status === "Completed" ? "agent.memory.compaction.completed" : "agent.memory.compaction.failed", value:{}, timestamp:step.finishedAtMs ?? step.startedAtMs });
-    if (run && !["Running","Waiting"].includes(run.status)) output.push({ ...base, type:"RUN_FINISHED", timestamp:run.finishedAtMs ?? step.finishedAtMs ?? step.startedAtMs });
+    const run = runs.get(step.runId);
+    const base = { runId: step.runId, threadId: history.sessionId };
+    if (!started.has(step.runId)) {
+      output.push({ ...base, id: `history-run:${step.runId}:started`, type: "RUN_STARTED", timestamp: run?.startedAtMs ?? step.startedAtMs });
+      started.add(step.runId);
+    }
+    output.push({ ...base, id: `history-compaction:${step.id}:started`, type: "CUSTOM", name: "agent.memory.compaction.started", value: {}, timestamp: step.startedAtMs });
+    if (step.status !== "Running") output.push({ ...base, id: `history-compaction:${step.id}:finished`, type: "CUSTOM", name: step.status === "Completed" ? "agent.memory.compaction.completed" : "agent.memory.compaction.failed", value: {}, timestamp: step.finishedAtMs ?? step.startedAtMs });
+    lastStepTime.set(step.runId, Math.max(lastStepTime.get(step.runId) ?? 0, step.finishedAtMs ?? step.startedAtMs));
+  }
+  for (const run of history.runs) {
+    if (!started.has(run.id) && run.status !== "Failed") continue;
+    const base = { runId: run.id, threadId: history.sessionId };
+    if (!started.has(run.id)) output.push({ ...base, id: `history-run:${run.id}:started`, type: "RUN_STARTED", timestamp: run.startedAtMs });
+    const timestamp = run.finishedAtMs ?? lastStepTime.get(run.id) ?? run.startedAtMs;
+    if (run.status === "Failed") {
+      output.push({ ...base, id: `history-run:${run.id}:finished`, type: "RUN_ERROR", code: "HISTORY_RUN_ERROR", message: run.error ?? "", timestamp });
+    } else if (!["Running", "Waiting"].includes(run.status)) {
+      output.push({ ...base, id: `history-run:${run.id}:finished`, type: "RUN_FINISHED", timestamp });
+    }
   }
   return mergeTranscriptAguiEvents([], output) as ChatAguiStreamEvent[];
 }

@@ -24,7 +24,21 @@ export function sortChatMessagesChronologically(
 ) {
   return [...messages].sort((left, right) => {
     const timestampOrder = timestampOf(left) - timestampOf(right);
-    return timestampOrder || compareMessageIds(left, right);
+    if (timestampOrder) return timestampOrder;
+    const leftStep = left.history?.step;
+    const rightStep = right.history?.step;
+    if (left.history?.message.runId === right.history?.message.runId && leftStep && rightStep) {
+      const stepOrder = leftStep.sequence - rightStep.sequence || leftStep.attempt - rightStep.attempt;
+      if (stepOrder) return stepOrder;
+      if (leftStep.id === rightStep.id) {
+        const leftIndex = left.history?.message.outputIndex;
+        const rightIndex = right.history?.message.outputIndex;
+        if (typeof leftIndex === "number" && typeof rightIndex === "number" && leftIndex !== rightIndex) return leftIndex - rightIndex;
+      }
+    }
+    if (left.role === "USER" && right.role === "ASSISTANT") return -1;
+    if (right.role === "USER" && left.role === "ASSISTANT") return 1;
+    return compareMessageIds(left, right);
   });
 }
 
@@ -38,7 +52,15 @@ export function mergeChatMessagesChronologically(
 
   for (const message of [...current, ...incoming]) {
     if (!removed.has(message.messageId)) {
-      byMessageCode.set(message.messageId, message);
+      const previous = byMessageCode.get(message.messageId);
+      if (previous?.role === "ASSISTANT" && message.role === "ASSISTANT") {
+        // History and live delivery can arrive in either order. Keep a known
+        // phase and never replace a streamed prefix with a shorter snapshot.
+        const content = previous.content.startsWith(message.content) ? previous.content : message.content;
+        byMessageCode.set(message.messageId, { ...message, content, phase: message.phase ?? previous.phase });
+      } else {
+        byMessageCode.set(message.messageId, message);
+      }
     }
   }
 

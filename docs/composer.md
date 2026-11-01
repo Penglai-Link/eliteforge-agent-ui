@@ -25,6 +25,7 @@ React 示例见 [composer-react](../packages/composer-react/README.md)，Vue 示
 | 换行与输入法 | Shift+Enter 在光标位置插入换行，IME 确认不发送 |
 | 命令与技能 | `inputSuggestions`，`/` 查询命令和技能，`$` 只查询技能；上下键切换候选，Enter 或 Tab 补全并保留输入焦点，Escape 关闭菜单；菜单关闭时 Tab、Shift+Tab 保持正常焦点导航 |
 | 技能标签 | `displayName`，回退到 `description`、`name`；草稿保留 `$name` |
+| 队列排序 | `onReorderQueuedMessage(sourceId, targetId)` / `reorder-queued-message`；拖动左侧手柄或用上下方向键调整 |
 | 队列 | `queuedMessages`、`onEditQueuedMessage` / `edit-queued-message`、`onRemoveQueuedMessage` / `remove-queued-message` |
 | 附件选择 | `showAttachmentControl`、`onAttachFile`、`attachmentUploadPending` |
 | 图片粘贴 | `onPasteAttachment`，未提供回调时保留浏览器默认粘贴 |
@@ -35,6 +36,16 @@ React 示例见 [composer-react](../packages/composer-react/README.md)，Vue 示
 上传、鉴权、错误处理、排队持久化和会话切换由宿主管理。组件提供输入与展示，回调可以接入任意服务。React 保留没有 `onStop` 时调用 `onSend("send")` 的原有回退；Vue 通过 `stop` 事件交给宿主。
 
 原有 `ChatPanel`、`ChatWindow`、`ChatRuntimeWindow` 已使用独立 Composer。旧的 chat 类型名称与原有 props/事件继续可用；运行窗口继续负责 adapter 上传与发送，并把附件和运行状态传给输入区。附件与自定义头部可以同时显示。
+
+## 队列排序
+
+提供排序回调后，消息左侧显示拖拽手柄。按住鼠标上下拖动会显示插入位置，靠近列表边缘时自动滚动；松开后才提交新顺序。Escape、窗口失焦或在列表外松开会取消拖动。手柄获得焦点后也可使用上下方向键移动。`reorderQueuedLabel` 可覆盖手柄的提示和无障碍文案。
+
+```text
+拖动手柄 → 插入位置预览 → 松开鼠标 → 宿主更新队列 → 按新顺序发送
+```
+
+独立 Composer 通过回调交给宿主更新 `queuedMessages`；ChatRuntimeWindow 已将回调接入实际待发送队列。拖动过程中只预览位置，编辑、删除和立即发送按钮保持原有行为。
 
 ## 显式技能选择
 

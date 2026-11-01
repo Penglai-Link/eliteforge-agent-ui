@@ -152,6 +152,19 @@ function Demo() {
             log(`remove attachment: ${id}`);
           }}
           queuedMessages={queue}
+          reorderQueuedLabel="拖动排序，也可使用上下方向键调整"
+          onReorderQueuedMessage={(sourceId, targetId) => {
+            setQueue(current => {
+              const next = [...current];
+              const sourceIndex = next.findIndex(item => item.id === sourceId);
+              const targetIndex = next.findIndex(item => item.id === targetId);
+              if (sourceIndex < 0 || targetIndex < 0) return current;
+              const [item] = next.splice(sourceIndex, 1);
+              next.splice(targetIndex, 0, item);
+              return next;
+            });
+            log(`reorder queue: ${sourceId} → ${targetId}`);
+          }}
           onRemoveQueuedMessage={(id) => {
             setQueue((current) => current.filter((item) => item.id !== id));
             log("remove queue");

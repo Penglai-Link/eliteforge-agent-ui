@@ -416,6 +416,44 @@ it("shows separate AG-UI step cards before completion and preserves them through
   expect(container.querySelectorAll('[data-theme-part="chat-message-assistant"]')).toHaveLength(3);
 });
 
+it("keeps phased progress in the transcript after a product completion", async () => {
+  const session = restoredSession();
+  let handlers: ChatStreamHandlers | undefined;
+  let finish: (result: ChatSendResult) => void = () => undefined;
+  const loadMessages = vi.fn().mockResolvedValue([]);
+  const adapter: ChatAdapter = {
+    capabilities: { supportsStreaming: true, supportsAgui: true }, createSession: vi.fn(),
+    loadMessages, loadAguiEvents: vi.fn().mockResolvedValue([]),
+    streamMessage: vi.fn((_session, _input, next) => new Promise(resolve => { handlers = next; finish = resolve; })),
+  };
+  const container = mountRuntime(adapter, ref(session));
+  await flushUi(); await submit(container, "Inspect", "Send");
+  await waitFor(() => Boolean(handlers));
+  let sequence = 0;
+  const emit = async (type: string, messageId: string, delta?: string, phase?: string) => {
+    handlers!.onAguiEvent?.({ type, messageId, delta, runId: "RUN-PHASE", threadId: session.sessionId,
+      metadata: { framework: { runId: "NATIVE-RUN", ...(phase ? { message: { phase, outputIndex: 0, stepId: "step" } } : {}) }, tron: { eventId: `phase:${++sequence}` } } });
+    if (delta) handlers!.onDelta?.(delta);
+    await flushUi();
+  };
+  await emit("RUN_STARTED", "");
+  await emit("TEXT_MESSAGE_START", "progress");
+  await emit("TEXT_MESSAGE_CONTENT", "progress", "Checking files");
+  await emit("TEXT_MESSAGE_END", "progress", undefined, "commentary");
+  await emit("TEXT_MESSAGE_START", "answer", undefined, "final_answer");
+  await emit("TEXT_MESSAGE_CONTENT", "answer", "Done");
+  await emit("TEXT_MESSAGE_END", "answer", undefined, "final_answer");
+  handlers!.onAguiEvent?.({ type: "RUN_FINISHED", runId: "RUN-PHASE", threadId: session.sessionId,
+    metadata: { framework: { runId: "NATIVE-RUN", finalMessageIds: ["answer"] }, tron: { eventId: `phase:${++sequence}` } } });
+  const result = completedResult("RUN-PHASE", session);
+  loadMessages.mockRejectedValue(new Error("Replay unavailable"));
+  result.messages = [{ id: "product-final", messageId: "product-final", sessionId: session.sessionId, runId: "RUN-PHASE", role: "ASSISTANT", channel: "MAIN_AGENT", content: "Done", createdAt: new Date().toISOString() }];
+  finish(result); await flushUi();
+  expect(container.querySelector('[data-message-id="progress"]')?.textContent).toContain("Checking files");
+  expect(container.querySelector('[data-message-id="answer"]')?.textContent).toContain("Done");
+  expect(container.querySelector('[data-message-id="product-final"]')).toBeNull();
+});
+
 it("restores a compaction card and lock after switching sessions without stopping the run", async () => {
   const first = restoredSession();
   const second = restoredSession("SESSION-SECOND", 2);

@@ -58,6 +58,7 @@ const emit = defineEmits<{
   "edit-message": [value: string, message?: ChatMessage];
   "edit-queued-message": [id: string, content: string];
   "remove-queued-message": [id: string];
+  "reorder-queued-message": [sourceId: string, targetId: string];
   send: [mode?: ChatSubmitMode];
   stop: [];
   "state-change": [state: ChatFloatingState];
@@ -378,6 +379,7 @@ function endResize(event: PointerEvent) {
           :attach-label="props.attachLabel"
           :uploading-label="props.uploadingLabel"
           :remove-attachment-label="props.removeAttachmentLabel"
+          :reorder-queued-label="props.reorderQueuedLabel"
           :edit-queued-label="props.editQueuedLabel"
           :remove-queued-label="props.removeQueuedLabel"
           :live-agui-anchor-message-codes="liveAguiAnchorMessageCodes"
@@ -415,6 +417,7 @@ function endResize(event: PointerEvent) {
           @edit-message="(v: string, message?: ChatMessage) => emit('edit-message', v, message)"
           :onEditQueuedMessage="props.onEditQueuedMessage ? (id: string, content: string) => emit('edit-queued-message', id, content) : undefined"
           :onRemoveQueuedMessage="props.onRemoveQueuedMessage ? (id: string) => emit('remove-queued-message', id) : undefined"
+          :onReorderQueuedMessage="props.onReorderQueuedMessage ? (sourceId: string, targetId: string) => emit('reorder-queued-message', sourceId, targetId) : undefined"
           @send="(mode?: ChatSubmitMode) => emit('send', mode)"
           @stop="emit('stop')"
         >

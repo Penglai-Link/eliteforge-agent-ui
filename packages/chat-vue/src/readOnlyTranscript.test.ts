@@ -4,6 +4,25 @@ import { expect, it } from "vitest";
 import { historyMessages } from "@eliteforge/agent-ui-chat-core";
 import ChatPanel from "./components/ChatPanel.vue";
 import { singleToolHistory } from "../../../contracts/single-tool-history";
+import { phaseToolEvents, phaseToolHistory } from "../../../contracts/phase-tool-placement";
+
+it.each([false, true])("places the tool rail between its commentary cards (replay=%s)", async replay => {
+  Object.defineProperty(HTMLElement.prototype, "scrollTo", { configurable: true, value: () => {} });
+  const container = document.createElement("div");
+  const app = createApp({ render: () => h(ChatPanel, { draft: "", onDraftChange: () => {}, onSend: () => {}, showHeader: false,
+    session: { id: 1, sessionId: "SESSION-1", title: "Phase", status: "ACTIVE", createdAt: new Date(1000).toISOString(), updatedAt: new Date(2000).toISOString() },
+    messages: historyMessages(phaseToolHistory), protocolEvents: replay ? phaseToolEvents : [] }) });
+  try {
+    app.mount(container);
+    const first = container.querySelector('[data-message-id="progress-1"]')!;
+    const second = container.querySelector('[data-message-id="progress-2"]')!;
+    const rail = container.querySelector('[aria-label="Agent work"]')!;
+    expect(first.compareDocumentPosition(rail) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(rail.compareDocumentPosition(second) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(container.querySelectorAll('[data-message-id="final"]')).toHaveLength(1);
+  } finally { app.unmount(); }
+});
+
 it("reuses the full work rail in a read-only transcript without a composer", async () => {
   Object.defineProperty(HTMLElement.prototype, "scrollTo", {configurable:true, value:() => {}});
   const container = document.createElement("div");

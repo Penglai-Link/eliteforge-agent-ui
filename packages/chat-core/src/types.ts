@@ -93,6 +93,8 @@ export interface MessageProvenance {
 }
 
 export interface ChatMessage {
+  /** Provider-supplied phase; omitted when the provider did not identify it. */
+  phase?: string | null;
   annotations?: ChatAnnotation[];
   /** Display-only response to an interaction; never sent as another chat turn. */
   interactionResponse?: { requestId: string; answeredAt?: number; rows: { label: string; value: string }[] };
@@ -144,6 +146,7 @@ export interface ChatRunSummary {
   reasoningEffort?: ReasoningEffort | null;
   status: "COMPLETED" | "AWAITING_USER_INPUT";
   finalOutput: string;
+  finalMessageIds?: string[];
   stepCount: number;
   tokenUsage?: ChatTokenUsage | null;
   metadata?: Record<string, unknown>;

@@ -87,6 +87,56 @@ it("only execution success moves the final message out of the process; text END 
   expect([...timeline.processMessageIds]).toEqual(["step-1", "step-2"]);
 });
 
+it("keeps explicit commentary and answer messages in the transcript", () => {
+  const source = events();
+  source.push({ ...source[0], type: "RUN_FINISHED", metadata: { framework: { runId: "native", sourceSequence: 100 } } });
+  const input = messages().map(value => value.messageId === "step-1" ? { ...value, phase: "commentary" }
+    : value.messageId === "final" ? { ...value, phase: "final_answer" } : value);
+  const timeline = buildTranscriptWorkTimeline(input, presentation(source));
+  const run = timeline.before.get("step-1")![0];
+  expect(run.finalMessageId).toBe("final");
+  expect(timeline.processMessageIds.has("step-1")).toBe(false);
+  expect(timeline.processMessageIds.has("step-2")).toBe(true);
+  expect(run.items.some(item => item.kind === "message" && item.id === "step-1")).toBe(false);
+});
+
+it.each(["live", "replay", "history"] as const)("places tools after their phased parent across %s", mode => {
+  const page: SessionHistory = { sessionId: "S", version: "1", nextCursor: null, pendingInteractions: [], activeRuns: [],
+    runs: [{ id: "native", sessionId: "S", parentRunId: null, rootRunId: "native", status: "Completed", startedAtMs: 1000, finishedAtMs: 2000, error: null }],
+    records: { steps: [], interactions: [], messages: [
+      { id: "user", runId: "native", stepId: null, role: "User", content: [{ type: "Text", text: "Question" }], structured: null, status: "Completed", createdAtMs: 1000 },
+      { id: "progress-1", runId: "native", stepId: "step", role: "Assistant", phase: "commentary", outputIndex: 0, content: [{ type: "Text", text: "First" }], structured: null, status: "Completed", createdAtMs: 1100 },
+      { id: "progress-2", runId: "native", stepId: "step", role: "Assistant", phase: "commentary", outputIndex: 2, content: [{ type: "Text", text: "Second" }], structured: null, status: "Completed", createdAtMs: 1100 },
+      { id: "final", runId: "native", stepId: "step", role: "Assistant", phase: "final_answer", outputIndex: 4, content: [{ type: "Text", text: "Done" }], structured: null, status: "Completed", createdAtMs: 1100 },
+    ], toolInvocations: ["progress-1", "progress-2"].map((parent, index) => ({
+      id: `tool-${index}`, callId: `tool-${index}`, runId: "native", stepId: "step", messageId: parent,
+      toolId: "search", toolName: "tool_search", arguments: {}, content: [], structured: null,
+      status: "Completed" as const, isError: false, resultReference: null, startedAtMs: 1200 + index, finishedAtMs: 1300 + index,
+    })) } };
+  let sequence = 0;
+  const event = (type: string, data: Partial<ChatAguiStreamEvent> = {}): ChatAguiStreamEvent => ({
+    type, timestamp: 1100, threadId: "S", runId: "execution", metadata: { framework: { runId: "native", sourceSequence: ++sequence } }, ...data,
+  });
+  const source = [event("RUN_STARTED"), event("TEXT_MESSAGE_START", { messageId: "progress-1" }),
+    event("TEXT_MESSAGE_END", { messageId: "progress-1" }),
+    event("TOOL_CALL_START", { toolCallId: "tool-0", toolCallName: "tool_search", parentMessageId: "progress-1" }),
+    event("TOOL_CALL_RESULT", { toolCallId: "tool-0", content: "ok" }),
+    event("TEXT_MESSAGE_START", { messageId: "progress-2" }), event("TEXT_MESSAGE_END", { messageId: "progress-2" }),
+    event("TOOL_CALL_START", { toolCallId: "tool-1", toolCallName: "tool_search", parentMessageId: "progress-2" }),
+    event("TOOL_CALL_RESULT", { toolCallId: "tool-1", content: "ok" }),
+    event("TEXT_MESSAGE_START", { messageId: "final" }), event("TEXT_MESSAGE_END", { messageId: "final" }), event("RUN_FINISHED")];
+  const input = mode === "live" ? [message("user", "Question", "USER"),
+    { ...message("progress-1"), phase: "commentary" }, { ...message("progress-2"), phase: "commentary" },
+    { ...message("final"), phase: "final_answer" }] : historyMessages(page);
+  const timeline = buildTranscriptWorkTimeline(input, presentation(mode === "history" ? [] : source));
+  expect(timeline.before.get("progress-1")).toBeUndefined();
+  expect(items(timeline.after.get("progress-1")!)).toEqual(["tool-0"]);
+  expect(items(timeline.after.get("progress-2")!)).toEqual(["tool-1"]);
+  expect(timeline.after.get("progress-1")![0].includeRunMetadata).toBe(false);
+  expect(timeline.after.get("progress-2")![0].finalMessageId).toBe("final");
+  expect(timeline.processMessageIds.has("progress-1")).toBe(false);
+});
+
 it("keeps completed text-only executions after an assistant-only recovery with a native run alias", () => {
   const source = events().filter(event => ["RUN_STARTED", "TEXT_MESSAGE_START", "TEXT_MESSAGE_CONTENT", "TEXT_MESSAGE_END"].includes(event.type));
   source.push({ ...source[0], type: "RUN_FINISHED" });

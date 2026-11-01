@@ -20,6 +20,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ChatPanel } from "./ChatPanel";
 import { historyMessages } from "@eliteforge/agent-ui-chat-core";
 import { contiguousToolHistory, contiguousToolEvents } from "../../../contracts/tool-group-contiguous-history";
+import { phaseToolEvents, phaseToolHistory } from "../../../contracts/phase-tool-placement";
 
 beforeEach(() => {
   Object.defineProperty(HTMLElement.prototype, "scrollTo", {
@@ -70,6 +71,16 @@ it.each([false, true])("shows search and execution in one collapsed summary acro
   expect(container.querySelectorAll(".ef-chat__tool-row")).toHaveLength(0);
   fireEvent.click(groups[0]);
   expect(container.querySelectorAll(".ef-chat__tool-row")).toHaveLength(2);
+});
+
+it.each([false, true])("places the tool rail between its commentary cards (replay=%s)", replay => {
+  const { container } = renderPanel({ messages: historyMessages(phaseToolHistory), protocolEvents: replay ? phaseToolEvents : [] });
+  const first = container.querySelector('[data-message-id="progress-1"]')!;
+  const second = container.querySelector('[data-message-id="progress-2"]')!;
+  const rail = container.querySelector('[aria-label="Agent work"]')!;
+  expect(first.compareDocumentPosition(rail) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  expect(rail.compareDocumentPosition(second) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  expect(container.querySelectorAll('[data-message-id="final"]')).toHaveLength(1);
 });
 
 it("renders a child completion notification as system context without user editing", () => {

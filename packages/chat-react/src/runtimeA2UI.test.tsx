@@ -8,6 +8,24 @@ import { ChatRuntimeWindow } from "./ChatRuntimeWindow";
 import { ensureTestLocalStorage } from "./testLocalStorage";
 beforeEach(() => { ensureTestLocalStorage(); Object.defineProperty(HTMLElement.prototype, "scrollTo", { configurable: true, value: vi.fn() }); });
 afterEach(() => { cleanup(); window.localStorage.clear(); });
+it("renders a surface emitted immediately in the first run of a new session", async () => {
+  const session: ChatSession = { id: 1, sessionId: "new-session", title: "New", status: "ACTIVE", createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() };
+  const messages = [
+    {version:"v0.9.1",createSurface:{surfaceId:"report",catalogId:"https://eliteforge.dev/a2ui/v0.9.1/agent"}},
+    {version:"v0.9.1",updateComponents:{surfaceId:"report",components:[{id:"root",component:"Text",text:"First run report"}]}},
+  ];
+  const client = new A2UIClient(); messages.forEach(message => client.apply(message as any));
+  const surface = {surfaceId:"report",surfaceInstanceId:"instance",revision:1,mode:"Display" as const,ownerAgentId:"agent",runId:"run",messageId:"card",createdAtMs:Date.now(),snapshot:client.exportSnapshot().surfaces.report};
+  const adapter: ChatAdapter = {
+    capabilities:{supportsStreaming:true,supportsAgui:true}, createSession:vi.fn().mockResolvedValue(session), deleteSession:vi.fn(), loadMessages:vi.fn().mockResolvedValue([]),
+    loadA2uiState:vi.fn().mockResolvedValue({sessionId:session.sessionId,revision:0,surfaces:[]}),
+    streamMessage:vi.fn((_session, _input, handlers) => { handlers?.onAguiEvent?.({type:"CUSTOM",name:"agent.a2ui",threadId:session.sessionId,runId:"run",value:{revision:1,surface,messages}}); return new Promise(() => {}); }),
+  };
+  render(<ChatRuntimeWindow adapter={adapter} config={{floating:false}} allowDraftSession onError={vi.fn()} />);
+  fireEvent.change(screen.getByRole("textbox"), {target:{value:"Show report"}});
+  fireEvent.keyDown(screen.getByRole("textbox"), {key:"Enter"});
+  expect(await screen.findByText("First run report")).toBeTruthy();
+});
 it.each([false, true])("forwards real A2UI actions through runtime (floating=%s)", async floating => {
   const session: ChatSession = { id: 1, sessionId: "s", title: "Test", status: "ACTIVE", createdAt: "2026-10-09", updatedAt: "2026-10-09" };
   const message: ChatMessage = { id: 1, messageId: "m", sessionId: "s", role: "ASSISTANT", channel: "MAIN_AGENT", actor: "Agent", content: "", createdAt: "2026-10-09", a2ui: { messages: profileMessages } };

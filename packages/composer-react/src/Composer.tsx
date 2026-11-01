@@ -9,7 +9,7 @@ import {
   type ReactNode,
   type Ref,
 } from "react";
-import { FileText, Paperclip, Pencil, Send, Square, X } from "lucide-react";
+import { FileText, GripVertical, Paperclip, Pencil, Send, Square, X } from "lucide-react";
 import {
   attachmentLabel,
   attachmentTypeLabel,
@@ -20,6 +20,7 @@ import {
   composerOverlayParts,
   insertNewlineAtCursor,
   pastedImage,
+  startQueuedMessageDrag,
   type ComposerProps,
   type ComposerAttachment,
   type ComposerSuggestion as ChatInputSuggestion,
@@ -196,6 +197,7 @@ export function Composer({
   onRemoveQueuedMessage,
   onSteerQueuedMessage,
   onReorderQueuedMessage,
+  reorderQueuedLabel = "Drag to reorder; use Up/Down keys to move",
   editQueuedLabel = "Edit queued message",
   removeQueuedLabel = "Remove queued message",
   steerQueuedLabel = "Steer queued message",
@@ -211,6 +213,11 @@ export function Composer({
 }: ComposerReactProps) {
   const attachmentFileInputRef = useRef<HTMLInputElement | null>(null);
   const draggedQueuedId = useRef<string | null>(null);
+  const cancelQueueDragRef = useRef<(() => void) | undefined>(undefined);
+  const reorderQueueRef = useRef(onReorderQueuedMessage);
+  reorderQueueRef.current = onReorderQueuedMessage;
+  const queueReorderEnabled = Boolean(onReorderQueuedMessage);
+  useEffect(() => () => cancelQueueDragRef.current?.(), [composerKey, queueReorderEnabled]);
   const composerElementRef = useRef<HTMLTextAreaElement | null>(null);
   const [composerHasSelection, setComposerHasSelection] = useState(false);
   const [activeSuggestion, setActiveSuggestion] = useState(0);
@@ -342,6 +349,7 @@ export function Composer({
           <ol className="ef-chat__queued-messages-list">
             {queuedMessages.map((queuedMessage) => (
               <li className="ef-chat__queued-message" key={queuedMessage.id}
+                data-queued-id={queuedMessage.id}
                 draggable={Boolean(onReorderQueuedMessage)}
                 onDragStart={(event) => {
                   draggedQueuedId.current = queuedMessage.id;
@@ -358,6 +366,26 @@ export function Composer({
                   if (sourceId && sourceId !== queuedMessage.id) onReorderQueuedMessage?.(sourceId, queuedMessage.id);
                 }}
                 onDragEnd={() => { draggedQueuedId.current = null; }}>
+                {onReorderQueuedMessage && queuedMessages.length > 1 ? (
+                  <button type="button" className="ef-chat__icon-button ef-chat__queue-drag-handle"
+                    aria-label={reorderQueuedLabel} title={reorderQueuedLabel}
+                    onPointerDown={event => {
+                      const row = event.currentTarget.closest<HTMLElement>(".ef-chat__queued-message");
+                      if (!row) return;
+                      cancelQueueDragRef.current?.();
+                      cancelQueueDragRef.current = startQueuedMessageDrag(event.nativeEvent, row,
+                        (sourceId, targetId) => reorderQueueRef.current?.(sourceId, targetId));
+                    }}
+                    onKeyDown={event => {
+                      if (event.key !== "ArrowUp" && event.key !== "ArrowDown") return;
+                      event.preventDefault();
+                      const index = queuedMessages.findIndex(item => item.id === queuedMessage.id);
+                      const target = queuedMessages[index + (event.key === "ArrowUp" ? -1 : 1)];
+                      if (target) onReorderQueuedMessage(queuedMessage.id, target.id);
+                    }}>
+                    <GripVertical size={14} aria-hidden="true" />
+                  </button>
+                ) : null}
                 <span className="ef-chat__queued-message-content">
                   {queuedMessage.input.content}
                 </span>

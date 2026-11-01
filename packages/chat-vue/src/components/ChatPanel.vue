@@ -299,7 +299,7 @@ onMounted(() => {
               <template v-if="showAgui">
                 <AguiRunWorkRail v-for="run in workRailsForMessage(message, true)" :key="run.id"
                   :show-reasoning-cards="props.showReasoningCards"
-                  :timeline="run" :events="run.events" :debug-events="debugEventsForRun(run.runId)"
+                  :timeline="run" :events="run.events" :debug-events="run.includeRunMetadata === false ? [] : debugEventsForRun(run.runId)"
                   :labels="props.workRailLabels" :locale="props.locale" :history-labels="props.historyLabels" :user-input-requests="props.userInputRequests">
                   <template #message="{ message: processMessage }">
                     <StructuredMessageDetails :message="processMessage" :labels="props.historyLabels" :locale="props.locale" hide-run-error />
@@ -345,7 +345,7 @@ onMounted(() => {
                   :show-reasoning-cards="props.showReasoningCards"
                   v-for="run in workRailsForMessage(message)"
                   :key="run.id"
-                  :debug-events="debugEventsForRun(run.runId)"
+                  :debug-events="run.includeRunMetadata === false ? [] : debugEventsForRun(run.runId)"
                   :events="run.events"
                   :timeline="run"
                   :labels="props.workRailLabels"
@@ -441,6 +441,7 @@ onMounted(() => {
           :attach-label="props.attachLabel"
           :uploading-label="props.uploadingLabel"
           :remove-attachment-label="props.removeAttachmentLabel"
+          :reorder-queued-label="props.reorderQueuedLabel ?? (props.locale?.toLowerCase().startsWith('zh') ? '拖动排序，也可使用上下方向键调整' : 'Drag to reorder; use Up/Down keys to move')"
           :edit-queued-label="props.editQueuedLabel"
           :remove-queued-label="props.removeQueuedLabel"
           @draft-change="changeAnnotatedDraft"

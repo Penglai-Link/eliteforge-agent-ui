@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { Pencil, Send, Square, X, Paperclip } from "lucide-vue-next";
-import { computed, nextTick, onMounted, ref, watch } from "vue";
+import { GripVertical, Pencil, Send, Square, X, Paperclip } from "lucide-vue-next";
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import {
   suggestionQuery as getSuggestionQuery,
   filterSuggestions,
@@ -8,6 +8,7 @@ import {
   composerOverlayParts,
   insertNewlineAtCursor,
   pastedImage,
+  startQueuedMessageDrag,
   type ComposerSuggestion as ChatInputSuggestion,
   type ComposerSubmitMode as ChatSubmitMode,
 } from "@eliteforge/agent-ui-composer-core";
@@ -37,6 +38,7 @@ const props = withDefaults(defineProps<ComposerVueProps>(), {
   showStop: true,
   queuedMessages: () => [],
   queuedLabel: "Queued",
+  reorderQueuedLabel: "Drag to reorder; use Up/Down keys to move",
   editQueuedLabel: "Edit queued message",
   removeQueuedLabel: "Remove queued message",
   steerQueuedLabel: "Steer queued message",
@@ -55,7 +57,6 @@ const emit = defineEmits<{
   "edit-queued-message": [id: string, content: string];
   "remove-queued-message": [id: string];
   "steer-queued-message": [id: string];
-  "reorder-queued-message": [sourceId: string, targetId: string];
   "remove-attachment": [id: string];
 }>();
 const composerRef = ref<HTMLTextAreaElement | null>(null);
@@ -87,6 +88,26 @@ const activeSuggestion = ref(0);
 const suggestionsDismissed = ref(false);
 const composerHasSelection = ref(false);
 const draggedQueuedId = ref<string | null>(null);
+let cancelQueueDrag: (() => void) | undefined;
+onBeforeUnmount(() => cancelQueueDrag?.());
+// Watch scalar values so a newly rendered callback does not cancel the drag.
+// Reordering uses the callback prop directly (also supplied by @reorder-queued-message)
+// so Vue tracks callback-only changes instead of treating them as emit listeners.
+watch([() => props.composerKey, () => Boolean(props.onReorderQueuedMessage)], () => cancelQueueDrag?.());
+function startQueuedPointerDrag(event: PointerEvent) {
+  const row = (event.currentTarget as HTMLElement).closest<HTMLElement>(".ef-chat__queued-message");
+  if (!row) return;
+  cancelQueueDrag?.();
+  cancelQueueDrag = startQueuedMessageDrag(event, row,
+    (sourceId, targetId) => props.onReorderQueuedMessage?.(sourceId, targetId));
+}
+function moveQueuedByKey(event: KeyboardEvent, id: string) {
+  if (event.key !== "ArrowUp" && event.key !== "ArrowDown") return;
+  event.preventDefault();
+  const index = props.queuedMessages.findIndex(item => item.id === id);
+  const target = props.queuedMessages[index + (event.key === "ArrowUp" ? -1 : 1)];
+  if (target) props.onReorderQueuedMessage?.(id, target.id);
+}
 function startQueuedDrag(event: DragEvent, id: string) {
   draggedQueuedId.value = id;
   event.dataTransfer?.setData("text/plain", id);
@@ -98,7 +119,7 @@ function dropQueuedMessage(event: DragEvent, id: string) {
   event.preventDefault();
   const sourceId = draggedQueuedId.value;
   draggedQueuedId.value = null;
-  if (sourceId && sourceId !== id) emit("reorder-queued-message", sourceId, id);
+  if (sourceId && sourceId !== id) props.onReorderQueuedMessage?.(sourceId, id);
 }
 const suggestionQuery = computed(() => {
   return getSuggestionQuery(props.draft);
@@ -290,12 +311,19 @@ function handleComposerPaste(event: ClipboardEvent) {
           v-for="queuedMessage in queuedMessages"
           :key="queuedMessage.id"
           class="ef-chat__queued-message"
+          :data-queued-id="queuedMessage.id"
           :draggable="Boolean(onReorderQueuedMessage)"
           @dragstart="startQueuedDrag($event, queuedMessage.id)"
           @dragover="allowQueuedDrop($event, queuedMessage.id)"
           @drop="dropQueuedMessage($event, queuedMessage.id)"
           @dragend="draggedQueuedId = null"
         >
+          <button v-if="onReorderQueuedMessage && queuedMessages.length > 1"
+            type="button" class="ef-chat__icon-button ef-chat__queue-drag-handle"
+            :aria-label="reorderQueuedLabel" :title="reorderQueuedLabel"
+            @pointerdown="startQueuedPointerDrag" @keydown="moveQueuedByKey($event, queuedMessage.id)">
+            <GripVertical :size="14" aria-hidden="true" />
+          </button>
           <span class="ef-chat__queued-message-content">{{
             queuedMessage.input.content
           }}</span>

@@ -224,18 +224,27 @@ export function ChatRuntimeWindow({
   );
   const [session, setSession] = useState<ChatSession | null>(normalizedInitialSession);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const a2uiSession = useMemo(() => new ChatA2uiSession(session?.sessionId ?? ""), [session?.sessionId]);
+  const a2uiSessionRef = useRef<ChatA2uiSession | null>(null);
+  const a2uiSessionId = session?.sessionId ?? "";
+  if (!a2uiSessionRef.current || a2uiSessionRef.current.sessionId !== a2uiSessionId) {
+    a2uiSessionRef.current = new ChatA2uiSession(a2uiSessionId);
+  }
+  const a2uiSession = a2uiSessionRef.current;
   const [a2uiEpoch, setA2uiEpoch] = useState(0);
   useEffect(() => a2uiSession.client.subscribe(() => setA2uiEpoch(value => value + 1)), [a2uiSession]);
-  const reloadA2ui = useCallback(async () => {
-    if (!a2uiSession.sessionId || !activeAdapter.loadA2uiState) return;
-    const state = await activeAdapter.loadA2uiState(a2uiSession.sessionId);
-    a2uiSession.hydrate(state);
+  const reloadA2ui = useCallback(async (runtime = a2uiSession) => {
+    if (!runtime.sessionId || !activeAdapter.loadA2uiState) return;
+    const state = await activeAdapter.loadA2uiState(runtime.sessionId);
+    runtime.hydrate(state);
   }, [a2uiSession, activeAdapter]);
   useEffect(() => { void reloadA2ui().catch(error => onError(String(error), "A2UI state failed")); }, [reloadA2ui]);
   const receiveA2ui = (event: ChatAguiStreamEvent) => {
-    try { if (!a2uiSession.applyEvent(event)) void reloadA2ui().catch(error => onError(String(error), "A2UI recovery failed")); }
-    catch (error) { onError(String(error), "A2UI presentation failed"); void reloadA2ui().catch(() => {}); }
+    const runtime = a2uiSessionRef.current!;
+    try {
+      if (!runtime.applyEvent(event)) void reloadA2ui(runtime).catch(error => onError(String(error), "A2UI recovery failed"));
+      else if (event.type === "CUSTOM" && event.name === "agent.a2ui" && (!event.threadId || event.threadId === runtime.sessionId)) setA2uiEpoch(value => value + 1);
+    }
+    catch (error) { onError(String(error), "A2UI presentation failed"); void reloadA2ui(runtime).catch(() => {}); }
   };
   const presentedMessages = useMemo(() => mergeChatMessagesChronologically(messages, a2uiSession.messages()), [messages, a2uiSession, a2uiEpoch]);
 
@@ -343,7 +352,7 @@ export function ChatRuntimeWindow({
     setMessages(current => {
       const next = fallbackId ? current.filter(item => item.messageId !== fallbackId) : current;
       if (ended && !message.content.trim()) return next.filter(item => item.messageId !== message.messageId);
-      return next.some(item => item.messageId === message.messageId) ? next
+      return next.some(item => item.messageId === message.messageId) ? next.map(item => item.messageId === message.messageId ? { ...item, phase: message.phase } : item)
         : [...next, { ...message, content: "" }];
     });
     setStreamingAssistantMessageCode(stream.activeMessageId);
@@ -586,7 +595,7 @@ export function ChatRuntimeWindow({
         setMessages(historyMessages(page, config.userInputLabels)); setHistorySnapshot(page); setHistoryCursor(page.nextCursor);
         const pending = historyUserInputRequests(page, config.userInputLabels);
         setUserInputRequests(pending); setUserInputRequest(pending[0] ?? null);
-        setProtocolEvents([]); setAguiEvents([]);
+        setProtocolEvents(historyCompactionEvents(page)); setAguiEvents([]);
         const committed = new Set(page.runs.filter((r) => ["Completed", "Failed", "Interrupted", "Waiting"].includes(r.status)).map((r) => r.id));
         setLiveAguiEvents((events) => events.filter((e) => !committed.has(historyEventRunId(e))));
         setLiveAguiAnchorMessageCodes({});
@@ -836,6 +845,7 @@ export function ChatRuntimeWindow({
       const page = await activeAdapter.loadHistory(sessionId, { limit: 20, cursor });
       if (activeSessionCodeRef.current !== sessionId) return;
       setMessages((current) => mergeChatMessagesChronologically(historyMessages(page, config.userInputLabels), current));
+      setProtocolEvents((current) => mergeTranscriptAguiEvents(historyCompactionEvents(page), current) as ChatAguiStreamEvent[]);
       setHistoryCursor(page.nextCursor);
     } catch (error) {
       if ((error as { status?: number })?.status === 409 && activeSessionCodeRef.current === sessionId) {
@@ -843,6 +853,7 @@ export function ChatRuntimeWindow({
           const page = await activeAdapter.loadHistory(sessionId, { limit: 20, cursor: null });
           if (activeSessionCodeRef.current === sessionId) {
             setMessages(historyMessages(page, config.userInputLabels)); setHistorySnapshot(page); setHistoryCursor(page.nextCursor);
+            setProtocolEvents(historyCompactionEvents(page));
             const pending = historyUserInputRequests(page, config.userInputLabels);
             setUserInputRequests(pending); setUserInputRequest(pending[0] ?? null);
           }
@@ -1062,6 +1073,7 @@ export function ChatRuntimeWindow({
         title: normalizeOptionalValue(config.title) ?? floatingTitle,
       }).then((created) => {
         activeSessionCodeRef.current = created.sessionId;
+        a2uiSessionRef.current = new ChatA2uiSession(created.sessionId);
         setSession(created);
         setMessages([]);
         setAguiEvents([]);
@@ -1119,7 +1131,7 @@ export function ChatRuntimeWindow({
       restoreSourceSubmission();
       return false;
     }
-    sendInput = { ...sendInput, clientCapabilities: { ...sendInput.clientCapabilities, a2ui: { version: "v0.9.1", catalogIds: [AGENT_CATALOG_ID] } }, a2uiMetadata: a2uiSession.metadata(sendInput.metadata?.agentId as string | undefined ?? "main-agent") };
+    sendInput = { ...sendInput, clientCapabilities: { ...sendInput.clientCapabilities, a2ui: { version: "v0.9.1", catalogIds: [AGENT_CATALOG_ID] } }, a2uiMetadata: a2uiSessionRef.current!.metadata(sendInput.metadata?.agentId as string | undefined ?? "main-agent") };
     const content = sendInput.content.trim();
     if (!content && !(sendInput.attachments?.length) && !(sendInput.annotations?.length)) {
       restoreSourceSubmission();
@@ -1194,9 +1206,9 @@ export function ChatRuntimeWindow({
         sendInput,
         {
           onAguiEvent: (event) => {
-            receiveA2ui(event);
             if (!belongsToNewChatTurn(event, activeSession.sessionId, optimisticCreatedAt)) return;
             if (abortRef.current !== abortController) return;
+            receiveA2ui(event);
             const runId = String(event.runId ?? event.runId ?? "");
             if (typeof event.supportsSteer === "boolean") {
               setActiveRunSupportsSteer(event.supportsSteer);
@@ -1274,7 +1286,7 @@ export function ChatRuntimeWindow({
         ]);
       }
       setMessages((current) => textStream.settle(
-        current, result.messages, [optimisticUserCode, optimisticAssistantCode],
+        current, result.messages, [optimisticUserCode, optimisticAssistantCode], result.run,
       ));
       completedSession = result.session;
       completedRunId = result.run.runId;
@@ -1403,7 +1415,7 @@ export function ChatRuntimeWindow({
       if (activeSessionCodeRef.current !== activeSession.sessionId) return;
       const epoch = acknowledgeCompletedTurn(result.session.sessionId, result.run.runId);
       assistantReplyQueueRef.current?.flush();
-      setMessages(current => textStream.settle(current, result.messages));
+      setMessages(current => textStream.settle(current, result.messages, [], result.run));
       setSession(result.session);
       setUserInputRequest(result.userInputRequest?.status === "Pending" ? result.userInputRequest : null);
       onA2UIAction?.(message, metadata, context);
@@ -1476,7 +1488,7 @@ export function ChatRuntimeWindow({
       markAnswered();
       presentationEpoch = acknowledgeCompletedTurn(result.session.sessionId, result.run.runId);
       assistantReplyQueueRef.current?.flush();
-      setMessages((current) => textStream.settle(current, result.messages));
+      setMessages((current) => textStream.settle(current, result.messages, [], result.run));
       setSession(result.session);
       setUserInputRequest(result.userInputRequest?.status === "Pending" ? result.userInputRequest : null);
       setUserInputRequests((current) => current.map((request) => (

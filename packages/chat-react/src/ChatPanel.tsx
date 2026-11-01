@@ -1323,7 +1323,7 @@ function WaitingRail({ labels = defaultWorkRailLabels }: { labels?: ChatWorkRail
   );
 }
 
-export interface ChatPanelProps extends Pick<ComposerReactProps, "pendingAttachments" | "showAttachmentControl" | "attachmentUploadPending" | "onAttachFile" | "onRemoveAttachment" | "attachLabel" | "uploadingLabel" | "removeAttachmentLabel" | "editQueuedLabel" | "removeQueuedLabel"> {
+export interface ChatPanelProps extends Pick<ComposerReactProps, "pendingAttachments" | "showAttachmentControl" | "attachmentUploadPending" | "onAttachFile" | "onRemoveAttachment" | "attachLabel" | "uploadingLabel" | "removeAttachmentLabel" | "editQueuedLabel" | "removeQueuedLabel" | "reorderQueuedLabel"> {
   pendingAnnotations?: ChatAnnotation[];
   onPendingAnnotationsChange?: (annotations: ChatAnnotation[]) => void;
   annotationLabels?: ChatAnnotationLabels;
@@ -1409,7 +1409,7 @@ export interface ChatPanelProps extends Pick<ComposerReactProps, "pendingAttachm
 }
 
 export function ChatPanel({
-  pendingAttachments, showAttachmentControl, attachmentUploadPending, onAttachFile, onRemoveAttachment, attachLabel, uploadingLabel, removeAttachmentLabel, editQueuedLabel, removeQueuedLabel,
+  pendingAttachments, showAttachmentControl, attachmentUploadPending, onAttachFile, onRemoveAttachment, attachLabel, uploadingLabel, removeAttachmentLabel, editQueuedLabel, removeQueuedLabel, reorderQueuedLabel,
   pendingAnnotations: controlledPendingAnnotations,
   onPendingAnnotationsChange,
   annotationLabels = defaultChatAnnotationLabels,
@@ -1619,7 +1619,7 @@ export function ChatPanel({
     return <AguiRunWorkRail key={run.id} timeline={run} renderMessage={renderProcessMessage} historyLabels={historyLabels}
       showReasoningCards={showReasoningCards} locale={locale}
       events={run.events as ChatAguiStreamEvent[]} labels={workRailLabels} userInputRequests={userInputRequests}
-      debugEvents={(presentation.debugEventsByRunCode.get(run.runId) ?? []).map(describeDebugEvent)} />;
+      debugEvents={run.includeRunMetadata === false ? [] : (presentation.debugEventsByRunCode.get(run.runId) ?? []).map(describeDebugEvent)} />;
   }
 
   function scrollToBottom(behavior: ScrollBehavior = "auto") {
@@ -1848,6 +1848,9 @@ export function ChatPanel({
               attachLabel={attachLabel}
               uploadingLabel={uploadingLabel}
               removeAttachmentLabel={removeAttachmentLabel}
+              reorderQueuedLabel={reorderQueuedLabel ?? (locale?.toLowerCase().startsWith("zh")
+                ? "拖动排序，也可使用上下方向键调整"
+                : "Drag to reorder; use Up/Down keys to move")}
               editQueuedLabel={editQueuedLabel}
               removeQueuedLabel={removeQueuedLabel}
             /> : null}

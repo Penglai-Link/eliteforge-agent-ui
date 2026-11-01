@@ -1,5 +1,6 @@
 import "./styles.css";
 export * from "./types";
+export { startQueuedMessageDrag } from "./queueDrag";
 import type { ComposerAttachment, ComposerSuggestion } from "./types";
 
 export function suggestionQuery(draft: string) {

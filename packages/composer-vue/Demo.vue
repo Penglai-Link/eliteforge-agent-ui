@@ -110,6 +110,16 @@ function editQueue(id: string, content: string) {
   queue.value = queue.value.filter((item) => item.id !== id);
   log("edit queue");
 }
+function reorderQueue(sourceId: string, targetId: string) {
+  const next = [...queue.value];
+  const sourceIndex = next.findIndex(item => item.id === sourceId);
+  const targetIndex = next.findIndex(item => item.id === targetId);
+  if (sourceIndex < 0 || targetIndex < 0) return;
+  const [item] = next.splice(sourceIndex, 1);
+  next.splice(targetIndex, 0, item);
+  queue.value = next;
+  log(`reorder queue: ${sourceId} → ${targetId}`);
+}
 function stop() {
   sending.value = false;
   log("stop");
@@ -157,6 +167,8 @@ function stop() {
         :on-paste-attachment="attach"
         @remove-attachment="removeAttachment"
         :queued-messages="queue"
+        reorder-queued-label="拖动排序，也可使用上下方向键调整"
+        @reorder-queued-message="reorderQueue"
         @remove-queued-message="removeQueue"
         @edit-queued-message="editQueue"
       >

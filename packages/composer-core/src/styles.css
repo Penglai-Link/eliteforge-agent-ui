@@ -64,6 +64,8 @@
 }
 
 :where(.ef-composer) .ef-chat__queued-message {
+  position: relative;
+  flex-shrink: 0;
   display: flex;
   min-width: 0;
   align-items: center;
@@ -88,6 +90,38 @@
 
 :where(.ef-composer) .ef-chat__queued-message[data-dragging="true"] {
   opacity: 0.5;
+}
+
+:where(.ef-composer) .ef-chat__queue-drag-handle {
+  flex: none;
+  cursor: grab;
+  touch-action: none;
+}
+
+:where(.ef-composer) .ef-chat__queued-messages-list[data-sorting="true"],
+:where(.ef-composer) .ef-chat__queued-messages-list[data-sorting="true"] * {
+  cursor: grabbing;
+  user-select: none;
+}
+
+:where(.ef-composer) .ef-chat__queued-message[data-drop-position]::after {
+  position: absolute;
+  right: 0;
+  left: 0;
+  z-index: 1;
+  height: 2px;
+  border-radius: 1px;
+  background: var(--agent-ui-chat-primary, var(--agent-ui-chat-primary-color, var(--color-primary, #000000)));
+  content: "";
+  pointer-events: none;
+}
+
+:where(.ef-composer) .ef-chat__queued-message[data-drop-position="before"]::after {
+  top: 0;
+}
+
+:where(.ef-composer) .ef-chat__queued-message[data-drop-position="after"]::after {
+  bottom: 0;
 }
 
 :where(.ef-composer) .ef-chat__queued-message-content {

@@ -1045,6 +1045,40 @@ describe("ChatRuntimeWindow", () => {
     expect(document.querySelectorAll('[data-theme-part="chat-message-assistant"]')).toHaveLength(3);
   });
 
+  it("keeps late-phase commentary and the final answer as separate messages after settlement", async () => {
+    const { adapter, loadMessages } = createAdapter();
+    let handlers: ChatStreamHandlers | undefined;
+    let finish: (result: ChatSendResult) => void = () => undefined;
+    adapter.streamMessage = vi.fn((_session, _input, next) => new Promise(resolve => { handlers = next; finish = resolve; }));
+    render(<ChatRuntimeWindow adapter={adapter} agentReplyEffect="off" config={{ floating: false }} initialSession={restoredSession()} />);
+    await waitFor(() => expect(loadMessages).toHaveBeenCalled());
+    fireEvent.change(screen.getByRole("textbox"), { target: { value: "Inspect" } });
+    fireEvent.click(screen.getByRole("button", { name: "Send" }));
+    await waitFor(() => expect(handlers).toBeDefined());
+    let sequence = 0;
+    const emit = (type: string, messageId: string, delta?: string, phase?: string) => act(() => {
+      handlers!.onAguiEvent?.({ type, messageId, delta, runId: "RUN-PHASE", threadId: "SESSION-RESTORED",
+        metadata: { framework: { runId: "NATIVE-RUN", ...(phase ? { message: { phase, outputIndex: 0, stepId: "step" } } : {}) }, tron: { eventId: `phase:${++sequence}` } } });
+      if (delta) handlers!.onDelta?.(delta);
+    });
+    emit("RUN_STARTED", "");
+    emit("TEXT_MESSAGE_START", "progress");
+    emit("TEXT_MESSAGE_CONTENT", "progress", "Checking files");
+    emit("TEXT_MESSAGE_END", "progress", undefined, "commentary");
+    emit("TEXT_MESSAGE_START", "answer", undefined, "final_answer");
+    emit("TEXT_MESSAGE_CONTENT", "answer", "Done");
+    emit("TEXT_MESSAGE_END", "answer", undefined, "final_answer");
+    act(() => handlers!.onAguiEvent?.({ type: "RUN_FINISHED", runId: "RUN-PHASE", threadId: "SESSION-RESTORED",
+      metadata: { framework: { runId: "NATIVE-RUN", finalMessageIds: ["answer"] }, tron: { eventId: `phase:${++sequence}` } } }));
+    loadMessages.mockRejectedValue(new Error("Replay unavailable"));
+    const result = completedResult("RUN-PHASE");
+    result.messages = [{ id: "product-final", messageId: "product-final", role: "ASSISTANT", sessionId: "SESSION-RESTORED", runId: "RUN-PHASE", channel: "MAIN_AGENT", content: "Done", createdAt: new Date().toISOString() }];
+    await act(async () => finish(result));
+    await waitFor(() => expect(document.querySelector('[data-message-id="progress"]')?.textContent).toContain("Checking files"));
+    expect(document.querySelector('[data-message-id="answer"]')?.textContent).toContain("Done");
+    expect(screen.getAllByText("Done")).toHaveLength(1);
+  });
+
   it("steers the active run and drains queued messages in FIFO order", async () => {
     const pendingStreams: Array<{
       handlers?: ChatStreamHandlers;

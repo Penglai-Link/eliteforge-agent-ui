@@ -76,4 +76,13 @@ describe("chat message merging", () => {
 
     expect(result).toEqual([persisted]);
   });
+
+  it("orders messages from one model step by numeric output index", () => {
+    const step = { id: "step", runId: "run", nodeInvocationId: null, sequence: 1, attempt: 1, name: "chat", model: null,
+      status: "Completed" as const, usage: null, startedAtMs: 1, finishedAtMs: 2 };
+    const item = (index: number): ChatMessage => ({ ...message(`step/message/${index}`, `step/message/${index}`, "2026-07-17T04:00:02.000Z"),
+      role: "ASSISTANT", history: { message: { id: `step/message/${index}`, runId: "run", stepId: "step", role: "Assistant",
+        outputIndex: index, content: [], structured: null, status: "Completed", createdAtMs: 1 }, step, tools: [], run: null, interactions: [] } });
+    expect(mergeChatMessagesChronologically([], [item(10), item(2)]).map(value => value.messageId)).toEqual(["step/message/2", "step/message/10"]);
+  });
 });

@@ -23,6 +23,49 @@ describe("assistant message stream", () => {
     expect(stream.receive(frame("TEXT_MESSAGE_CONTENT", "first", "late rewrite", 6))).toBeNull();
   });
 
+  it("keeps a late phase on the same message and never appends its text twice", () => {
+    const stream = new AssistantMessageStream(session);
+    stream.receive(frame("TEXT_MESSAGE_START", "step", undefined, 1));
+    stream.receive(frame("TEXT_MESSAGE_CONTENT", "step", "Checking", 2));
+    const end = { ...frame("TEXT_MESSAGE_END", "step", undefined, 3), metadata: { framework: { message: { phase: "commentary", outputIndex: 2 } }, tron: { eventId: "frame:3" } } };
+    expect(stream.receive(end)?.message).toMatchObject({ content: "Checking", phase: "commentary" });
+    const corrected = stream.receive({ type: "CUSTOM", threadId: "SESSION", name: "framework.message.metadata", value: { messageId: "step", phase: "commentary" } });
+    expect(corrected?.message).toMatchObject({ content: "Checking", phase: "commentary" });
+    expect(corrected?.ended).toBe(true);
+  });
+
+  it("enriches an already-ended message from a replayed end event", () => {
+    const stream = new AssistantMessageStream(session);
+    stream.receive(frame("TEXT_MESSAGE_CONTENT", "step", "Checking", 1));
+    stream.receive(frame("TEXT_MESSAGE_END", "step", undefined, 2));
+    const end = { ...frame("TEXT_MESSAGE_END", "step", undefined, 2), metadata: { framework: { message: { phase: "commentary" } }, tron: { eventId: "frame:2" } } };
+    expect(stream.receive(end)?.message).toMatchObject({ phase: "commentary", content: "Checking" });
+  });
+
+  it("keeps the longer live text and its phase when history is stale", () => {
+    const stream = new AssistantMessageStream(session);
+    const live = stream.receive({ ...frame("TEXT_MESSAGE_CONTENT", "step", "Checking files", 1), metadata: { framework: { message: { phase: "commentary" } } } })!.message;
+    const stale: ChatMessage = { ...live, phase: undefined, content: "Checking", channel: "history" };
+    expect(stream.settle([live], [stale])[0]).toMatchObject({ content: "Checking files", phase: "commentary", channel: "history" });
+  });
+
+  it("uses declared final message IDs to settle a product completion", () => {
+    const stream = new AssistantMessageStream(session);
+    const commentary = stream.receive({ ...frame("TEXT_MESSAGE_CONTENT", "progress", "Checking", 1), metadata: { framework: { message: { phase: "commentary" } }, tron: { eventId: "one" } } })!.message;
+    const final = stream.receive({ ...frame("TEXT_MESSAGE_CONTENT", "answer", "Done", 2), metadata: { framework: { message: { phase: "final_answer" } }, tron: { eventId: "two" } } })!.message;
+    stream.receive({ type: "RUN_FINISHED", threadId: "SESSION", runId: "PRODUCT-RUN", metadata: { framework: { finalMessageIds: ["answer"] } } });
+    const product: ChatMessage = { ...final, id: "product", messageId: "product", runId: "PRODUCT-RUN", phase: undefined };
+    expect(stream.settle([commentary, final], [product]).map(message => message.messageId)).toEqual(["progress", "answer"]);
+  });
+
+  it("also uses IDs in the completion when the terminal event was missed", () => {
+    const stream = new AssistantMessageStream(session);
+    const final = stream.receive(frame("TEXT_MESSAGE_CONTENT", "answer", "Done", 1))!.message;
+    const product: ChatMessage = { ...final, id: "product", messageId: "product", runId: "PRODUCT-RUN", content: "Done with normalized formatting" };
+    const settled = stream.settle([final], [product], [], { runId: "PRODUCT-RUN", finalMessageIds: ["answer"] });
+    expect(settled.map(message => message.messageId)).toEqual(["answer"]);
+  });
+
   it("deduplicates replay identities but retains two genuinely equal text chunks", () => {
     const stream = new AssistantMessageStream(session);
     const first = frame("TEXT_MESSAGE_CONTENT", "message", "ha", 1);

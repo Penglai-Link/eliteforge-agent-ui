@@ -16,6 +16,7 @@ export interface HistoryMessage {
   requestedSkills?: string[];
   provenance?: MessageProvenance;
   id: string; runId: string; stepId: string | null; role: "User" | "Assistant";
+  phase?: string | null; outputIndex?: number | null;
   content: HistoryContentBlock[]; structured: unknown; status: HistoryStatus; createdAtMs: number;
 }
 export interface HistoryStep {
@@ -63,6 +64,14 @@ export function historyEventRunId(event: { runId?: string | null; metadata?: unk
 /** Projection of structured records; no AG-UI replay or checkpoint parsing. */
 export function historyMessages(page: SessionHistory, labels?: ChatUserInputLabels): ChatMessage[] {
   const steps = new Map(page.records.steps.map((s) => [s.id, s]));
+  // A model invocation can now contain multiple messages, but its usage is
+  // charged once. Attach it to the last answer (or last visible message).
+  const usageOwner = new Map<string, HistoryMessage>();
+  for (const message of page.records.messages) {
+    if (!message.stepId || message.role !== "Assistant" || !historyText(message.content).trim()) continue;
+    const previous = usageOwner.get(message.stepId);
+    if (!previous || previous.phase !== "final_answer" || message.phase === "final_answer") usageOwner.set(message.stepId, message);
+  }
   const runs = new Map(page.runs.map((r) => [r.id, r]));
   const tools = new Map<string, HistoryToolInvocation[]>();
   page.records.toolInvocations.filter(t => !t.batch).forEach((t) => { const group = tools.get(t.messageId) ?? []; group.push(t); tools.set(t.messageId, group); });
@@ -90,6 +99,7 @@ export function historyMessages(page: SessionHistory, labels?: ChatUserInputLabe
   });
   const messages: ChatMessage[] = page.records.messages.map((message) => {
     const step = message.stepId ? steps.get(message.stepId) ?? null : null;
+    const usage = message.stepId && usageOwner.get(message.stepId)?.id === message.id ? step?.usage : null;
     const text = historyText(message.content);
     // Older hosts delivered detached child completion through user steering.
     // Restore its host attribution when replaying those durable records.
@@ -101,10 +111,11 @@ export function historyMessages(page: SessionHistory, labels?: ChatUserInputLabe
     const isRunDiagnostic = message.role === "Assistant" && text === runs.get(message.runId)?.error;
     return {
       id: message.id, messageId: message.id, sessionId: page.sessionId, runId: message.runId,
+      phase: message.phase,
       role: message.role === "User" ? "USER" : "ASSISTANT", channel: "history", actor: provenance?.sender.displayName ?? (message.role === "User" ? "User" : "Assistant"), provenance,
       requestedSkills: message.requestedSkills ?? [], annotations: message.annotations ?? [],
-      content: isRunDiagnostic ? "" : text, inputTokens: step?.usage?.inputTokens, outputTokens: step?.usage?.outputTokens,
-      totalTokens: step?.usage ? step.usage.inputTokens + step.usage.outputTokens : null,
+      content: isRunDiagnostic ? "" : text, inputTokens: usage?.inputTokens, outputTokens: usage?.outputTokens,
+      totalTokens: usage ? usage.inputTokens + usage.outputTokens : null,
       createdAt: new Date(message.createdAtMs).toISOString(), history: { message, step, tools: tools.get(message.id) ?? [], run: runs.get(message.runId) ?? null, interactions: interactionsByMessage.get(message.id) ?? [] },
     };
   });

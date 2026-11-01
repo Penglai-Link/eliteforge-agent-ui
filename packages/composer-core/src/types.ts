@@ -71,6 +71,8 @@ export interface ComposerProps {
   attachLabel?: string;
   uploadingLabel?: string;
   removeAttachmentLabel?: (name: string) => string;
+  /** Drag handle label; Up/Down keys also reorder the focused message. */
+  reorderQueuedLabel?: string;
   editQueuedLabel?: string;
   removeQueuedLabel?: string;
   steerQueuedLabel?: string;
