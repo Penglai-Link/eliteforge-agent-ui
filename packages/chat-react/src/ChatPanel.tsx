@@ -1718,7 +1718,7 @@ export function ChatPanel({
                           {showAgui ? workTimeline.before.get(message.messageId)?.map(renderWorkRun) : null}
                           {!showAgui || !workTimeline.processMessageIds.has(message.messageId) ? <>
                           {!workTimeline.managedMessageIds.has(message.messageId) && historyWork.has(message.messageId) ? <HistoryWorkRail messages={historyWork.get(message.messageId)!} labels={workRailLabels} historyLabels={historyLabels} showReasoningCards={showReasoningCards} locale={locale} /> : null}
-                          <StructuredMessageDetails message={message} labels={workRailLabels} historyLabels={historyLabels} locale={locale} hasRunError={displayedErrorRuns.has(message.runId ?? "") || lastHistoryErrorByRun.get(message.runId) !== message.messageId} />
+                          <StructuredMessageDetails message={message} labels={workRailLabels} historyLabels={historyLabels} locale={locale} hasRunError={workTimeline.managedMessageIds.has(message.messageId) || displayedErrorRuns.has(message.runId ?? "") || lastHistoryErrorByRun.get(message.runId) !== message.messageId} />
                           {message.role === "USER" && message.provenance?.sender.kind.toUpperCase() !== "SYSTEM" ? (
                             <div className="ef-chat__user-message-group">
                               <AnnotationBadges annotations={message.annotations ?? []} formatCount={formatAnnotationCount} />

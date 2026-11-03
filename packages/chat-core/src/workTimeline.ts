@@ -324,7 +324,7 @@ export function buildTranscriptWorkTimeline(messages: ChatMessage[], presentatio
     const candidate = (message: ChatMessage) => Boolean(message.content.trim() || message.a2ui || message.history?.message.structured != null);
     const final = successful ? [...group.messages].reverse().find(message => message.phase === "final_answer" && candidate(message))
       ?? [...group.messages].reverse().find(message => message.phase == null && candidate(message)) : undefined;
-    const placedItems = buildItems(group.messages, group.events, final?.messageId, historyComplete, tools, emittedTools, group.nativeId, options.showReasoningCards !== false);
+    const placedItems = buildItems(group.messages, group.events, historyComplete, tools, emittedTools, group.nativeId, options.showReasoningCards !== false);
     const run: TranscriptWorkRun = { id: group.id, runId: [...group.wireIds][0] ?? group.nativeId,
       events: group.events, messages: group.messages, completed, ...(waitingAtMs !== undefined ? { waitingAtMs } : {}), finalMessageId: final?.messageId,
       ...(group.segmentStartedAtMs !== undefined ? { segmentStartedAtMs: group.segmentStartedAtMs } : {}),
@@ -332,34 +332,45 @@ export function buildTranscriptWorkTimeline(messages: ChatMessage[], presentatio
       items: placedItems.map(entry => entry.item) };
     for (const message of group.messages) {
       managedMessageIds.add(message.messageId);
-      if (message !== final && message.phase == null) processMessageIds.add(message.messageId);
+      if (!isVisibleTranscriptMessage(message)) processMessageIds.add(message.messageId);
     }
-    const phasedMessages = group.messages.filter(isVisiblePhasedMessage);
-    if (!phasedMessages.length) {
+    const replyMessages = group.messages.filter(isVisibleTranscriptMessage);
+    if (!replyMessages.length) {
       const map = group.before ? before : after;
       const bucket = map.get(group.anchor) ?? [];
       bucket.push(run); map.set(group.anchor, bucket);
       continue;
     }
 
-    // Phased messages are ordinary transcript cards. Keep each portion of the
-    // folded work rail next to the preceding card instead of moving every tool
+    // Every reply is an ordinary transcript card, even without phase metadata.
+    // Keep folded work next to the preceding card instead of moving every tool
     // to the beginning of the run. An invocation's parent message is the
     // strongest placement evidence, including after history-only recovery.
-    const anchors: Array<string | null> = [null, ...phasedMessages.map(message => message.messageId)];
+    const anchors: Array<string | null> = [null, ...replyMessages.map(message => message.messageId)];
     const sections = anchors.flatMap(anchor => {
       const items = placedItems.filter(entry => entry.afterMessageId === anchor).map(entry => entry.item);
       return items.length ? [{ anchor, items }] : [];
     });
     if (!sections.length) sections.push({ anchor: null, items: [] });
+    // A reply closes the preceding activity group, not the execution. Keep one
+    // live tail for the next model/tool step or pending interaction. Later text
+    // must never move an already visible reply into the folded process.
+    const lastReply = replyMessages.at(-1)!;
+    if (!completed && sections.at(-1)?.anchor !== lastReply.messageId) {
+      sections.push({ anchor: lastReply.messageId, items: [] });
+    }
+    const replyTime = (message: ChatMessage) => {
+      const frame = group.events.find(event => aguiEventType(event).toUpperCase() === "TEXT_MESSAGE_START"
+        && "messageId" in event && event.messageId === message.messageId);
+      return (frame ? aguiEventMillis(frame) : null) ?? message.history?.message.createdAtMs ?? Date.parse(message.createdAt);
+    };
     for (let index = 0; index < sections.length; index += 1) {
       const section = sections[index]!;
       const last = index === sections.length - 1;
-      const next = sections[index + 1];
       const anchorMessage = group.messages.find(message => message.messageId === section.anchor);
-      const nextMessage = group.messages.find(message => message.messageId === next?.anchor);
-      const startAt = anchorMessage ? Date.parse(anchorMessage.createdAt) : start;
-      const endAt = nextMessage ? Date.parse(nextMessage.createdAt) : startAt;
+      const nextMessage = replyMessages[section.anchor === null ? 0 : replyMessages.findIndex(message => message.messageId === section.anchor) + 1];
+      const startAt = anchorMessage ? replyTime(anchorMessage) : start;
+      const endAt = nextMessage ? replyTime(nextMessage) : startAt;
       const segmentStart = Number.isFinite(startAt) ? startAt : Number.isFinite(endAt) ? endAt : 0;
       const segmentEnd = Number.isFinite(endAt) ? Math.max(segmentStart, endAt) : segmentStart;
       const segment: TranscriptWorkRun = last ? {
@@ -370,7 +381,7 @@ export function buildTranscriptWorkTimeline(messages: ChatMessage[], presentatio
         segmentStartedAtMs: segmentStart, segmentFinishedAtMs: segmentEnd,
       };
       const map = section.anchor ? after : before;
-      const anchor = section.anchor ?? phasedMessages[0]!.messageId;
+      const anchor = section.anchor ?? replyMessages[0]!.messageId;
       const bucket = map.get(anchor) ?? [];
       bucket.push(segment); map.set(anchor, bucket);
     }
@@ -440,17 +451,20 @@ function resolvedTools(messages: ChatMessage[], events: TranscriptAguiEvent[]): 
   return tools;
 }
 
-function isVisiblePhasedMessage(message: ChatMessage) {
-  return message.phase != null && Boolean(message.content.trim() || message.a2ui || message.history?.message.structured != null);
+function isVisibleTranscriptMessage(message: ChatMessage) {
+  return Boolean(message.content.trim() || message.a2ui || message.history?.message.structured != null
+    || message.history?.message.content.some(block => !["Text", "Reasoning"].includes(block.type)));
 }
 
 type PlacedWorkItem = { item: WorkTimelineItem; afterMessageId: string | null };
 
-function buildItems(messages: ChatMessage[], events: TranscriptAguiEvent[], finalId: string | undefined, historyComplete: boolean,
+function buildItems(messages: ChatMessage[], events: TranscriptAguiEvent[], historyComplete: boolean,
   tools: Map<string, ResolvedTool>, emittedTools: Set<string>, nativeId: string, showReasoningCards: boolean) {
   const ranked: Array<{ item: WorkTimelineItem; time: number; order: number }> = [];
   const add = (item: WorkTimelineItem, time: number, order = 0) => ranked.push({ item, time, order });
-  const at = (index: number) => aguiEventMillis(events[index]) ?? index;
+  let previousTime = -Infinity;
+  const sortTimes = events.map((event, index) => previousTime = Math.max(previousTime, aguiEventMillis(event) ?? index));
+  const at = (index: number) => sortTimes[index] ?? index;
   // Synthetic positions retain source order even when many frames share a clock
   // tick. They are only sort keys, never displayed as elapsed time.
   // Live AG-UI frames can contain progress/reasoning that history does not
@@ -495,9 +509,6 @@ function buildItems(messages: ChatMessage[], events: TranscriptAguiEvent[], fina
       add({ kind: "reasoning", id, value: { id, runId: message.runId ?? "", content: reasoning, summary: reasoning,
         ended: view?.message.status !== "Running", firstMillis: time, endMillis: view?.step?.finishedAtMs ?? null, toolCards: [] } }, time, order - 0.5);
     }
-    if (message.phase == null && message.messageId !== finalId && (message.content.trim() || message.a2ui
-      || view?.message.structured != null || view?.message.content.some(block => !["Text", "Reasoning"].includes(block.type))))
-      add({ kind: "message", id: message.messageId, message }, time, order);
     for (const tool of view?.tools ?? []) {
       if (eventToolIds.has(tool.id) || eventToolIds.has(tool.callId)) continue;
       const resolved = tools.get(toolKey(tool.runId, tool.id))!;
@@ -508,34 +519,34 @@ function buildItems(messages: ChatMessage[], events: TranscriptAguiEvent[], fina
       tool.startedAtMs ?? time, order + 0.5);
     }
   }
-  const phasedMessages = messages.filter(isVisiblePhasedMessage);
-  const phaseBeforeMessage = (messageId: string, includeMessage: boolean) => {
+  const replyMessages = messages.filter(isVisibleTranscriptMessage);
+  const replyBeforeMessage = (messageId: string, includeMessage: boolean) => {
     const index = messages.findIndex(message => message.messageId === messageId);
     if (index < 0) return null;
-    return messages.slice(0, index + (includeMessage ? 1 : 0)).reverse().find(isVisiblePhasedMessage)?.messageId ?? null;
+    return messages.slice(0, index + (includeMessage ? 1 : 0)).reverse().find(isVisibleTranscriptMessage)?.messageId ?? null;
   };
   const afterMessageId = (entry: typeof ranked[number]) => {
     const item = entry.item;
-    if (item.kind === "message") return phaseBeforeMessage(item.message.messageId, false);
+    if (item.kind === "message") return replyBeforeMessage(item.message.messageId, false);
     if (item.kind === "tool") {
       const start = events.find(event => aguiEventType(event).toUpperCase() === "TOOL_CALL_START"
         && "toolCallId" in event && event.toolCallId === item.value.toolCallId);
       const parent = start && "parentMessageId" in start && typeof start.parentMessageId === "string"
         ? start.parentMessageId : item.value.stepId;
-      if (parent && messages.some(message => message.messageId === parent)) return phaseBeforeMessage(parent, true);
+      if (parent && messages.some(message => message.messageId === parent)) return replyBeforeMessage(parent, true);
     }
     if (item.kind === "reasoning" && item.id.endsWith(":reasoning")) {
       const parent = item.id.slice(0, -":reasoning".length);
-      if (messages.some(message => message.messageId === parent)) return phaseBeforeMessage(parent, false);
+      if (messages.some(message => message.messageId === parent)) return replyBeforeMessage(parent, false);
     }
     // Live and replay events carry an authoritative sequence, even when their
     // timestamps are identical. History-only data falls back to creation time.
-    const phaseEvents = phasedMessages.map(message => ({ message, index: events.findIndex(event =>
+    const replyEvents = replyMessages.map(message => ({ message, index: events.findIndex(event =>
       aguiEventType(event).toUpperCase() === "TEXT_MESSAGE_START" && "messageId" in event && event.messageId === message.messageId) }));
-    if (events.length && phaseEvents.some(phase => phase.index >= 0) && entry.order > 0) {
-      return phaseEvents.filter(phase => phase.index >= 0 && phase.index < entry.order).at(-1)?.message.messageId ?? null;
+    if (events.length && replyEvents.some(phase => phase.index >= 0) && entry.order > 0) {
+      return replyEvents.filter(phase => phase.index >= 0 && phase.index < entry.order).at(-1)?.message.messageId ?? null;
     }
-    return phasedMessages.filter(message => Date.parse(message.createdAt) <= entry.time).at(-1)?.messageId ?? null;
+    return replyMessages.filter(message => Date.parse(message.createdAt) <= entry.time).at(-1)?.messageId ?? null;
   };
   const ordered: PlacedWorkItem[] = ranked.sort((a, b) => a.time - b.time || a.order - b.order)
     .filter(entry => showReasoningCards || entry.item.kind !== "reasoning")

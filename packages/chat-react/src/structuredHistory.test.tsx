@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import type { ChatAdapter, ChatSession, SessionHistory } from "@eliteforge/agent-ui-chat-core";
+import type { ChatAdapter, ChatSession, ChatStreamHandlers, ChatSendResult, SessionHistory } from "@eliteforge/agent-ui-chat-core";
 import { ChatRuntimeWindow } from "./ChatRuntimeWindow";
 import { ensureTestLocalStorage } from "./testLocalStorage";
 const session: ChatSession = { id: 1, sessionId: "S", title: "History", status: "ACTIVE", createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() };
@@ -26,9 +26,11 @@ it("reads one structured snapshot and renders records without any event replay",
   render(<ChatRuntimeWindow adapter={adapter} initialSession={session} config={{ floating: false }} onError={vi.fn()} />);
   expect(await screen.findByText("Durable answer")).toBeTruthy();
   expect(screen.queryByText(/Step 1 · Attempt 2/)).toBeNull();
-  const work = screen.getByRole("button", { name: /Worked for/ });
-  expect(work.getAttribute("aria-expanded")).toBe("false");
-  fireEvent.click(work);
+  const work = screen.getAllByRole("button", { name: /Worked for/ });
+  for (const group of work) {
+    expect(group.getAttribute("aria-expanded")).toBe("false");
+    fireEvent.click(group);
+  }
   for (const group of document.querySelectorAll("button.ef-chat__rail-entry-toggle[aria-expanded=\"false\"]")) fireEvent.click(group);
   fireEvent.click(await screen.findByRole("button", { name: /Run tool Lookup/i }));
   expect(await screen.findByText("No result payload.")).toBeTruthy();
@@ -134,7 +136,7 @@ it("keeps a completed structured tool row expandable", async () => {
     },
   }} onError={vi.fn()} />);
   await screen.findByText("Durable answer");
-  fireEvent.click(screen.getByRole("button", { name: /Worked for/ }));
+  for (const work of screen.getAllByRole("button", { name: /Worked for/ })) fireEvent.click(work);
   for (const group of document.querySelectorAll("button.ef-chat__rail-entry-toggle[aria-expanded=\"false\"]")) fireEvent.click(group);
   const tool = screen.getByRole("button", { name: "Dude README.md" });
   expect(tool).toBeTruthy();
@@ -170,4 +172,34 @@ it("restores native annotation metadata when reopening a historical conversation
   expect(screen.getByRole('tooltip').textContent).toContain('Saved comment');
   expect(adapter.loadMessages).not.toHaveBeenCalled();
   expect(adapter.loadProtocolEvents).not.toHaveBeenCalled();
+});
+
+
+it("ends preparation on continuation admission before any assistant text arrives", async () => {
+  const adapter = host();
+  const snapshot = page();
+  snapshot.runs[0].status = "Waiting";
+  snapshot.runs[0].finishedAtMs = null;
+  snapshot.activeRuns = [snapshot.runs[0]];
+  snapshot.records.messages.forEach(message => { message.content = []; });
+  const interaction = { id: "ASK", runId: "R", invocationId: "TOOL", prompt: [{ type: "Text" as const, text: "Proceed?" }],
+    responseSchema: { type: "boolean" }, presentation: null, response: null, expiresAtMs: null };
+  snapshot.records.interactions = [interaction];
+  snapshot.pendingInteractions = [interaction];
+  vi.mocked(adapter.loadHistory!).mockResolvedValue(snapshot);
+  let handlers!: ChatStreamHandlers;
+  let finish!: (result: ChatSendResult) => void;
+  adapter.answerUserInputRequestStream = vi.fn((_session, _request, _answer, next) => new Promise(resolve => { handlers = next!; finish = resolve; }));
+  render(<ChatRuntimeWindow adapter={adapter} initialSession={session} config={{ floating: false }} onError={vi.fn()} />);
+  fireEvent.click(await screen.findByRole("button", { name: "Approve" }));
+  expect(await screen.findByText("Preparing request…")).toBeTruthy();
+  const identity = { threadId: "S", runId: "resumed", metadata: { framework: { runId: "R" } } };
+  act(() => handlers.onAguiEvent?.({ ...identity, type: "RUN_STARTED", timestamp: Date.now() }));
+  expect(screen.queryByText("Preparing request…")).toBeNull();
+  act(() => handlers.onAguiEvent?.({ ...identity, type: "TOOL_CALL_START", toolCallId: "work", toolCallName: "bash_exec", toolCallArgs: { command: "pwd" }, timestamp: Date.now() }));
+  expect(screen.queryByText("Preparing request…")).toBeNull();
+  expect(screen.getByText(/Working for/)).toBeTruthy();
+  vi.mocked(adapter.loadHistory!).mockResolvedValue(page());
+  await act(async () => finish({ session, messages: [], run: { runId: "R", status: "COMPLETED", finalOutput: "Done", stepCount: 1 } }));
+  expect(screen.queryByText("Preparing request…")).toBeNull();
 });

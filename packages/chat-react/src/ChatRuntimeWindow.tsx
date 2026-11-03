@@ -23,6 +23,7 @@ import {
   normalizeChatSession,
   isAguiPresentationFailureEvent,
   isAguiExecutionTerminalEvent,
+  isAguiRequestProgressEvent,
   nativeUserInputRequests,
   activeNativeUserInputRequests,
   nativeUserInputAnswer,
@@ -1208,6 +1209,10 @@ export function ChatRuntimeWindow({
           onAguiEvent: (event) => {
             if (!belongsToNewChatTurn(event, activeSession.sessionId, optimisticCreatedAt)) return;
             if (abortRef.current !== abortController) return;
+            if (isAguiRequestProgressEvent(event)) {
+              setLiveAguiPending(false);
+              setLiveAguiPendingAnchorMessageCode("");
+            }
             receiveA2ui(event);
             const runId = String(event.runId ?? event.runId ?? "");
             if (typeof event.supportsSteer === "boolean") {
@@ -1466,6 +1471,10 @@ export function ChatRuntimeWindow({
         {
           onAguiEvent: (event) => {
             if (activeSessionCodeRef.current !== submittedSessionId) return;
+            if (isAguiRequestProgressEvent(event)) {
+              setLiveAguiPending(false);
+              setLiveAguiPendingAnchorMessageCode("");
+            }
             // A resumed run starts only after the backend accepts the answer.
             if (event.type === "RUN_STARTED") {
               markAnswered();

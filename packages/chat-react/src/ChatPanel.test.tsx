@@ -83,6 +83,21 @@ it.each([false, true])("places the tool rail between its commentary cards (repla
   expect(container.querySelectorAll('[data-message-id="final"]')).toHaveLength(1);
 });
 
+it.each([false, true])("keeps every unphased reply outside folded work with its original order (replay=%s)", replay => {
+  const messages = historyMessages(phaseToolHistory).map(message => ({ ...message, phase: undefined }));
+  const { container } = renderPanel({ messages, protocolEvents: replay ? phaseToolEvents : [] });
+  const replies = ["progress-1", "progress-2", "final"].map(id => container.querySelector(`[data-message-id="${id}"]`)!);
+  for (const reply of replies) {
+    expect(reply).toBeTruthy();
+    expect(reply.closest(".ef-chat__rail")).toBeNull();
+  }
+  expect(replies[0].compareDocumentPosition(replies[1]) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  expect(replies[1].compareDocumentPosition(replies[2]) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  const rail = container.querySelector('[aria-label="Agent work"]')!;
+  expect(replies[0].compareDocumentPosition(rail) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  expect(rail.compareDocumentPosition(replies[1]) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+});
+
 it("renders a child completion notification as system context without user editing", () => {
   renderPanel({
     messages: [{ id: "notice", messageId: "notice", sessionId: "SESSION-1", role: "USER", actor: "User", channel: "history", content: "Child finished", createdAt: "2026-10-15T00:00:00Z", provenance: { sender: { kind: "SYSTEM", displayName: "System notice" }, source: "ChildRunCompletion" } }],
@@ -970,7 +985,7 @@ describe("ChatPanel sender attribution", () => {
   });
 });
 
-it("folds structured work when the run completes and keeps final text visible", () => {
+it("keeps replies visible while preceding reasoning remains independently collapsible", () => {
   const running = { ...message("ASSISTANT", "Final reply"), history: {
     message: { id: "a", runId: "r", stepId: null, role: "Assistant", content: [{ type: "Reasoning", text: "Internal thought" }], structured: null, status: "Running", createdAtMs: 100 },
     step: null, tools: [], interactions: [],
@@ -978,15 +993,19 @@ it("folds structured work when the run completes and keeps final text visible", 
   } } satisfies ChatMessage;
   const view = renderPanel({ messages: [running] });
   expect(screen.queryByRole("button", { name: "Thinking…" })).toBeNull();
-  expect(screen.getByRole("button", { name: /Working for/ }).getAttribute("aria-expanded")).toBe("true");
+  expect(screen.getByText(/Working for/)).toBeTruthy();
+  expect(screen.getByText("Final reply").closest(".ef-chat__rail")).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: /Worked for/ }));
   expect(screen.getByText("Internal thought")).toBeTruthy();
   const completed: ChatMessage = { ...running, history: { ...running.history, message: { ...running.history.message, status: "Completed" }, run: { ...running.history.run, status: "Completed", finishedAtMs: 200 } } };
   view.rerender(<ChatPanel allowDraftSession messages={[completed]} draft="" onDraftChange={() => undefined} onSend={() => undefined} />);
   const summary = screen.getByRole("button", { name: /Worked for/ });
-  expect(summary.getAttribute("aria-expanded")).toBe("false");
+  // The reasoning segment already ended at the reply boundary. A later run
+  // completion must preserve the reader's explicit expansion choice.
+  expect(summary.getAttribute("aria-expanded")).toBe("true");
   expect(screen.getByText("Final reply")).toBeTruthy();
   fireEvent.click(summary);
-  expect(summary.getAttribute("aria-expanded")).toBe("true");
+  expect(summary.getAttribute("aria-expanded")).toBe("false");
 });
 
 

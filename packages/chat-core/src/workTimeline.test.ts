@@ -43,10 +43,13 @@ it("interleaves reasoning, separate step outputs and tools in source order even 
   const timeline = buildTranscriptWorkTimeline(messages(), presentation(events()));
   const run = timeline.before.get("step-1")!;
   expect(run).toHaveLength(1);
-  expect(items(run)).toEqual(["thought-1", "step-1", "thought-2", "tool-1", "step-2", "thought-3", "final"]);
-  expect(run[0].completed).toBe(false);
+  expect(items(run)).toEqual(["thought-1"]);
+  expect(items(timeline.after.get("step-1")!)).toEqual(["thought-2", "tool-1"]);
+  expect(items(timeline.after.get("step-2")!)).toEqual(["thought-3"]);
+  expect(timeline.after.get("final")![0].completed).toBe(false);
+  expect(run[0].completed).toBe(true);
   expect(run[0].finalMessageId).toBeUndefined();
-  expect([...timeline.processMessageIds]).toEqual(["step-1", "step-2", "final"]);
+  expect([...timeline.processMessageIds]).toEqual([]);
 });
 
 it("keeps each contiguous batch of tool calls after its process message", () => {
@@ -62,29 +65,29 @@ it("keeps each contiguous batch of tool calls after its process message", () => 
   });
   source.splice(toolIndex + 2, 0, ...extraTools);
   const timeline = buildTranscriptWorkTimeline(messages(), presentation(source));
-  const run = timeline.before.get("step-1")![0];
-  expect(items([run])).toEqual(["thought-1", "step-1", "thought-2", "tool-1+tool-2+tool-3", "step-2", "thought-3", "final"]);
+  const run = timeline.after.get("step-1")![0];
+  expect(items([run])).toEqual(["thought-2", "tool-1+tool-2+tool-3"]);
   expect(run.items.find(item => item.kind === "toolGroup")?.value.toolCards).toHaveLength(3);
 });
 
 it("retains a summary group for each single-tool phase after completion", () => {
   const source = events();
   source.push({ ...source[0], type: "RUN_FINISHED" });
-  const run = buildTranscriptWorkTimeline(messages(), presentation(source)).before.get("step-1")![0];
+  const run = buildTranscriptWorkTimeline(messages(), presentation(source)).after.get("step-1")![0];
   expect(run.completed).toBe(true);
   expect(run.items.filter(item => item.kind === "tool")).toEqual([]);
   expect(run.items.filter(item => item.kind === "toolGroup").map(item => item.value.toolCards.length)).toEqual([1]);
 });
 
-it("only execution success moves the final message out of the process; text END does not", () => {
+it("keeps every reply visible while execution success alone marks the final outcome", () => {
   const source = events();
   const active = buildTranscriptWorkTimeline(messages(), presentation(source)).before.get("step-1")![0];
   source.push({ ...source[0], type: "RUN_FINISHED", timestamp: 2000, metadata: { framework: { runId: "native", sourceSequence: 100 } } });
   const timeline = buildTranscriptWorkTimeline(messages(), presentation(source));
   const final = timeline.before.get("step-1")![0];
   expect(final.completed).toBe(true); expect(final.finalMessageId).toBe("final");
-  expect(final.items.map(item => item.id)).toEqual(active.items.slice(0, -1).map(item => item.id));
-  expect([...timeline.processMessageIds]).toEqual(["step-1", "step-2"]);
+  expect(final.items.map(item => item.id)).toEqual(active.items.map(item => item.id));
+  expect([...timeline.processMessageIds]).toEqual([]);
 });
 
 it("keeps explicit commentary and answer messages in the transcript", () => {
@@ -96,7 +99,7 @@ it("keeps explicit commentary and answer messages in the transcript", () => {
   const run = timeline.before.get("step-1")![0];
   expect(run.finalMessageId).toBe("final");
   expect(timeline.processMessageIds.has("step-1")).toBe(false);
-  expect(timeline.processMessageIds.has("step-2")).toBe(true);
+  expect(timeline.processMessageIds.has("step-2")).toBe(false);
   expect(run.items.some(item => item.kind === "message" && item.id === "step-1")).toBe(false);
 });
 
@@ -145,12 +148,14 @@ it("keeps completed text-only executions after an assistant-only recovery with a
   const timeline = buildTranscriptWorkTimeline(input, view);
   expect(timeline.before.get("step-1")![0].completed).toBe(true);
   expect(timeline.before.get("step-1")![0].finalMessageId).toBe("final");
-  expect([...timeline.processMessageIds]).toEqual(["step-1", "step-2"]);
+  expect([...timeline.processMessageIds]).toEqual([]);
 });
 
 it.each(["AGENT_CANCELLED", "MODEL_PROVIDER_FAILED", "AGUI_BACKPRESSURE"])("never promotes partial text to a final answer after %s", code => {
   const source = events(); source.push({ ...source[0], type: "RUN_ERROR", code });
-  const run = buildTranscriptWorkTimeline(messages(), presentation(source)).before.get("step-1")![0];
+  const timeline = buildTranscriptWorkTimeline(messages(), presentation(source));
+  const run = [...timeline.before.values(), ...timeline.after.values()].flat().find(run => run.includeRunMetadata !== false)!;
+  expect(timeline.processMessageIds.size).toBe(0);
   expect(run.finalMessageId).toBeUndefined();
   expect(run.completed).toBe(code !== "AGUI_BACKPRESSURE");
 });
@@ -158,7 +163,7 @@ it.each(["AGENT_CANCELLED", "MODEL_PROVIDER_FAILED", "AGUI_BACKPRESSURE"])("neve
 it("does not fold an unanswered interaction or manufacture a final from its prompt", () => {
   const source = events(); source.push({ ...source[0], type: "RUN_FINISHED", outcome: { type: "interrupt", interrupts: [] } });
   const pending = { requestId: "question", status: "Pending", runId: "native" } as ChatUserInputRequest;
-  const active = buildTranscriptWorkTimeline(messages(), presentation(source), [pending]).before.get("step-1")![0];
+  const active = buildTranscriptWorkTimeline(messages(), presentation(source), [pending]).after.get("final")![0];
   expect(active.completed).toBe(false); expect(active.finalMessageId).toBeUndefined();
   const answered = buildTranscriptWorkTimeline(messages(), presentation(source), [{ ...pending, status: "Answered" }]).before.get("step-1")![0];
   expect(answered.completed).toBe(true); expect(answered.finalMessageId).toBeUndefined();
@@ -177,8 +182,9 @@ it("restores the entire ordered process and separate final from structured histo
     ] } };
   const timeline = buildTranscriptWorkTimeline(historyMessages(page), presentation([]));
   const run = timeline.before.get("step-1")!;
-  expect(items(run)).toEqual(["thought-1", "step-1", "tool-1+tool-2", "thought-final"]);
-  expect(run[0]!.items.find(item => item.kind === "toolGroup")?.value.toolCards).toHaveLength(2);
+  expect(items(run)).toEqual(["thought-1"]);
+  expect(items(timeline.after.get("step-1")!)).toEqual(["tool-1+tool-2", "thought-final"]);
+  expect(timeline.after.get("step-1")![0].items.find(item => item.kind === "toolGroup")?.value.toolCards).toHaveLength(2);
   expect(run[0].finalMessageId).toBe("final"); expect(run[0].completed).toBe(true);
 });
 
@@ -189,7 +195,7 @@ it("keeps answer continuations in their own user boundary even when a host reuse
   const input = [message("user", "Question", "USER"), message("step-1"), message("step-2"), message("answer", "Yes", "USER", 3000), message("resumed-step-1", "Next step", "ASSISTANT", 4000)];
   const timeline = buildTranscriptWorkTimeline(input, presentation([...first, ...next]));
   expect(timeline.before.get("step-1")![0].completed).toBe(true);
-  expect(timeline.before.get("resumed-step-1")![0].completed).toBe(false);
+  expect(timeline.after.get("resumed-step-1")![0].completed).toBe(false);
   expect(timeline.before.get("step-1")![0].items.some(item => item.id === "resumed-step-1")).toBe(false);
 });
 
@@ -234,7 +240,7 @@ it("keeps multiple accepted answers as separate boundaries in one native executi
   const timeline = buildTranscriptWorkTimeline(input, presentation([]), [{ requestId: "q3", runId: "native", status: "Pending" } as ChatUserInputRequest]);
   expect(timeline.before.get("first-question")?.[0].completed).toBe(true);
   expect(timeline.before.get("second-question")?.[0].completed).toBe(true);
-  expect(timeline.before.get("save")?.[0].completed).toBe(false);
+  expect(timeline.after.get("save")?.[0].completed).toBe(false);
   expect([...timeline.before.keys()]).toEqual(["first-question", "second-question", "save"]);
 });
 
@@ -304,12 +310,12 @@ it("reconstructs steer segment timing after AG-UI events have been replaced by h
 it("freezes an unanswered interaction at its request time and resumes on a new execution", () => {
   const source = events();
   const pending = { requestId: "q", status: "Pending", runId: "native", requestedAt: 2500 } as ChatUserInputRequest;
-  const waiting = buildTranscriptWorkTimeline(messages(), presentation(source), [pending]).before.get("step-1")![0];
+  const waiting = buildTranscriptWorkTimeline(messages(), presentation(source), [pending]).after.get("final")![0];
   expect(waiting.waitingAtMs).toBe(2500);
   expect(workTimelineElapsedMilliseconds(waiting, 9000)).toBe(1500);
   expect(workTimelineElapsedMilliseconds(waiting, 30000)).toBe(1500);
   const resumedEvents = [{ ...source[0], timestamp: 12000 }];
-  const resumed = buildTranscriptWorkTimeline(messages(), presentation(resumedEvents), [{ ...pending, status: "Answered" }]).before.get("step-1")![0];
+  const resumed = buildTranscriptWorkTimeline(messages(), presentation(resumedEvents), [{ ...pending, status: "Answered" }]).after.get("final")![0];
   expect(resumed.waitingAtMs).toBeUndefined();
   expect(workTimelineElapsedMilliseconds(resumed, 14000)).toBe(2000);
 });
@@ -319,7 +325,21 @@ it("uses the interruption timestamp over later events while waiting", () => {
   source.push({ ...source[0], type: "RUN_FINISHED", timestamp: 3000, outcome: { type: "interrupt", interrupts: [] } });
   source.push({ ...source[0], type: "CUSTOM", timestamp: 8000, name: "late" });
   const pending = { requestId: "q", status: "Pending", runId: "native", requestedAt: 1000 } as ChatUserInputRequest;
-  const waiting = buildTranscriptWorkTimeline(messages(), presentation(source), [pending]).before.get("step-1")![0];
+  const waiting = buildTranscriptWorkTimeline(messages(), presentation(source), [pending]).after.get("final")![0];
   expect(waiting.waitingAtMs).toBe(3000);
   expect(workTimelineElapsedMilliseconds(waiting, 12000)).toBe(2000);
+});
+
+
+it("keeps partial replies visible without mislabelling them as a successful final after failure", () => {
+  const input = messages();
+  const source = [...events(), { ...events()[0], type: "RUN_FINISHED", timestamp: 2000 }];
+  const completed = buildTranscriptWorkTimeline(input, presentation(source));
+  expect(input.filter(message => completed.processMessageIds.has(message.messageId))).toEqual([]);
+  for (const rail of [...completed.before.values(), ...completed.after.values()].flat()) {
+    expect(rail.items.some(item => item.kind === "message")).toBe(false);
+  }
+  const failed = buildTranscriptWorkTimeline(input, presentation([...events(), { ...events()[0], type: "RUN_ERROR", timestamp: 2000 }]));
+  expect(failed.processMessageIds.size).toBe(0);
+  expect([...failed.before.values(), ...failed.after.values()].flat().some(run => run.finalMessageId)).toBe(false);
 });

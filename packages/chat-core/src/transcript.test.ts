@@ -452,6 +452,22 @@ describe("pending run helpers", () => {
     expect(presentation.waitingForModelAnchorMessageCode).toBe("MSG-ASK");
   });
 
+  it.each(["RUN_STARTED", "REASONING_START", "TOOL_CALL_START", "ACTIVITY_SNAPSHOT", "RUN_ERROR"])("clears preparing after current continuation activity %s without text", type => {
+    const messages = [userMessage(), assistantMessage({ messageId: "MSG-ASK" })];
+    const args = { messages, sessionId: "SESSION-1", liveAguiPending: true,
+      liveAguiPendingAnchorMessageCode: "MSG-ASK", protocolEvents: [event({ type: "RUN_STARTED" }), event({ type: "RUN_FINISHED" })] };
+    expect(buildTranscriptPresentation(args).waitingForModelAnchorMessageCode).toBe("MSG-ASK");
+    expect(buildTranscriptPresentation({ ...args, liveAguiEvents: [event({ type })] }).waitingForModelAnchorMessageCode).toBe("");
+    expect(buildTranscriptPresentation({ ...args, liveAguiEvents: [event({ type, threadId: "OTHER" })] }).waitingForModelAnchorMessageCode).toBe("MSG-ASK");
+  });
+
+  it("shows preparing for a new request despite earlier replayed runs", () => {
+    const messages = [userMessage(), assistantMessage(), userMessage({ messageId: "NEW-USER" })];
+    const view = buildTranscriptPresentation({ messages, sessionId: "SESSION-1", liveAguiPending: true,
+      protocolEvents: [event({ type: "RUN_STARTED" }), event({ type: "RUN_FINISHED" })] });
+    expect(view.waitingForModelAnchorMessageCode).toBe("NEW-USER");
+  });
+
   it("detects recent pending user turns and ignores stale ones", () => {
     expect(isRecentPendingUserTurn([
       userMessage({ createdAt: "2026-06-10T00:29:59.000Z" }),
@@ -496,4 +512,15 @@ it("restores the compaction lock from replay and clears it for success or failur
     expect(contextCompactionInProgress([...active,compaction(name,2)],"RUN-1")).toBe(false);
   }
   expect(contextCompactionInProgress([...active,event({type:"RUN_ERROR"})],"RUN-1")).toBe(false);
+});
+
+
+it("orders overlapping live and replay frames by execution sequence despite clock skew", () => {
+  const frame = (executionId: string, sequence: number, timestamp: number, type: string) => event({ type, timestamp,
+    metadata: { framework: { executionId, sourceSequence: sequence }, tron: { eventId: `${executionId}:${sequence}` } } });
+  const started = frame("execution-1", 1, 3000, "RUN_STARTED");
+  const text = frame("execution-1", 2, 2000, "TEXT_MESSAGE_START");
+  const ended = frame("execution-1", 3, 1000, "RUN_FINISHED");
+  const resumed = frame("execution-2", 1, 4000, "RUN_STARTED");
+  expect(mergeTranscriptAguiEvents([ended, text], [started, text, resumed])).toEqual([started, text, ended, resumed]);
 });

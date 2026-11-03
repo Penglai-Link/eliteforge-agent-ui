@@ -408,12 +408,12 @@ it("shows separate AG-UI step cards before completion and preserves them through
   result.messages = [{ id: "product-final", messageId: "product-final", sessionId: session.sessionId, runId: "RUN-STREAM", role: "ASSISTANT", channel: "MAIN_AGENT", content: "Final answer\n\n", createdAt: new Date().toISOString() }];
   await emit("RUN_FINISHED", "");
   finish(result); await flushUi();
-  expect(container.querySelector('[data-message-id="step-first"]')).toBeNull();
-  expect(container.querySelectorAll('[data-theme-part="chat-message-assistant"]')).toHaveLength(1);
-  expect(container.querySelector('[data-message-id="step-final"]')?.textContent).toContain("Final answer");
-  container.querySelector<HTMLButtonElement>('.ef-chat__rail-summary')!.click(); await flushUi();
-  expect(container.querySelector('[data-message-id="step-first"]')?.textContent).toContain("First progress summary");
+  const settledFirst = container.querySelector('[data-message-id="step-first"]');
+  expect(settledFirst?.textContent).toContain("First progress summary");
+  expect(settledFirst?.closest(".ef-chat__rail")).toBeNull();
+  expect(container.querySelector('[data-message-id="step-second"]')?.closest(".ef-chat__rail")).toBeNull();
   expect(container.querySelectorAll('[data-theme-part="chat-message-assistant"]')).toHaveLength(3);
+  expect(container.querySelector('[data-message-id="step-final"]')?.textContent).toContain("Final answer");
 });
 
 it("keeps phased progress in the transcript after a product completion", async () => {

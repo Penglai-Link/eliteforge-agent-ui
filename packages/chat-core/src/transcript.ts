@@ -58,6 +58,15 @@ export function isAguiExecutionTerminalEvent(event: TranscriptAguiEvent): boolea
   return type.includes("RUN_FINISHED") || (type.includes("RUN_ERROR") && !isAguiPresentationFailureEvent(event));
 }
 
+/** Admission has completed once the current request reports execution activity.
+ * Text is not required: a run can spend minutes reasoning or executing tools.
+ */
+export function isAguiRequestProgressEvent(event: TranscriptAguiEvent): boolean {
+  const type = aguiEventType(event).toUpperCase();
+  return ["RUN_STARTED", "RUN_FINISHED", "RUN_ERROR", "STEP_STARTED", "STEP_FINISHED", "ACTIVITY_SNAPSHOT"].includes(type)
+    || type.startsWith("TEXT_MESSAGE_") || type.startsWith("REASONING_") || type.startsWith("TOOL_CALL_");
+}
+
 // Lifecycle notices and presentation health are independent; replay retains their details.
 export function buildAguiRunNotices(events: TranscriptAguiEvent[]): AguiRunNotice[] {
   let compaction: Extract<AguiRunNotice, { kind: "compaction" }> | undefined;
@@ -308,7 +317,31 @@ export function mergeTranscriptAguiEvents<T extends TranscriptAguiEvent>(...sour
     }
     merged.push(event);
   });
-  return merged.sort((left, right) => (aguiEventMillis(left) ?? 0) - (aguiEventMillis(right) ?? 0));
+  const inputOrder = new Map(merged.map((event, index) => [event, index]));
+  merged.sort((left, right) => (aguiEventMillis(left) ?? 0) - (aguiEventMillis(right) ?? 0));
+  // Wall clocks are display data. An execution's source sequence is stronger
+  // ordering evidence, especially when live frames overlap replay. Reorder only
+  // its own slots so unrelated executions and unsequenced client markers keep
+  // their positions. A resumed execution can restart its sequence at one.
+  const executions = new Map<string, Array<{ index: number; event: T; sequence: number }>>();
+  merged.forEach((event, index) => {
+    const metadata = "metadata" in event ? event.metadata : undefined;
+    const framework = metadata && typeof metadata === "object" && "framework" in metadata ? metadata.framework : undefined;
+    if (!framework || typeof framework !== "object" || !("executionId" in framework)
+      || typeof framework.executionId !== "string" || !framework.executionId
+      || !("sourceSequence" in framework) || typeof framework.sourceSequence !== "number"
+      || !Number.isSafeInteger(framework.sourceSequence)) return;
+    const key = JSON.stringify([aguiEventThreadId(event), framework.executionId]);
+    const entries = executions.get(key) ?? [];
+    entries.push({ index, event, sequence: framework.sourceSequence });
+    executions.set(key, entries);
+  });
+  for (const entries of executions.values()) {
+    const ordered = [...entries].sort((left, right) => left.sequence - right.sequence
+      || inputOrder.get(left.event)! - inputOrder.get(right.event)!);
+    entries.forEach((entry, index) => { merged[entry.index] = ordered[index]!.event; });
+  }
+  return merged;
 }
 
 function latestChatMessage(messages: ChatMessage[]) {
@@ -995,12 +1028,14 @@ export function buildTranscriptPresentation(args: {
     );
   const waitingForModelAnchorMessageCode = (() => {
     if (!args.liveAguiPending || !args.sessionId) return "";
+    // Only the current transport's events can acknowledge a pending request.
+    // Replayed RUN_STARTED frames may belong to a previous execution, including
+    // the interrupted execution that this request is about to resume.
+    if (filterTranscriptAguiEventsForSession(liveEvents, args.sessionId, args.messages, liveAnchorMessageCodes)
+      .some(isAguiRequestProgressEvent)) return "";
     const pendingAnchor = args.liveAguiPendingAnchorMessageCode ?? "";
     if (pendingAnchor && args.messages.some((message) => message.messageId === pendingAnchor)) {
       return pendingAnchor;
-    }
-    if (transcriptAguiEvents.some((event) => aguiEventType(event).toUpperCase() === "RUN_STARTED")) {
-      return "";
     }
     for (let index = args.messages.length - 1; index >= 0; index -= 1) {
       const message = args.messages[index];

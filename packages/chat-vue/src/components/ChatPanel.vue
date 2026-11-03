@@ -312,7 +312,7 @@ onMounted(() => {
               </template>
               <template v-if="!showAgui || !workTimeline.processMessageIds.has(message.messageId)">
               <HistoryWorkRail v-if="!workTimeline.managedMessageIds.has(message.messageId) && historyWork.has(message.messageId)" :messages="historyWork.get(message.messageId)!" :labels="props.workRailLabels" :locale="props.locale" :history-labels="props.historyLabels" :show-reasoning-cards="props.showReasoningCards" />
-              <StructuredMessageDetails :message="message" :labels="props.historyLabels" :locale="props.locale" />
+              <StructuredMessageDetails :message="message" :labels="props.historyLabels" :locale="props.locale" :hide-run-error="workTimeline.managedMessageIds.has(message.messageId)" />
               <ChatBubble
                 v-if="(!message.history || message.a2ui || message.content.trim())"
                 :current-user-display-name="currentUserDisplayName"

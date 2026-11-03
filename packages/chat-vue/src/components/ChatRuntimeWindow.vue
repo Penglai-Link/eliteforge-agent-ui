@@ -18,6 +18,7 @@ import {
   defaultAssistantReplySpeed,
   buildTranscriptPresentation,
   belongsToNewChatTurn,
+  isAguiRequestProgressEvent,
   createMockChatAdapter,
   enqueueChatSubmission,
   ChatAdapterError,
@@ -967,6 +968,10 @@ async function runMessage(
           ) {
             return;
           }
+          if (isAguiRequestProgressEvent(event)) {
+            liveAguiPending.value = false;
+            liveAguiPendingAnchorMessageCode.value = "";
+          }
           receiveA2ui(event);
           const runId = String(event.runId ?? event.runId ?? "");
           if (typeof event.supportsSteer === "boolean") {
@@ -1421,6 +1426,10 @@ async function handleAnswerUserInput(answers: ChatUserInputAnswer[]) {
       {
         onAguiEvent: (event) => {
           if (activeSessionCodeRef.value !== activeSession.sessionId) return;
+          if (isAguiRequestProgressEvent(event)) {
+            liveAguiPending.value = false;
+            liveAguiPendingAnchorMessageCode.value = "";
+          }
           if (event.type === "RUN_STARTED") {
             markAnswered();
             userInputAnswerPending.value = false;

@@ -38,3 +38,23 @@ it("reuses the full work rail in a read-only transcript without a composer", asy
     expect(container.querySelectorAll(".ef-chat__tool-toggle")).toHaveLength(1);
   } finally {app.unmount();}
 });
+
+
+it.each([false, true])("keeps unphased replies out of collapsed work in a read-only transcript (replay=%s)", async replay => {
+  Object.defineProperty(HTMLElement.prototype, "scrollTo", { configurable: true, value: () => {} });
+  const container = document.createElement("div");
+  const messages = historyMessages(phaseToolHistory).map(message => ({ ...message, phase: undefined }));
+  const app = createApp({ render: () => h(ChatPanel, { draft: "", onDraftChange: () => {}, onSend: () => {}, showHeader: false,
+    session: { id: 1, sessionId: "SESSION-1", title: "Replies", status: "ACTIVE", createdAt: new Date(1000).toISOString(), updatedAt: new Date(2000).toISOString() },
+    messages, protocolEvents: replay ? phaseToolEvents : [] }) });
+  try {
+    app.mount(container);
+    const replies = ["progress-1", "progress-2", "final"].map(id => container.querySelector(`[data-message-id="${id}"]`)!);
+    for (const reply of replies) {
+      expect(reply).toBeTruthy();
+      expect(reply.closest(".ef-chat__rail")).toBeNull();
+    }
+    expect(replies[0].compareDocumentPosition(replies[1]) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(replies[1].compareDocumentPosition(replies[2]) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  } finally { app.unmount(); }
+});
