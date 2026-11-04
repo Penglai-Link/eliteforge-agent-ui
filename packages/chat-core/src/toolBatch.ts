@@ -62,6 +62,22 @@ export function parseToolBatchResult(v: unknown): ToolBatchResult | null {
   return {kind:"toolBatch", results:[...rows].sort((a,b)=>a.index-b.index)};
 }
 export function parseToolApprovalDetails(value: unknown): ToolApprovalDetails | undefined {
+  if (!object(value)) return undefined;
+  // A2UI projections of older persisted interactions used `arguments`.
+  if (value.kind === "a2ui" && Array.isArray(value.messages)) {
+    for (const message of value.messages) {
+      const components = object(message) && object(message.updateComponents) ? message.updateComponents.components : null;
+      if (!Array.isArray(components)) continue;
+      for (const component of components) {
+        if (object(component) && component.component === "ApprovalCard") {
+          const details = parseToolApprovalDetails(component.details);
+          if (details) return details;
+        }
+      }
+    }
+    return undefined;
+  }
+  if (!("parameters" in value) && "arguments" in value) value = {...value, parameters:value.arguments};
   if (!object(value) || typeof value.tool !== "string" || !("parameters" in value) || (value.batch != null && !isToolBatchItem(value.batch))) return undefined;
   return {tool:value.tool,parameters:value.parameters,...(isToolBatchItem(value.batch)?{batch:value.batch}:{})};
 }

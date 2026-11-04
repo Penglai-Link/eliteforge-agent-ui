@@ -1,3 +1,4 @@
+import { ChatUserInputGroup } from "./ChatUserInputGroup";
 import { ChatGoalIndicator, type ChatGoalIndicatorProps } from "./ChatGoalIndicator";
 import { hasPendingBatchItems } from "@eliteforge/agent-ui-chat-core";
 import { chatAnnotationsByMessage, chatAnnotationForHref, chatAnnotationTooltip, mountChatAnnotationSelection, mountChatAnnotationPreviews, openChatAnnotationEditor, defaultChatAnnotationLabels, type ChatAnnotationLabels, type ChatAnnotation } from "@eliteforge/agent-ui-chat-core";
@@ -1773,7 +1774,8 @@ export function ChatPanel({
                   </div>
                 )}
             {userInputRequest?.status === "Pending" && onAnswerUserInput ? (
-              <ChatUserInputCard
+              <ChatUserInputGroup
+                requests={userInputRequests}
                 disabled={userInputAnswerPending || session?.status === "ARCHIVED"}
                 labels={userInputLabels}
                 onSubmit={onAnswerUserInput}

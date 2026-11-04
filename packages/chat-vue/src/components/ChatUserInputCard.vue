@@ -6,8 +6,8 @@ import { interactionEnvelopes, type ChatUserInputAnswer, type ChatUserInputLabel
 const props = defineProps<{ request: ChatUserInputRequest; disabled?: boolean; labels?: ChatUserInputLabels }>();
 const emit = defineEmits<{ submit: [answers: ChatUserInputAnswer[]] }>();
 const client = shallowRef(new A2UIClient());
-watch(() => JSON.stringify([props.request.requestId, props.request.a2uiInteraction ?? null, props.labels ?? null]), () => { const c = new A2UIClient(); for (const envelope of props.request.a2uiInteraction?.messages ?? interactionEnvelopes(props.request, props.labels)) c.apply(envelope); client.value = c; }, { immediate: true });
-watch(() => [props.disabled, props.request.status], () => {if(props.request.a2uiInteraction) return; client.value.apply({ version: "v0.9.1", updateDataModel: { surfaceId: `interaction:${props.request.requestId}`, path: "/status", value: props.disabled ? "Submitting" : props.request.status } }); }, { immediate: true });
+watch(() => JSON.stringify([props.request.requestId, props.request.a2uiInteraction ?? null, props.request.intro, props.request.nativeInteraction?.details, props.request.answers, props.labels ?? null]), () => { const c = new A2UIClient(); for (const envelope of props.request.a2uiInteraction?.messages ?? interactionEnvelopes(props.request, props.labels)) c.apply(envelope); client.value = c; }, { immediate: true });
+watch(() => [client.value, props.disabled, props.request.status], () => {if(props.request.a2uiInteraction) return; client.value.apply({ version: "v0.9.1", updateDataModel: { surfaceId: `interaction:${props.request.requestId}`, path: "/status", value: props.disabled ? "Submitting" : props.request.status } }); }, { immediate: true });
 function submit(message: ActionMessage) {
   if(props.request.a2uiInteraction) {emit("submit", [{questionId:props.request.requestId,answerKind:"Other",optionId:null,otherText:JSON.stringify(message.action.context.response)}]);return;}
   const value = message.action.context.answer;

@@ -21,7 +21,7 @@ import ChatBubble from "./ChatBubble.vue";
 import HistoryWorkRail from "./HistoryWorkRail.vue";
 import StructuredMessageDetails from "./StructuredMessageDetails.vue";
 import WaitingRail from "./WaitingRail.vue";
-import ChatUserInputCard from "./ChatUserInputCard.vue";
+import ChatUserInputGroup from "./ChatUserInputGroup.vue";
 import AguiRunWorkRail from "./AguiRunWorkRail.vue";
 import ChatAttachments from "./ChatAttachments.vue";
 import { ChatPanelProps } from "../types";
@@ -372,7 +372,8 @@ onMounted(() => {
               {{ (props.historyLabels ?? defaultHistoryLabels).loading }}
             </div>
           </div>
-        <ChatUserInputCard
+        <ChatUserInputGroup
+              :requests="props.userInputRequests"
           v-if="props.userInputRequest?.status === 'Pending' && props.onAnswerUserInput"
           :disabled="props.userInputAnswerPending || props.session?.status === 'ARCHIVED'"
           :labels="props.userInputLabels"
@@ -481,7 +482,8 @@ onMounted(() => {
               </div>
             </div>
           </div>
-        <ChatUserInputCard
+        <ChatUserInputGroup
+              :requests="props.userInputRequests"
           v-if="props.userInputRequest?.status === 'Pending' && props.onAnswerUserInput"
           :disabled="props.userInputAnswerPending || props.session?.status === 'ARCHIVED'"
           :labels="props.userInputLabels"

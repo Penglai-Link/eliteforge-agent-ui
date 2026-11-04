@@ -10,7 +10,8 @@ import {
   historyMessages,
   historyEventRunId,
   historyUserInputRequests,
-  nativeUserInputAnswer,
+  nativeUserInputBatchAnswer,
+  pendingApprovalRequests,
   activeNativeUserInputRequests,
   type SessionHistory,
   type HistoryCursor,
@@ -1402,14 +1403,15 @@ async function handleAnswerUserInput(answers: ChatUserInputAnswer[]) {
   ) {
     return;
   }
+  const submittedRequests = pendingApprovalRequests(request, userInputRequests.value);
+  const submittedIds = new Set(submittedRequests.map(item => item.requestId));
+  const itemAnswers = (item: ChatUserInputRequest) => submittedRequests.length === 1 ? answers : answers.filter(answer => answer.questionId === item.requestId);
   const continuationAnchorMessageCode = [...messages.value]
     .reverse()
     .find((message) => message.role === "ASSISTANT")?.messageId ?? messages.value.at(-1)?.messageId ?? "";
   const markAnswered = () => {
     if (activeSessionCodeRef.value !== activeSession.sessionId) return;
-    if (!acceptedUserInputRequests.value.some(item => item.requestId === request.requestId)) {
-      acceptedUserInputRequests.value = [...acceptedUserInputRequests.value, { ...request, answers, answeredAt: Date.now(), assistantMessageId: request.assistantMessageId ?? continuationAnchorMessageCode, status: "Answered" }];
-    }
+    acceptedUserInputRequests.value = [...acceptedUserInputRequests.value.filter(item => !submittedIds.has(item.requestId)), ...submittedRequests.map(item => ({ ...item, answers:itemAnswers(item), answeredAt:Date.now(), assistantMessageId:item.assistantMessageId ?? continuationAnchorMessageCode, status:"Answered" as const }))];
   };
   userInputAnswerPending.value = true;
   sending.value = true;
@@ -1422,7 +1424,7 @@ async function handleAnswerUserInput(answers: ChatUserInputAnswer[]) {
     const result = await adapter.answerUserInputRequestStream(
       activeSession,
       request.requestId,
-      {...nativeUserInputAnswer(request, answers), ...(adapter.loadA2uiState ? {clientCapabilities: {userInputRequests:true,a2ui:{version:"v0.9.1" as const,catalogIds:[AGENT_CATALOG_ID]}}, a2uiMetadata:a2uiSession.value.metadata(activeSession.metadata?.agentId as string | undefined ?? "main-agent")} : {})},
+      {...nativeUserInputBatchAnswer(submittedRequests, answers), ...(adapter.loadA2uiState ? {clientCapabilities: {userInputRequests:true,a2ui:{version:"v0.9.1" as const,catalogIds:[AGENT_CATALOG_ID]}}, a2uiMetadata:a2uiSession.value.metadata(activeSession.metadata?.agentId as string | undefined ?? "main-agent")} : {})},
       {
         onAguiEvent: (event) => {
           if (activeSessionCodeRef.value !== activeSession.sessionId) return;
@@ -1434,8 +1436,8 @@ async function handleAnswerUserInput(answers: ChatUserInputAnswer[]) {
             markAnswered();
             userInputAnswerPending.value = false;
             if (userInputRequest.value?.requestId === request.requestId) userInputRequest.value = null;
-            userInputRequests.value = userInputRequests.value.map(item => item.requestId === request.requestId
-              ? { ...item, answers, answeredAt: item.answeredAt ?? Date.now(), assistantMessageId: item.assistantMessageId ?? continuationAnchorMessageCode, status: "Answered" as const } : item);
+            userInputRequests.value = userInputRequests.value.map(item => submittedIds.has(item.requestId)
+              ? { ...item, answers:itemAnswers(item), answeredAt: item.answeredAt ?? Date.now(), assistantMessageId: item.assistantMessageId ?? continuationAnchorMessageCode, status: "Answered" as const } : item);
             if (event.runId) activeRunCode.value = event.runId;
           }
           receiveA2ui(event);
@@ -1474,8 +1476,8 @@ async function handleAnswerUserInput(answers: ChatUserInputAnswer[]) {
           ? result.userInputRequest
           : null;
       userInputRequests.value = userInputRequests.value.map((item) => (
-        item.requestId === request.requestId
-          ? { ...item, answers, answeredAt: item.answeredAt ?? Date.now(), assistantMessageId: item.assistantMessageId ?? continuationAnchorMessageCode, status: "Answered" as const }
+        submittedIds.has(item.requestId)
+          ? { ...item, answers: itemAnswers(item), answeredAt: item.answeredAt ?? Date.now(), assistantMessageId: item.assistantMessageId ?? continuationAnchorMessageCode, status: "Answered" as const }
           : item
       ));
     }

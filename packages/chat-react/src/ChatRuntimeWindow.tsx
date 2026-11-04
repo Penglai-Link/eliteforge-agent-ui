@@ -26,7 +26,8 @@ import {
   isAguiRequestProgressEvent,
   nativeUserInputRequests,
   activeNativeUserInputRequests,
-  nativeUserInputAnswer,
+  nativeUserInputBatchAnswer,
+  pendingApprovalRequests,
   historyMessages,
   historyEventRunId,
   historyUserInputRequests,
@@ -1437,20 +1438,22 @@ export function ChatRuntimeWindow({
   };
 
   async function handleAnswerUserInput(answers: ChatUserInputAnswer[]) {
-    if (compacting) return;
+    if (compacting || userInputAnswerPending) return;
     if (!session || !userInputRequest || !activeAdapter.answerUserInputRequestStream) return;
     const submittedRequest = userInputRequest;
+    const submittedRequests = pendingApprovalRequests(submittedRequest, userInputRequests);
+    const submittedIds = new Set(submittedRequests.map(request => request.requestId));
+    const itemAnswers = (request: ChatUserInputRequest) => submittedRequests.length === 1 ? answers : answers.filter(answer => answer.questionId === request.requestId);
     const submittedSessionId = session.sessionId;
     const textStream = new AssistantMessageStream(session);
     const markAnswered = () => {
       if (activeSessionCodeRef.current !== submittedSessionId) return;
-      if (submittedRequest.nativeInteraction) answeredNativeInteractionsRef.current.add(submittedRequest.requestId);
-      setAcceptedUserInputRequests(current => current.some(request => request.requestId === submittedRequest.requestId)
-        ? current : [...current, { ...submittedRequest, answers, answeredAt: Date.now(), assistantMessageId: submittedRequest.assistantMessageId ?? continuationAnchorMessageCode, status: "Answered" }]);
+      for (const request of submittedRequests) if (request.nativeInteraction) answeredNativeInteractionsRef.current.add(request.requestId);
+      setAcceptedUserInputRequests(current => [...current.filter(request => !submittedIds.has(request.requestId)), ...submittedRequests.map(request => ({ ...request, answers:itemAnswers(request), answeredAt:Date.now(), assistantMessageId:request.assistantMessageId ?? continuationAnchorMessageCode, status:"Answered" as const }))]);
       setUserInputAnswerPending(false);
       setUserInputRequest(current => current?.requestId === submittedRequest.requestId ? null : current);
-      setUserInputRequests(current => current.map(request => request.requestId === submittedRequest.requestId
-        ? { ...request, answers, answeredAt: request.answeredAt ?? Date.now(), assistantMessageId: request.assistantMessageId ?? continuationAnchorMessageCode, status: "Answered" as const } : request));
+      setUserInputRequests(current => current.map(request => submittedIds.has(request.requestId)
+        ? { ...request, answers:itemAnswers(request), answeredAt: request.answeredAt ?? Date.now(), assistantMessageId: request.assistantMessageId ?? continuationAnchorMessageCode, status: "Answered" as const } : request));
     };
     const continuationAnchorMessageCode = [...messages]
       .reverse()
@@ -1467,7 +1470,7 @@ export function ChatRuntimeWindow({
       const result = await activeAdapter.answerUserInputRequestStream(
         session,
         userInputRequest.requestId,
-        {...nativeUserInputAnswer(userInputRequest, answers), ...(activeAdapter.loadA2uiState ? {clientCapabilities: {userInputRequests:true,a2ui:{version:"v0.9.1" as const,catalogIds:[AGENT_CATALOG_ID]}}, a2uiMetadata:a2uiSession.metadata(session.metadata?.agentId as string | undefined ?? "main-agent")} : {})},
+        {...nativeUserInputBatchAnswer(submittedRequests, answers), ...(activeAdapter.loadA2uiState ? {clientCapabilities: {userInputRequests:true,a2ui:{version:"v0.9.1" as const,catalogIds:[AGENT_CATALOG_ID]}}, a2uiMetadata:a2uiSession.metadata(session.metadata?.agentId as string | undefined ?? "main-agent")} : {})},
         {
           onAguiEvent: (event) => {
             if (activeSessionCodeRef.current !== submittedSessionId) return;
@@ -1501,8 +1504,8 @@ export function ChatRuntimeWindow({
       setSession(result.session);
       setUserInputRequest(result.userInputRequest?.status === "Pending" ? result.userInputRequest : null);
       setUserInputRequests((current) => current.map((request) => (
-        request.requestId === userInputRequest.requestId
-          ? { ...request, answers, answeredAt: request.answeredAt ?? Date.now(), assistantMessageId: request.assistantMessageId ?? continuationAnchorMessageCode, status: "Answered" as const }
+        submittedIds.has(request.requestId)
+          ? { ...request, answers:itemAnswers(request), answeredAt: request.answeredAt ?? Date.now(), assistantMessageId: request.assistantMessageId ?? continuationAnchorMessageCode, status: "Answered" as const }
           : request
       )));
       setLiveAguiPending(false);

@@ -3,7 +3,7 @@ import { A2UIClient } from "@eliteforge/agent-ui-a2ui-core";
 import { A2UISurface } from "@eliteforge/agent-ui-a2ui-react";
 import { interactionEnvelopes, type ChatUserInputAnswer, type ChatUserInputLabels, type ChatUserInputRequest } from "@eliteforge/agent-ui-chat-core";
 export function ChatUserInputCard({ disabled = false, labels, onSubmit, request }: { disabled?: boolean; labels?: ChatUserInputLabels; onSubmit: (answers: ChatUserInputAnswer[]) => void; request: ChatUserInputRequest }) {
-  const presentationKey = JSON.stringify([request.a2uiInteraction ?? null, labels ?? null]);
+  const presentationKey = JSON.stringify([request.a2uiInteraction ?? null, request.intro, request.nativeInteraction?.details, request.answers, labels ?? null]);
   const client = useMemo(() => { const c = new A2UIClient(); for (const envelope of request.a2uiInteraction?.messages ?? interactionEnvelopes(request, labels)) c.apply(envelope); return c; }, [request.requestId, presentationKey]);
   const surfaceId = request.a2uiInteraction?.surfaceId ?? `interaction:${request.requestId}`;
   useEffect(() => { if (request.a2uiInteraction) return; client.apply({ version: "v0.9.1", updateDataModel: { surfaceId, path: "/status", value: disabled ? "Submitting" : request.status } }); }, [client, disabled, request.status, surfaceId]);

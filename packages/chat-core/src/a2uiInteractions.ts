@@ -13,6 +13,6 @@ export function interactionEnvelopes(request: ChatUserInputRequest, labels?: Cha
     { version: "v0.9.1", createSurface: { surfaceId, catalogId: AGENT_CATALOG_ID } },
     { version: "v0.9.1", updateComponents: { surfaceId, components: [{ id: "root", component: approval ? "ApprovalCard" : "QuestionCard", intro: request.intro, value: { path: "/answer" }, status: { path: "/status" }, labels: strings,
       ...(request.expiresAtMs ? {expiresAtMs:request.expiresAtMs} : {}), ...(approval ? {details:request.nativeInteraction?.details ?? {}} : { questions: request.questions }), action: { event: { name: "interaction.submit", context: { answer: { path: "/answer" } } } } }] } },
-    { version: "v0.9.1", updateDataModel: { surfaceId, value: { answer: approval ? null : answers, status: submitting ? "Submitting" : request.status } } },
+    { version: "v0.9.1", updateDataModel: { surfaceId, value: { answer: approval ? request.nativeInteraction?.optionPayloads[request.answers?.[0]?.optionId ?? ""] ?? null : answers, status: submitting ? "Submitting" : request.status } } },
   ];
 }

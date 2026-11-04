@@ -27,7 +27,7 @@ export function nativeUserInputRequests(events: ChatAguiStreamEvent[], sessionId
     const question = interrupt.message || (typeof schema.title === "string" ? schema.title : "Input required");
     return {
       requestId: interrupt.id, sessionId, runId: terminal.runId!, intro: question, status: "Pending" as const,
-      ...(presentation.kind === "a2ui" && Array.isArray(presentation.messages) ? { a2uiInteraction: {messages: presentation.messages, surfaceId: String((presentation.messages[0] as any)?.createSurface?.surfaceId ?? "")} } : {}),
+      ...(!approval && presentation.kind === "a2ui" && Array.isArray(presentation.messages) ? { a2uiInteraction: {messages: presentation.messages, surfaceId: String((presentation.messages[0] as any)?.createSurface?.surfaceId ?? "")} } : {}),
       requestedAt: terminal.timestamp ?? 0,
       questions: Array.isArray(presentation.questions) ? presentation.questions.map((q: any)=>({questionId:String(q.id),question:String(q.question),options:(q.options??[]).map((o:any)=>({optionId:String(o.id),label:String(o.label),description:o.description})),allowCustomAnswer:q.allow_free_text,allowSkip:q.allow_skip})) : [{ questionId: interrupt.id, question, options, allowCustomAnswer: !choices.length, allowSkip: false }],
       nativeInteraction: { questionnaire:Array.isArray(presentation.questions), reason: interrupt.reason, responseSchema: interrupt.responseSchema, optionPayloads, ...(approval ? {details:{...parseToolApprovalDetails(presentation)}} : {}) },
@@ -73,4 +73,20 @@ export function nativeUserInputAnswer(request: ChatUserInputRequest, answers: Ch
     else { try { payload = JSON.parse(text); } catch { throw new Error("Enter a valid JSON answer"); } }
   } else throw new Error("Select a valid interaction answer");
   return { answers: [], resume: [{ interruptId: request.requestId, status: "resolved", payload }] };
+}
+
+/** All approvals in a paused run form one decision barrier. No tool is resumed
+ * until each card has an explicit decision; unrelated questions stay separate. */
+export function pendingApprovalRequests(request: ChatUserInputRequest, requests: ChatUserInputRequest[]): ChatUserInputRequest[] {
+  const isApproval = (item: ChatUserInputRequest) => item.nativeInteraction?.reason === "approval_required"
+    || record(item.nativeInteraction?.responseSchema).type === "boolean";
+  if (!isApproval(request)) return [request];
+  return [...new Map([...requests, request].filter(item => item.status === "Pending"
+    && item.sessionId === request.sessionId && item.runId === request.runId && isApproval(item))
+    .map(item => [item.requestId, item])).values()];
+}
+
+export function nativeUserInputBatchAnswer(requests: ChatUserInputRequest[], answers: ChatUserInputAnswer[]): ChatUserInputAnswerInput {
+  if (requests.length === 1) return nativeUserInputAnswer(requests[0], answers);
+  return { answers: [], resume: requests.flatMap(request => nativeUserInputAnswer(request, answers).resume ?? []) };
 }

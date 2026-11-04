@@ -20,22 +20,39 @@ export function renderInteraction(ctx: RenderContext, h: Element, props: Record<
     const intro = String(resolve(c.intro) ?? "");
     if (c.component === "ApprovalCard") {
         const decision = resolve(c.value);
-        return { handled: true, node: h("section", { ...props, "data-agent-motion": "enter", "data-agent-motion-key": JSON.stringify([surfaceId, c.id, scope]), "data-agent-motion-disabled": disabled, "aria-label": label("ariaLabel", "Approval"), "data-status": expired ? "Expired" : status }, [
-                intro ? h("p", {}, [intro]) : null,
-                c.details ? h("pre", {}, [JSON.stringify(c.details, null, 2)]) : null,
-                h("div", { role: "group", "aria-label": label("ariaLabel", "Approval") }, [
-                    button(label("approve", "Approve"), () => { if (!disabled) {
-                        setValue(true);
-                        dispatch();
-                    } }),
-                    button(label("reject", "Reject"), () => { if (!disabled) {
-                        setValue(false);
-                        dispatch();
-                    } }),
+        const details = c.details ?? {};
+        const parameters = details.parameters ?? details.arguments;
+        const args = parameters && typeof parameters === "object" && !Array.isArray(parameters) ? parameters : {};
+        const tool = typeof details.tool === "string" && details.tool ? details.tool : label("approvalTool", "Tool execution");
+        const command = typeof args.command === "string" ? args.command : null;
+        const purpose = typeof args.description === "string" ? args.description : typeof args.reason === "string" ? args.reason : null;
+        const cwd = args.cwd ?? args.workingDirectory ?? args.workdir;
+        const part = (name: string) => ({ class: "a2ui-approval-" + name });
+        const hasDetails = parameters != null && (typeof parameters !== "object" || Object.keys(parameters).length > 0);
+        const outcome = typeof decision === "boolean" ? decision ? label("approved", "Approved") : label("rejected", "Rejected") : null;
+        return { handled: true, node: h("section", { ...props, "data-agent-motion": "enter", "data-agent-motion-key": JSON.stringify([surfaceId, c.id, scope]), "data-agent-motion-disabled": disabled, "aria-label": label("approvalTitle", "Approve tool execution"), "data-status": expired ? "Expired" : status }, [
+            h("header", part("header"), [
+                icon("M12 3 3 7v5c0 5 9 9 9 9s9-4 9-9V7l-9-4Zm0 5v5m0 3h.01"),
+                h("div", {}, [h("strong", {}, [label("approvalTitle", "Approve tool execution")]), h("code", part("tool"), [tool])]),
+                Number.isInteger(details.batch?.index) ? h("span", part("index"), ["#" + (details.batch.index + 1)]) : null,
+            ]),
+            purpose ? h("p", part("purpose"), [purpose]) : null,
+            h("div", part("execution"), [
+                h("span", part("label"), [label("approvalExecution", "Execution")]),
+                hasDetails ? h("pre", {}, [h("code", {}, [command ?? JSON.stringify(parameters, null, 2)])]) : h("p", {}, [label("approvalMissingDetails", "Execution details were not provided")]),
+                command && Array.isArray(args.args) ? h("pre", {}, [h("code", {}, ["args: " + JSON.stringify(args.args)])]) : null,
+                typeof cwd === "string" ? h("div", part("directory"), [h("span", {}, [label("approvalDirectory", "Working directory")]), h("code", {}, [cwd])]) : null,
+                command ? h("details", part("parameters"), [h("summary", {}, [label("approvalParameters", "All parameters")]), h("pre", {}, [h("code", {}, [JSON.stringify(parameters, null, 2)])])]) : null,
+            ]),
+            intro ? h("div", part("reason"), [h("span", part("label"), [label("approvalReason", "Why approval is needed")]), h("p", {}, [intro])]) : null,
+            h("footer", part("actions"), [
+                h("span", { ...part("state"), role: "status" }, [expired ? label("expired", "Expired") : status === "Submitting" ? label("continuing", "Continuing…") : outcome ?? label("approvalScope", "Applies to this call only")]),
+                h("div", {role:"group", "aria-label":label("approvalTitle", "Approve tool execution")}, [
+                    button(label("reject", "Reject"), () => { if (!disabled) { setValue(false); dispatch(); } }, disabled, part("reject")),
+                    button(label("approve", "Approve"), () => { if (!disabled) { setValue(true); dispatch(); } }, disabled, part("approve")),
                 ]),
-                disabled && typeof decision === "boolean" ? h("p", {}, [decision ? label("approved", "Approved") : label("rejected", "Rejected")]) : null,
-                settled,
-            ]) };
+            ]),
+        ]) };
     }
     const key = JSON.stringify([c.id, scope]);
     const questions = c.questions as any[];

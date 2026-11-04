@@ -151,7 +151,7 @@ export function historyUserInputRequests(page: SessionHistory, labels?: Partial<
     const presented = interaction.presentation?.questions;
     return { requestId: interaction.id, sessionId: page.sessionId, runId: interaction.runId, intro: question, status: "Pending" as const,
       expiresAtMs: interaction.expiresAtMs,
-      ...(interaction.presentation?.kind === "a2ui" && Array.isArray(interaction.presentation.messages) ? { a2uiInteraction: { messages: interaction.presentation.messages, surfaceId: String((interaction.presentation.messages[0] as any)?.createSurface?.surfaceId ?? "") } } : {}),
+      ...(!approval && interaction.presentation?.kind === "a2ui" && Array.isArray(interaction.presentation.messages) ? { a2uiInteraction: { messages: interaction.presentation.messages, surfaceId: String((interaction.presentation.messages[0] as any)?.createSurface?.surfaceId ?? "") } } : {}),
       requestedAt: page.runs.find((r) => r.id === interaction.runId)?.startedAtMs ?? 0,
       questions: Array.isArray(presented) ? presented.map((entry: Record<string, unknown>) => ({
         questionId: String(entry.id ?? entry.questionId ?? ""), question: String(entry.question ?? ""),
