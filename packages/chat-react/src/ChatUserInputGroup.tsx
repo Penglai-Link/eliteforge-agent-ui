@@ -2,14 +2,14 @@ import { useState } from "react";
 import { pendingApprovalRequests, type ChatUserInputAnswer, type ChatUserInputLabels, type ChatUserInputRequest } from "@eliteforge/agent-ui-chat-core";
 import { ChatUserInputCard } from "./ChatUserInputCard";
 
-type Props = { request: ChatUserInputRequest; requests: ChatUserInputRequest[]; labels?: ChatUserInputLabels; disabled?: boolean; onSubmit: (answers: ChatUserInputAnswer[]) => void };
+type Props = { request: ChatUserInputRequest; requests: ChatUserInputRequest[]; labels?: ChatUserInputLabels; disabled?: boolean; submitFailed?: boolean; onSubmit: (answers: ChatUserInputAnswer[]) => void };
 export function ChatUserInputGroup(props: Props) {
   const requests = pendingApprovalRequests(props.request, props.requests);
   if (requests.length === 1) return <ChatUserInputCard {...props} />;
   // A changed set of server requests starts a fresh approval barrier.
   return <ApprovalBatch key={JSON.stringify(requests.map(r => [r.sessionId, r.runId, r.requestId]))} {...props} requests={requests} />;
 }
-function ApprovalBatch({ requests, labels, disabled, onSubmit }: Props) {
+function ApprovalBatch({ requests, labels, disabled, submitFailed, onSubmit }: Props) {
   const [decisions, setDecisions] = useState<Record<string, ChatUserInputAnswer[]>>({});
   const count = requests.filter(r => decisions[r.requestId]).length;
   const decide = (request: ChatUserInputRequest, answers: ChatUserInputAnswer[]) => {
@@ -24,6 +24,6 @@ function ApprovalBatch({ requests, labels, disabled, onSubmit }: Props) {
       <ChatUserInputCard disabled={disabled} labels={labels} request={decisions[request.requestId] ? {...request, answers:decisions[request.requestId], status:"Answered"} : request} onSubmit={answers => decide(request, answers)} />
       {decisions[request.requestId] && !disabled ? <button type="button" className="ef-chat__approval-batch-change" onClick={() => setDecisions(current => { const next = {...current}; delete next[request.requestId]; return next; })}>{labels?.approvalWaiting ?? "Waiting for batch"} · {labels?.approvalChange ?? "Change"}</button> : null}
     </div>)}
-    {count === requests.length && !disabled ? <button type="button" className="ef-chat__approval-batch-retry" onClick={() => onSubmit(requests.flatMap(r => decisions[r.requestId]))}>{labels?.approvalRetry ?? "Submit decisions"}</button> : null}
+    {submitFailed && count === requests.length && !disabled ? <button type="button" className="ef-chat__approval-batch-retry" onClick={() => onSubmit(requests.flatMap(r => decisions[r.requestId]))}>{labels?.approvalRetry ?? "Retry submission"}</button> : null}
   </section>;
 }

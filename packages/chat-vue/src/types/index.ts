@@ -99,6 +99,7 @@ export interface ChatPanelProps extends Pick<ComposerVueProps, "pendingAttachmen
   userInputRequests?: ChatUserInputRequest[];
   userInputRequest?: ChatUserInputRequest | null;
   userInputAnswerPending?: boolean;
+  userInputAnswerFailed?: boolean;
   onAnswerUserInput?: (answers: ChatUserInputAnswer[]) => void;
 }
 

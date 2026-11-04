@@ -264,6 +264,7 @@ export function ChatRuntimeWindow({
   ).values()], [userInputRequests, acceptedUserInputRequests, session?.sessionId]);
   const answeredNativeInteractionsRef = useRef(new Set<string>());
   const [userInputAnswerPending, setUserInputAnswerPending] = useState(false);
+  const [failedUserInput, setFailedUserInput] = useState<{ sessionId: string; requestId: string } | null>(null);
   const [submissionError, setSubmissionError] = useState<string | null>(null);
   const [aguiEvents, setAguiEvents] = useState<ChatAguiEvent[]>([]);
   const [protocolEvents, setProtocolEvents] = useState<ChatAguiStreamEvent[]>([]);
@@ -1441,6 +1442,7 @@ export function ChatRuntimeWindow({
     if (compacting || userInputAnswerPending) return;
     if (!session || !userInputRequest || !activeAdapter.answerUserInputRequestStream) return;
     const submittedRequest = userInputRequest;
+    setFailedUserInput(null);
     const submittedRequests = pendingApprovalRequests(submittedRequest, userInputRequests);
     const submittedIds = new Set(submittedRequests.map(request => request.requestId));
     const itemAnswers = (request: ChatUserInputRequest) => submittedRequests.length === 1 ? answers : answers.filter(answer => answer.questionId === request.requestId);
@@ -1513,6 +1515,7 @@ export function ChatRuntimeWindow({
       setLiveAguiAnchorMessageCodes({});
       void refreshCompletedTurn(result.session.sessionId, result.run.runId, presentationEpoch);
     } catch (error) {
+      if (activeSessionCodeRef.current === submittedSessionId) setFailedUserInput({ sessionId: submittedSessionId, requestId: submittedRequest.requestId });
       onError(error instanceof Error ? error.message : "Chat answer failed", "Chat answer failed");
     } finally {
         if (activeSessionCodeRef.current !== submittedSessionId) return;
@@ -1998,6 +2001,7 @@ export function ChatRuntimeWindow({
       locale={config.locale}
       workRailLabels={config.workRailLabels}
       userInputAnswerPending={userInputAnswerPending}
+      userInputAnswerFailed={Boolean(failedUserInput && failedUserInput.sessionId === session?.sessionId && failedUserInput.requestId === userInputRequest?.requestId)}
       userInputRequest={userInputRequest}
       onAnswerUserInput={compacting ? undefined : (answers) => { void handleAnswerUserInput(answers); }}
       a2uiSession={a2uiSession}
@@ -2086,6 +2090,7 @@ export function ChatRuntimeWindow({
         locale={config.locale}
         workRailLabels={config.workRailLabels}
         userInputAnswerPending={userInputAnswerPending}
+        userInputAnswerFailed={Boolean(failedUserInput && failedUserInput.sessionId === session?.sessionId && failedUserInput.requestId === userInputRequest?.requestId)}
         userInputRequest={userInputRequest}
         onAnswerUserInput={compacting ? undefined : (answers) => { void handleAnswerUserInput(answers); }}
         onStateChange={onWindowStateChange}

@@ -173,6 +173,7 @@ const presentedUserInputRequests = computed(() => [...new Map(
 ).values()]);
 watch(() => session.value?.sessionId, () => { acceptedUserInputRequests.value = []; });
 const userInputAnswerPending = ref(false);
+const failedUserInput = ref<{ sessionId: string; requestId: string } | null>(null);
 const aguiEvents = ref<ChatAguiEvent[]>([]);
 const protocolEvents = ref<ChatAguiStreamEvent[]>([]);
 const liveAguiEvents = ref<ChatAguiStreamEvent[]>([]);
@@ -1404,6 +1405,7 @@ async function handleAnswerUserInput(answers: ChatUserInputAnswer[]) {
     return;
   }
   const submittedRequests = pendingApprovalRequests(request, userInputRequests.value);
+  failedUserInput.value = null;
   const submittedIds = new Set(submittedRequests.map(item => item.requestId));
   const itemAnswers = (item: ChatUserInputRequest) => submittedRequests.length === 1 ? answers : answers.filter(answer => answer.questionId === item.requestId);
   const continuationAnchorMessageCode = [...messages.value]
@@ -1497,6 +1499,7 @@ async function handleAnswerUserInput(answers: ChatUserInputAnswer[]) {
     liveAguiPendingAnchorMessageCode.value = "";
     await refreshActiveRun(activeSession.sessionId, undefined, false).catch(() => undefined);
   } catch (error) {
+    if (activeSessionCodeRef.value === activeSession.sessionId) failedUserInput.value = { sessionId: activeSession.sessionId, requestId: request.requestId };
     reportError(
       error instanceof Error ? error.message : "Answer submission failed",
       "Answer submission failed",
@@ -1792,6 +1795,7 @@ const panelCommonProps = computed(() => ({
   locale: props.locale ?? props.config.locale,
   workRailLabels: props.config.workRailLabels,
   userInputAnswerPending: userInputAnswerPending.value,
+  userInputAnswerFailed: Boolean(failedUserInput.value && failedUserInput.value.sessionId === session.value?.sessionId && failedUserInput.value.requestId === userInputRequest.value?.requestId),
   userInputRequest: userInputRequest.value,
 }));
 

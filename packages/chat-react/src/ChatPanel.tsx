@@ -1405,6 +1405,7 @@ export interface ChatPanelProps extends Pick<ComposerReactProps, "pendingAttachm
   userInputRequests?: ChatUserInputRequest[];
   userInputRequest?: ChatUserInputRequest | null;
   userInputAnswerPending?: boolean;
+  userInputAnswerFailed?: boolean;
   onAnswerUserInput?: (answers: ChatUserInputAnswer[]) => void;
   renderMarkdownLink?: ChatMarkdownLinkRenderer;
 }
@@ -1488,6 +1489,7 @@ export function ChatPanel({
   userInputRequests = [],
   userInputRequest,
   userInputAnswerPending = false,
+  userInputAnswerFailed = false,
   onAnswerUserInput,
   renderMarkdownLink,
 }: ChatPanelProps) {
@@ -1777,6 +1779,7 @@ export function ChatPanel({
               <ChatUserInputGroup
                 requests={userInputRequests}
                 disabled={userInputAnswerPending || session?.status === "ARCHIVED"}
+                submitFailed={userInputAnswerFailed}
                 labels={userInputLabels}
                 onSubmit={onAnswerUserInput}
                 request={userInputRequest}

@@ -83,6 +83,7 @@ const props = withDefaults(defineProps<ChatPanelProps>(), {
   userInputRequests: () => [],
   userInputRequest: null,
   userInputAnswerPending: false,
+  userInputAnswerFailed: false,
   onAnswerUserInput: undefined,
 });
 
@@ -376,6 +377,7 @@ onMounted(() => {
               :requests="props.userInputRequests"
           v-if="props.userInputRequest?.status === 'Pending' && props.onAnswerUserInput"
           :disabled="props.userInputAnswerPending || props.session?.status === 'ARCHIVED'"
+          :submit-failed="props.userInputAnswerFailed"
           :labels="props.userInputLabels"
           :request="props.userInputRequest"
           @submit="props.onAnswerUserInput"
@@ -486,6 +488,7 @@ onMounted(() => {
               :requests="props.userInputRequests"
           v-if="props.userInputRequest?.status === 'Pending' && props.onAnswerUserInput"
           :disabled="props.userInputAnswerPending || props.session?.status === 'ARCHIVED'"
+          :submit-failed="props.userInputAnswerFailed"
           :labels="props.userInputLabels"
           :request="props.userInputRequest"
           @submit="props.onAnswerUserInput"

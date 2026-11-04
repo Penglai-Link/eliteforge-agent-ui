@@ -2,7 +2,7 @@
 import { computed, ref, watch } from "vue";
 import { pendingApprovalRequests, type ChatUserInputAnswer, type ChatUserInputLabels, type ChatUserInputRequest } from "@eliteforge/agent-ui-chat-core";
 import ChatUserInputCard from "./ChatUserInputCard.vue";
-const props = defineProps<{ request: ChatUserInputRequest; requests: ChatUserInputRequest[]; labels?: ChatUserInputLabels; disabled?: boolean }>();
+const props = defineProps<{ request: ChatUserInputRequest; requests: ChatUserInputRequest[]; labels?: ChatUserInputLabels; disabled?: boolean; submitFailed?: boolean }>();
 const emit = defineEmits<{ submit: [answers: ChatUserInputAnswer[]] }>();
 const requests = computed(() => pendingApprovalRequests(props.request, props.requests));
 const decisions = ref<Record<string, ChatUserInputAnswer[]>>({});
@@ -24,6 +24,6 @@ function change(id: string) { const next = {...decisions.value}; delete next[id]
       <ChatUserInputCard :disabled="disabled" :labels="labels" :request="decisions[item.requestId] ? {...item, answers:decisions[item.requestId], status:'Answered'} : item" @submit="decide(item, $event)" />
       <button v-if="decisions[item.requestId] && !disabled" type="button" class="ef-chat__approval-batch-change" @click="change(item.requestId)">{{ labels?.approvalWaiting ?? 'Waiting for batch' }} · {{ labels?.approvalChange ?? 'Change' }}</button>
     </div>
-    <button v-if="count === requests.length && !disabled" type="button" class="ef-chat__approval-batch-retry" @click="submit">{{ labels?.approvalRetry ?? 'Submit decisions' }}</button>
+    <button v-if="submitFailed && count === requests.length && !disabled" type="button" class="ef-chat__approval-batch-retry" @click="submit">{{ labels?.approvalRetry ?? 'Retry submission' }}</button>
   </section>
 </template>
