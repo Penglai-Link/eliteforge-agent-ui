@@ -130,6 +130,8 @@ React / Vue 宿主可以在共同祖先上覆盖下列共享令牌，Chat 与 A2
 
 现有 Chat 专用颜色覆盖接口保留；要让两端颜色同步，优先覆盖共享的 `--color-*`。图标按钮、长文本输入和聊天编辑器保留各自用途所需的尺寸。
 
+审批卡片与批量审批共用紧凑按钮样式，默认最小高度 `1.75rem`、字号 `0.8125rem`、圆角 `4px`，可用上述 `--agent-ui-control-*` 令牌覆盖；颜色沿用 A2UI / Chat 的公开颜色令牌和 `--color-*` 回退。只有一条待决定的审批时不显示批量按钮；批次中逐项决定到只剩一条时同样隐藏，仍在所有审批决定后统一提交。
+
 React 演示服务的 `/style-preview.html` 提供 Chat / A2UI 并排预览，支持独立默认、浅色、深色和宿主令牌覆盖。React / Vue A2UI 默认样式共用 `a2ui-core/components.css`。
 宿主可导入 `@eliteforge/agent-ui-chat-theme/styles.css` 应用完整现有主题。
 

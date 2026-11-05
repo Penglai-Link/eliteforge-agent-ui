@@ -31,10 +31,10 @@ function ApprovalBatch({ requests, labels, disabled, submitFailed, onSubmit }: P
       <ChatUserInputCard disabled={disabled} labels={labels} request={decisions[request.requestId] ? {...request, answers:decisions[request.requestId], status:"Answered"} : request} onSubmit={answers => decide(request, answers)} />
       {decisions[request.requestId] && !disabled ? <button type="button" className="ef-chat__approval-batch-change" onClick={() => setDecisions(current => { const next = {...current}; delete next[request.requestId]; return next; })}>{labels?.approvalWaiting ?? "Waiting for batch"} · {labels?.approvalChange ?? "Change"}</button> : null}
     </div>)}
-    <footer className="ef-chat__approval-batch-actions">
+    {requests.length - count > 1 ? <footer className="ef-chat__approval-batch-actions">
       <button type="button" disabled={disabled || !batchApprovalDecisions(requests, false)} onClick={() => decideAll(false)}>{labels?.rejectAll ?? "Reject all"}</button>
       <button type="button" className="ef-chat__approval-batch-approve" disabled={disabled || !batchApprovalDecisions(requests, true)} onClick={() => decideAll(true)}>{labels?.approveAll ?? "Approve all"}</button>
-    </footer>
+    </footer> : null}
     {submitFailed && count === requests.length && !disabled ? <button type="button" className="ef-chat__approval-batch-retry" onClick={() => onSubmit(requests.flatMap(r => decisions[r.requestId]))}>{labels?.approvalRetry ?? "Retry submission"}</button> : null}
   </section>;
 }

@@ -1,3 +1,5 @@
+@import "./approval-actions.css";
+
 /* Shared, scoped defaults. Host --agent-ui-* tokens inherit without a global reset.
    Bundled into each renderer stylesheet: no host Tailwind setup is required. */
 :where(.ef-composer, .ef-chat, .ef-chat-window, .ef-chat-window__panel, .a2ui-surface) {

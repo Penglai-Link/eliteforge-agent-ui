@@ -31,7 +31,7 @@ function decideAll(approved: boolean) {
       <ChatUserInputCard :disabled="disabled" :labels="labels" :request="decisions[item.requestId] ? {...item, answers:decisions[item.requestId], status:'Answered'} : item" @submit="decide(item, $event)" />
       <button v-if="decisions[item.requestId] && !disabled" type="button" class="ef-chat__approval-batch-change" @click="change(item.requestId)">{{ labels?.approvalWaiting ?? 'Waiting for batch' }} · {{ labels?.approvalChange ?? 'Change' }}</button>
     </div>
-    <footer class="ef-chat__approval-batch-actions">
+    <footer v-if="requests.length - count > 1" class="ef-chat__approval-batch-actions">
       <button type="button" :disabled="disabled || !batchApprovalDecisions(requests, false)" @click="decideAll(false)">{{ labels?.rejectAll ?? 'Reject all' }}</button>
       <button type="button" class="ef-chat__approval-batch-approve" :disabled="disabled || !batchApprovalDecisions(requests, true)" @click="decideAll(true)">{{ labels?.approveAll ?? 'Approve all' }}</button>
     </footer>
