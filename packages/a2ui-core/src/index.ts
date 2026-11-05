@@ -561,7 +561,7 @@ export function renderSurface<T>(
     ancestors: string[] = [],
     localTrigger?: () => void
   ): any {
-    const c = client.surface(surfaceId).components[id];
+    let c = client.surface(surfaceId).components[id];
     if (!c)
       return element(
         "span",
@@ -569,6 +569,18 @@ export function renderSurface<T>(
         []
       );
     if (ancestors.includes(id)) return null;
+    // Historical model-generated forms may repeat an option verbatim. Remove
+    // only identical entries: equal labels with different values remain valid,
+    // and conflicting labels/disabled flags must not be silently rewritten.
+    if (Array.isArray(c.options)) {
+      const seen = new Set<string>();
+      c = { ...c, options: c.options.filter((option: unknown) => {
+        const key = JSON.stringify(option);
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      }) };
+    }
     const bindingKey = JSON.stringify([id, scope]);
     const occurrence = occurrences.get(bindingKey) ?? 0;
     occurrences.set(bindingKey, occurrence + 1);
