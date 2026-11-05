@@ -1156,7 +1156,11 @@
   transition: color 120ms ease, background 120ms ease;
 }
 
-.ef-chat__tool-toggle:hover,
+.ef-chat__tool-toggle--static {
+  cursor: default;
+}
+
+.ef-chat__tool-toggle:not(.ef-chat__tool-toggle--static):hover,
 .ef-chat__tool-subtoggle:hover {
   color: var(--agent-ui-chat-text);
 }

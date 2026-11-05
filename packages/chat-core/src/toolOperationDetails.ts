@@ -34,6 +34,19 @@ function commandText(payload: Record<string, unknown>): string | undefined {
   return Array.isArray(payload.args) ? [quote(command), ...args.map(quote)].join(" ") : command;
 }
 
+/** Approval receipts show the original invocation, never output or result JSON. */
+export function approvalCommandTexts(rawToolName: string, rawArgs: unknown): string[] {
+  const unwrapped = unwrapGatewayToolCall(rawToolName, parseToolPayload(rawArgs) ?? rawArgs);
+  const payload = parseToolPayload(unwrapped.args);
+  if (!payload) return [];
+  const items = Object.keys(payload).length === 1 && Array.isArray(payload.items)
+    ? payload.items : [payload];
+  return items.flatMap(item => {
+    const command = commandText(parseToolPayload(item) ?? {});
+    return command ? [command] : [];
+  });
+}
+
 /** Display-only projection of the requested operation. Never reads results,
  * logs, protocol status, timestamps, or the order of transcript events. */
 export function toolOperationDetails(rawToolName: string, rawArgs: unknown, locale?: string): ToolOperationDetails[] {

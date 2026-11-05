@@ -41,9 +41,11 @@ export function renderShadcn(
   const bound =
     c.value && typeof c.value === "object" && typeof c.value.path === "string";
   const disabled = c.disabled || !bound;
-  const id =
-    "a2ui-" +
-    encodeURIComponent(JSON.stringify([ctx.surfaceId, c.id, ctx.scope]));
+  const identity = [ctx.surfaceId, c.id, ctx.scope];
+  if (ctx.viewKey && ctx.viewKey !== JSON.stringify([c.id, ctx.scope])) {
+    identity.push(ctx.viewKey);
+  }
+  const id = "a2ui-" + encodeURIComponent(JSON.stringify(identity));
   const done = (node: any) => ({ handled: true, node });
   const update = (changes: ViewState) => setView({ ...view, ...changes });
   const button = (name: string, onClick: (e?: any) => void, attrs: any = {}) =>
@@ -108,7 +110,11 @@ export function renderShadcn(
           } else node.hidden = !view.open;
         },
         onToggle: (e: any) => {
-          if (e.newState === "closed" && view.open) update({ open: false });
+          // Native toggle events are queued; an earlier close must not undo
+          // a popup that has already reopened.
+          const popup = e.currentTarget;
+          const reopened = typeof popup.showPopover === "function" && popup.matches(":popover-open");
+          if (e.newState === "closed" && view.open && !reopened) update({ open: false });
         },
         onKeyDown: (e: any) => {
           if (e.key === "Escape") {
@@ -613,7 +619,7 @@ export function renderShadcn(
                 if (
                   ctx.client.getViewState(
                     ctx.surfaceId,
-                    JSON.stringify([c.id, ctx.scope])
+                    ctx.viewKey ?? JSON.stringify([c.id, ctx.scope])
                   ).open
                 )
                   update({ open: false });

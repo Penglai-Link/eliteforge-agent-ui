@@ -1,4 +1,6 @@
 import type { ChatApprovalResponse, ChatUserInputLabels, ChatToolWorkLabels } from "./types";
+import { approvalCommandTexts } from "./toolOperationDetails";
+import { detectToolPresentationLocale } from "./toolPresentation";
 
 export interface ApprovalRisk {
   level: "safe" | "low" | "medium" | "high" | "critical";
@@ -17,12 +19,18 @@ export function approvalResponseSummary(
   const action = approval.tool
     ? resolveToolName?.(approval.tool, approval.parameters) || approval.tool
     : "";
-  return [{
+  const rows = [{
     label: action
       ? labels?.approvalQuestion?.(action) ?? `Allow ${action}?`
       : labels?.approvalFallbackQuestion ?? "Allow this operation?",
     value: approval.approved ? labels?.approved ?? "Approved" : labels?.rejected ?? "Rejected",
   }];
+  const commands = approvalCommandTexts(approval.tool ?? "", approval.parameters);
+  const zh = detectToolPresentationLocale(undefined, [rows[0].label, rows[0].value]) === "zh-CN";
+  return [...rows, ...commands.map((command, index) => ({
+    label: `${zh ? "命令" : "Command"}${commands.length > 1 ? ` ${index + 1}` : ""}`,
+    value: command,
+  }))];
 }
 
 /** The host supplies risk separately from the human-readable approval reason. */

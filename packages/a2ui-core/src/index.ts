@@ -533,6 +533,8 @@ export interface RenderContext {
   surfaceId: string;
   component: Component;
   scope: string;
+  /** Local presentation identity; data bindings still use the original scope. */
+  viewKey?: string;
   resolve: (value: any) => any;
   setValue: (value: any) => void;
   children: any[];
@@ -552,6 +554,7 @@ export function renderSurface<T>(
   onAction?: ActionHandler
 ): any {
   if (!client.getSnapshot().surfaces[surfaceId]) return null;
+  const occurrences = new Map<string, number>();
   function render(
     id: string,
     scope = "",
@@ -566,6 +569,13 @@ export function renderSurface<T>(
         []
       );
     if (ancestors.includes(id)) return null;
+    const bindingKey = JSON.stringify([id, scope]);
+    const occurrence = occurrences.get(bindingKey) ?? 0;
+    occurrences.set(bindingKey, occurrence + 1);
+    // Reused components share data, not popup/focus state. Keep the original
+    // key for the first occurrence so existing local state remains compatible.
+    const viewKey = occurrence === 0 ? bindingKey
+      : JSON.stringify([id, JSON.stringify([scope, occurrence])]);
     const resolve = (v: any) => client.resolve(surfaceId, v, scope);
     const children: any[] = [];
     if (c.child) children.push(render(c.child, scope, [...ancestors, id]));
@@ -605,6 +615,7 @@ export function renderSurface<T>(
       surfaceId,
       component: c,
       scope,
+      viewKey,
       resolve,
       setValue,
       children,
@@ -626,7 +637,7 @@ export function renderSurface<T>(
     const value = resolve(c.value),
       label = String(resolve(c.label) ?? "");
     const bound = object(c.value) && typeof c.value.path === "string";
-    const key = JSON.stringify([id, scope]);
+    const key = viewKey;
     const interaction = renderInteraction(context, element, props);
     if (interaction.handled) return interaction.node;
     const commonResult = renderCommon(

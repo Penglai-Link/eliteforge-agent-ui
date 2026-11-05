@@ -36,6 +36,8 @@ const props = defineProps<{
 const expanded = ref(false);
 
 const interactionInfo = computed(() => interactionToolSummary(props.card.toolName, props.card.args));
+// Input is presented by its own form; the tool row is only a status label.
+const expandable = computed(() => interactionInfo.value === null);
 const partial = computed(() => hasPendingBatchItems(props.card.result));
 const complete = computed(() => props.card.ended || (!partial.value && Boolean(props.card.result)));
 const failed = computed(() => {
@@ -103,16 +105,18 @@ function subagentDispatchedLabel(name: string) {
       )
     "
   >
-    <button
-      :aria-expanded="expanded"
+    <component
+      :is="expandable ? 'button' : 'div'"
+      :aria-expanded="expandable ? expanded : undefined"
       :class="
         cx(
           'ef-chat__tool-toggle',
+          !expandable && 'ef-chat__tool-toggle--static',
           props.nested && 'ef-chat__tool-toggle--nested',
         )
       "
-      type="button"
-      @click="expanded = !expanded"
+      :type="expandable ? 'button' : undefined"
+      @click="expandable && (expanded = !expanded)"
     >
       <span class="ef-chat__tool-toggle-main">
         <span
@@ -165,14 +169,14 @@ function subagentDispatchedLabel(name: string) {
           </span>
         </span>
       </span>
-      <span class="ef-chat__tool-chevron">
+      <span v-if="expandable" class="ef-chat__tool-chevron">
         <ChevronDown v-if="expanded" :size="14" />
         <ChevronRight v-else :size="14" />
       </span>
-    </button>
+    </component>
 
     <div
-      v-if="expanded"
+      v-if="expandable && expanded"
       :class="
         cx(
           'ef-chat__tool-body',
@@ -183,8 +187,7 @@ function subagentDispatchedLabel(name: string) {
       "
     >
       <div class="ef-chat__tool-sections">
-        <p v-if="interactionInfo !== null">{{ interactionInfo.join(" · ") || toolLabel }}</p>
-        <div v-else class="ef-chat__tool-operations">
+        <div class="ef-chat__tool-operations">
           <section v-for="(operation, index) in operations" :key="index" class="ef-chat__tool-operation" :data-tool-operation-index="index">
             <p v-if="operations.length > 1" class="ef-chat__tool-operation-title">{{ index + 1 }}. {{ toolName }}</p>
             <dl v-if="operation.fields.length" class="ef-chat__tool-operation-fields">

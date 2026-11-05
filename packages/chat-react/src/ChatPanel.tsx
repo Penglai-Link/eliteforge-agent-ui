@@ -662,6 +662,9 @@ function ToolCard({
   const failed = !partial && (statusFailed || toolResultFailed(card.result));
   const running = card.started && !complete;
   const interactionInfo = interactionToolSummary(card.toolName, card.args);
+  // Input is presented by its own form; the tool row is only a status label.
+  const expandable = interactionInfo === null;
+  const ToolHeader = expandable ? "button" : "div";
   const toolCopy = { ...defaultToolWorkLabels, ...labels.tool };
   const presentationLocale = resolveToolCardLocale(labels, locale);
   const operations = useMemo(() => toolOperationDetails(card.toolName, card.args, presentationLocale), [card.toolName, card.args, presentationLocale]);
@@ -690,14 +693,15 @@ function ToolCard({
         !nested && "ef-chat__tool-row--standalone",
       )}
     >
-      <button
+      <ToolHeader
         className={cx(
           "ef-chat__tool-toggle",
+          !expandable && "ef-chat__tool-toggle--static",
           nested && "ef-chat__tool-toggle--nested",
         )}
-        type="button"
-        aria-expanded={expanded}
-        onClick={() => setExpanded((value) => !value)}
+        type={expandable ? "button" : undefined}
+        aria-expanded={expandable ? expanded : undefined}
+        onClick={expandable ? () => setExpanded((value) => !value) : undefined}
       >
         <span className="ef-chat__tool-toggle-main">
           <span
@@ -741,11 +745,11 @@ function ToolCard({
             </span>
           </span>
         </span>
-        <span className="ef-chat__tool-chevron">
+        {expandable ? <span className="ef-chat__tool-chevron">
           {expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-        </span>
-      </button>
-      {expanded ? (
+        </span> : null}
+      </ToolHeader>
+      {expandable && expanded ? (
         <div
           className={cx(
             "ef-chat__tool-body",
@@ -755,8 +759,7 @@ function ToolCard({
           )}
         >
           <div className="ef-chat__tool-sections">
-            {interactionInfo !== null ? <p>{interactionInfo.join(" · ") || toolName}</p> : (
-              <div className="ef-chat__tool-operations">
+            <div className="ef-chat__tool-operations">
                 {operations.map((operation, index) => (
                   <section className="ef-chat__tool-operation" key={index} data-tool-operation-index={index}>
                     {operations.length > 1 ? <p className="ef-chat__tool-operation-title">{index + 1}. {toolName}</p> : null}
@@ -779,8 +782,7 @@ function ToolCard({
                     ) : operations.length === 1 ? <p className="ef-chat__tool-operation-summary">{toolName}</p> : null}
                   </section>
                 ))}
-              </div>
-            )}
+            </div>
           </div>
         </div>
       ) : null}

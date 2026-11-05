@@ -191,7 +191,7 @@ export function renderCommon(
                 if (
                   ctx.client.getViewState(
                     surfaceId,
-                    JSON.stringify([c.id, scope])
+                    ctx.viewKey ?? JSON.stringify([c.id, scope])
                   ).open
                 )
                   setView({ open: false });
