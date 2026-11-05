@@ -47,6 +47,26 @@ export function toolOperationDetails(rawToolName: string, rawArgs: unknown, loca
   return [describeOperation(unwrapped.toolName, payload, locale)];
 }
 
+/** Counts requested command invocations, not shell statements or result events. */
+export function toolCommandCountLabel(rawToolName: string, rawArgs: unknown, locale?: string): string | undefined {
+  const unwrapped = unwrapGatewayToolCall(rawToolName, parseToolPayload(rawArgs) ?? rawArgs);
+  const name = unwrapped.toolName.toLowerCase().replace(/[.-]/g, "_");
+  const presentation = presentToolCall(unwrapped.toolName, undefined, { locale });
+  const executesCommands = /^(?:command|bash|terminal|system_command)_(?:exec|execute|run)$/.test(name)
+    || (presentation.nounKey === "command" && presentation.verbKey === "exec");
+  if (!executesCommands) return undefined;
+  const payload = parseToolPayload(unwrapped.args);
+  if (!payload) return undefined;
+  const items = Object.keys(payload).length === 1 && Array.isArray(payload.items)
+    ? payload.items : [payload];
+  // Incomplete streamed input must not claim a command count yet.
+  if (!items.length || items.length > 32 || !items.every(item => commandText(parseToolPayload(item) ?? {}))) return undefined;
+  const count = items.length;
+  return locale?.toLowerCase().startsWith("zh")
+    ? `执行 ${count} 个命令`
+    : `Run ${count} command${count === 1 ? "" : "s"}`;
+}
+
 function describeOperation(toolName: string, payload: Record<string, unknown>, locale?: string): ToolOperationDetails {
   const zh = locale?.toLowerCase().startsWith("zh");
   const text = (chinese: string, english: string) => zh ? chinese : english;

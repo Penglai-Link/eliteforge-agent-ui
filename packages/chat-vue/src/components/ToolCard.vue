@@ -9,6 +9,7 @@ import {
 } from "lucide-vue-next";
 import {
   toolOperationDetails,
+  toolCommandCountLabel,
   hasPendingBatchItems,
   interactionToolSummary,
   toolCompactLabel,
@@ -57,6 +58,7 @@ const presentationLocale = computed(() => detectToolPresentationLocale(props.loc
   props.labels?.responding,
 ]));
 const operations = computed(() => toolOperationDetails(props.card.toolName, props.card.args, presentationLocale.value));
+const commandCountLabel = computed(() => toolCommandCountLabel(props.card.toolName, props.card.args, presentationLocale.value));
 // A host-provided name still wins unless it only echoes the raw tool id; the
 // presenter parses and appends the subject.
 const hostToolName = computed(() => props.labels?.tool?.resolveName?.(props.card.toolName, props.card.args));
@@ -145,7 +147,7 @@ function subagentDispatchedLabel(name: string) {
                 )
               "
             >
-              {{ props.nested || props.compact ? nestedToolLabel : toolLabel }}
+              {{ commandCountLabel ?? (props.nested || props.compact ? nestedToolLabel : toolLabel) }}
             </span>
             <span
               v-if="complete && !props.nested && !subagentDispatch"

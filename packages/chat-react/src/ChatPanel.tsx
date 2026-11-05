@@ -47,6 +47,7 @@ import {
   type ChatInputSuggestionLabels,
   describeDebugEvent,
   toolOperationDetails,
+  toolCommandCountLabel,
   formatTime,
   detectToolPresentationLocale,
   toolDisplayName,
@@ -664,6 +665,7 @@ function ToolCard({
   const toolCopy = { ...defaultToolWorkLabels, ...labels.tool };
   const presentationLocale = resolveToolCardLocale(labels, locale);
   const operations = useMemo(() => toolOperationDetails(card.toolName, card.args, presentationLocale), [card.toolName, card.args, presentationLocale]);
+  const commandCountLabel = toolCommandCountLabel(card.toolName, card.args, presentationLocale);
   // A host-provided name still wins unless it only echoes the raw tool id; the
   // presenter parses and appends the subject.
   const hostToolName = labels.tool?.resolveName?.(card.toolName, card.args);
@@ -734,7 +736,7 @@ function ToolCard({
                   nested && "ef-chat__tool-title--nested",
                 )}
               >
-                {nested || compact && nestedToolLabel !== toolName ? nestedToolLabel : toolLabel}
+                {commandCountLabel ?? (nested || compact && nestedToolLabel !== toolName ? nestedToolLabel : toolLabel)}
               </span>
             </span>
           </span>
