@@ -578,12 +578,25 @@ export function renderSurface<T>(
       : JSON.stringify([id, JSON.stringify([scope, occurrence])]);
     const resolve = (v: any) => client.resolve(surfaceId, v, scope);
     const children: any[] = [];
-    if (c.child) children.push(render(c.child, scope, [...ancestors, id]));
-    if (Array.isArray(c.children))
-      children.push(
-        ...c.children.map((x: string) => render(x, scope, [...ancestors, id]))
-      );
-    else if (c.children) {
+    const staticChildren: string[] = [
+      ...(c.child ? [c.child] : []),
+      ...(Array.isArray(c.children) ? c.children : []),
+    ];
+    // Older generated forms listed both a Field and its input as siblings.
+    // Keep the labelled Field occurrence; do not globally deduplicate bindings
+    // or template instances, which can legitimately share component definitions.
+    const fieldControls = new Set<string>();
+    for (const childId of staticChildren) {
+      const field = client.surface(surfaceId).components[childId];
+      if (field?.component !== "Field") continue;
+      if (field.child) fieldControls.add(field.child);
+      if (Array.isArray(field.children))
+        field.children.forEach((controlId: string) => fieldControls.add(controlId));
+    }
+    children.push(...staticChildren
+      .filter(childId => !fieldControls.has(childId))
+      .map(childId => render(childId, scope, [...ancestors, id])));
+    if (c.children && !Array.isArray(c.children)) {
       const list = readPath(
         client.surface(surfaceId).dataModel,
         c.children.path,
