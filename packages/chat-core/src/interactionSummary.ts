@@ -1,7 +1,14 @@
-import type { ChatUserInputRequest } from "./types";
+import type { ChatApprovalResponse, ChatToolWorkLabels, ChatUserInputLabels, ChatUserInputRequest } from "./types";
 import type { HistoryInteraction } from "./history";
+import { parseToolApprovalDetails, type ToolApprovalDetails } from "./toolBatch";
+import { approvalResponseSummary } from "./approvalPresentation";
 
 export interface InteractionSummaryRow { label: string; value: string }
+interface InteractionSummaryOptions {
+  labels?: Partial<ChatUserInputLabels>;
+  resolveToolName?: ChatToolWorkLabels["resolveName"];
+  toolDetails?: ToolApprovalDetails;
+}
 const record = (value: unknown): Record<string, any> => value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, any> : {};
 const text = (value: unknown): string => typeof value === "string" ? value : typeof record(value).literalString === "string" ? record(value).literalString : "";
 function readable(value: unknown, choices: any[] = []): string {
@@ -13,7 +20,9 @@ function readable(value: unknown, choices: any[] = []): string {
   return String(value);
 }
 /** Uses presentation labels rather than transport IDs and JSON envelopes. */
-export function interactionSummary(interaction: HistoryInteraction): InteractionSummaryRow[] {
+export function interactionSummary(interaction: HistoryInteraction, options?: InteractionSummaryOptions): InteractionSummaryRow[] {
+  const approval = historyApprovalResponse(interaction, options?.toolDetails);
+  if (approval) return approvalResponseSummary(approval, options?.labels, options?.resolveToolName);
   const presentation = record(interaction.presentation), response = record(interaction.response);
   if (Array.isArray(presentation.questions)) return presentation.questions.map(q => {
     const answer = record(record(response.answers)[q.id ?? q.questionId]);
@@ -36,6 +45,24 @@ export function interactionSummary(interaction: HistoryInteraction): Interaction
     });
   }
   return [{ label: interaction.prompt.filter(b => b.type === "Text").map(b => (b as {text:string}).text).join(""), value: readable(interaction.response) }];
+}
+
+export function historyApprovalResponse(interaction: HistoryInteraction, toolDetails?: ToolApprovalDetails): ChatApprovalResponse | undefined {
+  if (typeof interaction.response !== "boolean") return undefined;
+  const details = parseToolApprovalDetails(interaction.presentation) ?? toolDetails;
+  if (!details && !interaction.invocationId && interaction.responseSchema.type !== "boolean") return undefined;
+  return { approved: interaction.response, tool: details?.tool ?? "", parameters: details?.parameters ?? {} };
+}
+
+export function submittedApprovalResponse(request: ChatUserInputRequest): ChatApprovalResponse | undefined {
+  const native = request.nativeInteraction;
+  if (!native || native.questionnaire || (native.reason !== "approval_required" && record(native.responseSchema).type !== "boolean")) return undefined;
+  const answer = request.answers?.find(item => item.questionId === request.requestId);
+  if (answer?.answerKind !== "Option" || !answer.optionId) return undefined;
+  const approved = native.optionPayloads[answer.optionId];
+  if (typeof approved !== "boolean") return undefined;
+  const details = parseToolApprovalDetails(native.details);
+  return { approved, tool: details?.tool ?? "", parameters: details?.parameters ?? {} };
 }
 
 /** Interaction tools describe the request; answers are shown in the interaction. */

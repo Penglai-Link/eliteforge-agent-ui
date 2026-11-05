@@ -5,7 +5,6 @@ import { chatAnnotationsByMessage, chatAnnotationForHref, chatAnnotationTooltip,
 import { Composer, type ComposerReactProps } from "@eliteforge/agent-ui-composer-react";
 import { messageActorName, messageSenderIsHuman, messageSenderAvatar } from "@eliteforge/agent-ui-chat-core";
 import { interactionMessages, historyWorkGroups, historyWorkCompleted, historyCoversAguiWork, currentAguiTerminalEvent, interactionToolSummary } from "@eliteforge/agent-ui-chat-core";
-import { ToolResultView } from "./ToolResultView";
 import { ChatA2UI } from "./ChatA2UI";
 import type { ChatA2uiActionHandler as ActionHandler, ChatA2uiSession } from "@eliteforge/agent-ui-chat-core";
 import {
@@ -47,7 +46,7 @@ import {
   type ChatInputSuggestion,
   type ChatInputSuggestionLabels,
   describeDebugEvent,
-  formatJsonBlockValue,
+  toolOperationDetails,
   formatTime,
   detectToolPresentationLocale,
   toolDisplayName,
@@ -623,14 +622,6 @@ interface TerminalWorkSummary {
   runId: string;
 }
 
-function hasToolParameterPayload(value: unknown) {
-  if (value == null) return false;
-  if (typeof value === "string") return Boolean(value.trim());
-  if (Array.isArray(value)) return value.length > 0;
-  if (typeof value === "object") return true;
-  return true;
-}
-
 function toolResultFailed(result: string) {
   if (!result) return false;
   try {
@@ -645,12 +636,6 @@ function subagentDispatchedLabel(name: string, labels: ChatWorkRailLabels) {
   if (labels.tool?.subagentDispatched) return labels.tool.subagentDispatched(name);
   const chinese = /[\u3400-\u9fff]/.test([labels.ariaLabel, labels.thinking, labels.preparing, labels.responding].join(" "));
   return chinese ? (name ? `已派发 ${name} 子代理` : "已派发子代理") : defaultToolWorkLabels.subagentDispatched(name);
-}
-
-function JsonBlock({ value }: { value: unknown }) {
-  const preview = formatJsonBlockValue(value);
-  if (!preview) return null;
-  return <pre className="ef-chat__result-block">{preview}</pre>;
 }
 
 function ToolCard({
@@ -676,11 +661,9 @@ function ToolCard({
   const failed = !partial && (statusFailed || toolResultFailed(card.result));
   const running = card.started && !complete;
   const interactionInfo = interactionToolSummary(card.toolName, card.args);
-  const hasParameters = hasToolParameterPayload(card.args);
-  const parametersText = hasParameters ? formatJsonBlockValue(card.args) : "";
-  const resultText = card.result ? formatJsonBlockValue(card.result) : "";
   const toolCopy = { ...defaultToolWorkLabels, ...labels.tool };
   const presentationLocale = resolveToolCardLocale(labels, locale);
+  const operations = useMemo(() => toolOperationDetails(card.toolName, card.args, presentationLocale), [card.toolName, card.args, presentationLocale]);
   // A host-provided name still wins unless it only echoes the raw tool id; the
   // presenter parses and appends the subject.
   const hostToolName = labels.tool?.resolveName?.(card.toolName, card.args);
@@ -693,22 +676,10 @@ function ToolCard({
     : statusLabel ? toolName : (complete ? toolCopy.completed(toolName) : toolCopy.running(toolName));
   const nestedToolLabel = card.subagentName !== undefined ? toolLabel : toolCompactLabel(card.toolName, card.args, toolName, presentationLocale);
   const [expanded, setExpanded] = useState(false);
-  const [parametersExpanded, setParametersExpanded] = useState(false);
-  const logRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     if (complete) setExpanded(false);
   }, [complete, running]);
-
-  useEffect(() => {
-    if (!expanded || complete || !card.logs.length) return;
-    const element = logRef.current;
-    if (!element) return;
-    const frame = window.requestAnimationFrame(() => {
-      element.scrollTop = element.scrollHeight;
-    });
-    return () => window.cancelAnimationFrame(frame);
-  }, [card.logs.length, complete, expanded]);
 
   return (
     <div
@@ -765,16 +736,6 @@ function ToolCard({
               >
                 {nested || compact && nestedToolLabel !== toolName ? nestedToolLabel : toolLabel}
               </span>
-              {nested ? null : complete || failed || subagentDispatch ? null : (
-                <span
-                  className={cx(
-                    "ef-chat__tool-status",
-                    "ef-chat__tool-status--running",
-                  )}
-                >
-                  {statusLabel ?? toolCopy.statusRunning}
-                </span>
-              )}
             </span>
           </span>
         </span>
@@ -792,86 +753,32 @@ function ToolCard({
           )}
         >
           <div className="ef-chat__tool-sections">
-            {interactionInfo !== null ? <p>{interactionInfo.join(" · ") || toolName}</p> : <>
-            {hasParameters ? (
-              <section>
-                <div
-                  className="ef-chat__tool-section-header"
-                  style={{ marginBottom: parametersExpanded ? 8 : 0 }}
-                >
-                  <button
-                    className="ef-chat__tool-subtoggle"
-                    type="button"
-                    aria-expanded={parametersExpanded}
-                    onClick={() => setParametersExpanded((value) => !value)}
-                  >
-                    <span className="ef-chat__tool-subtoggle-label">
-                      {parametersExpanded ? (
-                        <ChevronDown size={13} />
-                      ) : (
-                        <ChevronRight size={13} />
-                      )}
-                      <span>{toolCopy.parameters}</span>
-                    </span>
-                  </button>
-                  <CopyValueButton
-                    ariaLabel={toolCopy.copyParameters}
-                    title={toolCopy.copyParameters}
-                    value={parametersText}
-                  />
-                </div>
-                {parametersExpanded ? <JsonBlock value={card.args} /> : null}
-              </section>
-            ) : null}
-            {complete || partial ? (
-              <section>
-                <div
-                  className="ef-chat__tool-section-header"
-                  style={{ marginBottom: 8 }}
-                >
-                  <h3 className="ef-chat__tool-section-title">{toolCopy.result}</h3>
-                  <CopyValueButton
-                    ariaLabel={toolCopy.copyResult}
-                    title={toolCopy.copyResult}
-                    value={resultText}
-                  />
-                </div>
-                {card.result ? (
-                  <ToolResultView value={card.result} locale={locale} />
-                ) : (
-                  <div className="ef-chat__result-block">
-                    {toolCopy.noResult}
-                  </div>
-                )}
-              </section>
-            ) : (
-              <section>
-                <h3
-                  className="ef-chat__tool-section-title"
-                  style={{ marginBottom: 8 }}
-                >
-                  {toolCopy.log}
-                </h3>
-                <div
-                  ref={logRef}
-                  className="ef-chat__code-block max-h-64"
-                  style={{ maxHeight: 256, overflowY: "auto" }}
-                >
-                  {card.logs.length ? (
-                    card.logs.map((line, index) => (
-                      <p
-                        key={`${card.id}-log-${index}`}
-                        style={{ margin: 0, whiteSpace: "pre-wrap" }}
-                      >
-                        {line}
-                      </p>
-                    ))
-                  ) : (
-                    <p style={{ margin: 0 }}>{toolCopy.waitingActivity}</p>
-                  )}
-                </div>
-              </section>
-            )}</>}
+            {interactionInfo !== null ? <p>{interactionInfo.join(" · ") || toolName}</p> : (
+              <div className="ef-chat__tool-operations">
+                {operations.map((operation, index) => (
+                  <section className="ef-chat__tool-operation" key={index} data-tool-operation-index={index}>
+                    {operations.length > 1 ? <p className="ef-chat__tool-operation-title">{index + 1}. {toolName}</p> : null}
+                    {operation.fields.length ? (
+                      <dl className="ef-chat__tool-operation-fields">
+                        {operation.fields.map((field, fieldIndex) => (
+                          <div key={fieldIndex}>
+                            <dt>{field.label}</dt>
+                            <dd>
+                              {field.code ? (
+                                <div className="ef-chat__tool-operation-code">
+                                  <pre>{field.value}</pre>
+                                  <CopyValueButton ariaLabel={field.copyLabel} title={field.copyLabel} value={field.value} />
+                                </div>
+                              ) : <p>{field.value}</p>}
+                            </dd>
+                          </div>
+                        ))}
+                      </dl>
+                    ) : operations.length === 1 ? <p className="ef-chat__tool-operation-summary">{toolName}</p> : null}
+                  </section>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       ) : null}
@@ -1539,10 +1446,10 @@ export function ChatPanel({
     return latestMessage?.role === "ASSISTANT" ? latestMessage.messageId : undefined;
   }, [activeStreamingAssistantMessageCode, messages, sending]);
   const transcriptMessages = useMemo(
-    () => interactionMessages(messages, userInputRequests, workRailLabels).filter((message) => (
+    () => interactionMessages(messages, userInputRequests, workRailLabels, userInputLabels).filter((message) => (
       message.messageId !== streamingAssistantMessageCode || message.content.trim().length > 0 || !!message.a2ui
     )),
-    [messages, userInputRequests, workRailLabels, streamingAssistantMessageCode],
+    [messages, userInputRequests, workRailLabels, userInputLabels, streamingAssistantMessageCode],
   );
   const historyWork = useMemo(() => historyWorkGroups(transcriptMessages), [transcriptMessages]);
   const lastHistoryErrorByRun = useMemo(() => new Map(transcriptMessages

@@ -1279,6 +1279,80 @@
   gap: 8px;
 }
 
+
+.ef-chat__tool-operations,
+.ef-chat__tool-operation,
+.ef-chat__tool-operation-fields,
+.ef-chat__tool-operation-fields > div {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.ef-chat__tool-operations {
+  display: grid;
+  gap: 16px;
+}
+
+.ef-chat__tool-operation + .ef-chat__tool-operation {
+  border-top: 1px solid var(--agent-ui-chat-border);
+  padding-top: 12px;
+}
+
+.ef-chat__tool-operation-title {
+  margin: 0 0 10px;
+  font-size: 12px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.ef-chat__tool-operation-fields {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+}
+
+.ef-chat__tool-operation-fields dt {
+  margin-bottom: 4px;
+  color: var(--agent-ui-chat-text-muted);
+  font-size: 11px;
+}
+
+.ef-chat__tool-operation-fields dd,
+.ef-chat__tool-operation-fields p,
+.ef-chat__tool-operation-summary {
+  min-width: 0;
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.ef-chat__tool-operation-code {
+  display: flex;
+  min-width: 0;
+  align-items: flex-start;
+  gap: 8px;
+  border-radius: 6px;
+  background: var(--agent-ui-chat-surface-muted);
+  padding: 8px 10px;
+}
+
+.ef-chat__tool-operation-code pre {
+  flex: 1;
+  min-width: 0;
+  max-height: 320px;
+  overflow: auto;
+  margin: 0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 12px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.ef-chat__tool-operation-code > button {
+  flex: none;
+}
+
 .ef-chat__tool-section-header {
   display: flex;
   align-items: center;
@@ -1667,6 +1741,13 @@
 .ef-chat__approval-batch-item { display:grid; gap:0.35rem; min-width:0; }
 .ef-chat__approval-batch-change { justify-self:end; font:inherit; font-size:0.8em; color:inherit; background:transparent; border:0; cursor:pointer; text-decoration:underline; }
 .ef-chat__approval-batch-retry { justify-self:end; font:inherit; padding:0.5rem 0.75rem; color:inherit; background:transparent; border:1px solid var(--agent-ui-chat-border,#ddd); border-radius:0.4rem; cursor:pointer; }
+.ef-chat__approval-batch-actions { display:flex; flex-wrap:wrap; justify-content:flex-end; gap:0.5rem; padding-top:0.75rem; border-top:1px solid var(--agent-ui-chat-border, #ddd); }
+.ef-chat__approval-batch-actions button { font:inherit; font-size:0.9em; padding:0.5rem 0.85rem; color:inherit; background:transparent; border:1px solid var(--agent-ui-chat-border, #ddd); border-radius:0.4rem; cursor:pointer; }
+.ef-chat__approval-batch-actions .ef-chat__approval-batch-approve { background:var(--agent-ui-chat-primary); color:var(--agent-ui-chat-on-primary); border-color:transparent; }
+.ef-chat__approval-batch-actions button:disabled { opacity:0.45; cursor:default; }
+.ef-chat__approval-batch-actions button:focus-visible { outline:2px solid currentColor; outline-offset:3px; }
+.ef-chat__approval-batch-actions button:not(:disabled):hover { filter:brightness(0.92); }
+
 
 
 .ef-chat__interaction-summary {

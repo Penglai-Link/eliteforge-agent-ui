@@ -21,6 +21,7 @@ export function renderInteraction(ctx: RenderContext, h: Element, props: Record<
     if (c.component === "ApprovalCard") {
         const decision = resolve(c.value);
         const details = c.details ?? {};
+        const risk = details.risk;
         const parameters = details.parameters ?? details.arguments;
         const args = parameters && typeof parameters === "object" && !Array.isArray(parameters) ? parameters : {};
         const tool = typeof details.tool === "string" && details.tool ? details.tool : label("approvalTool", "Tool execution");
@@ -34,7 +35,10 @@ export function renderInteraction(ctx: RenderContext, h: Element, props: Record<
             h("header", part("header"), [
                 icon("M12 3 3 7v5c0 5 9 9 9 9s9-4 9-9V7l-9-4Zm0 5v5m0 3h.01"),
                 h("div", {}, [h("strong", {}, [label("approvalTitle", "Approve tool execution")]), h("code", part("tool"), [tool])]),
-                Number.isInteger(details.batch?.index) ? h("span", part("index"), ["#" + (details.batch.index + 1)]) : null,
+                h("span", part("meta"), [
+                    Number.isInteger(details.batch?.index) ? h("span", part("index"), ["#" + (details.batch.index + 1)]) : null,
+                    risk && typeof risk.label === "string" ? h("span", { ...part("risk"), "data-level": risk.level }, [risk.label]) : null,
+                ]),
             ]),
             purpose ? h("p", part("purpose"), [purpose]) : null,
             h("div", part("execution"), [

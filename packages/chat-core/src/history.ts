@@ -1,4 +1,5 @@
 import { type ToolBatchItem, parseToolApprovalDetails } from "./toolBatch";
+import { approvalPresentation } from "./approvalPresentation";
 import type { ChatAnnotation } from "./annotations";
 import type { ChatMessage, MessageProvenance, ChatUserInputLabels, ChatUserInputRequest } from "./types";
 import { interactionMessages } from "./interactionMessages";
@@ -133,7 +134,7 @@ export function historyMessages(page: SessionHistory, labels?: ChatUserInputLabe
       createdAt: new Date(createdAtMs).toISOString(),
       history: { message, step: null, tools: [], run, interactions: [interaction] } });
   }
-  return interactionMessages(messages.sort((a, b) => Date.parse(a.createdAt) - Date.parse(b.createdAt)))
+  return interactionMessages(messages.sort((a, b) => Date.parse(a.createdAt) - Date.parse(b.createdAt)), [], undefined, labels)
     .filter(message => !message.messageId.startsWith("interaction-request:"));
 }
 
@@ -148,8 +149,9 @@ export function historyUserInputRequests(page: SessionHistory, labels?: Partial<
       return { optionId, label: approval ? payload ? labels?.approve ?? "Approve" : labels?.reject ?? "Reject" : String(payload) };
     });
     const question = typeof interaction.presentation?.intro === "string" ? interaction.presentation.intro : historyText(interaction.prompt) || "Input required";
+    const approvalView = approval ? approvalPresentation(interaction.prompt, question) : undefined;
     const presented = interaction.presentation?.questions;
-    return { requestId: interaction.id, sessionId: page.sessionId, runId: interaction.runId, intro: question, status: "Pending" as const,
+    return { requestId: interaction.id, sessionId: page.sessionId, runId: interaction.runId, intro: approvalView?.reason ?? question, status: "Pending" as const,
       expiresAtMs: interaction.expiresAtMs,
       ...(!approval && interaction.presentation?.kind === "a2ui" && Array.isArray(interaction.presentation.messages) ? { a2uiInteraction: { messages: interaction.presentation.messages, surfaceId: String((interaction.presentation.messages[0] as any)?.createSurface?.surfaceId ?? "") } } : {}),
       requestedAt: page.runs.find((r) => r.id === interaction.runId)?.startedAtMs ?? 0,
@@ -159,7 +161,7 @@ export function historyUserInputRequests(page: SessionHistory, labels?: Partial<
         allowCustomAnswer: entry.allow_free_text === true || entry.allowCustomAnswer === true,
         allowSkip: entry.allow_skip === true || entry.allowSkip === true,
       })) : [{ questionId: interaction.id, question, options, allowCustomAnswer: !choices.length, allowSkip: false }],
-      nativeInteraction: { questionnaire:Array.isArray(presented), reason: approval ? "approval_required" : "input_required", responseSchema: schema, optionPayloads, ...(approval ? {details: {...(parseToolApprovalDetails(interaction.presentation) ?? {tool: page.records.toolInvocations.find(t=>t.id===interaction.invocationId)?.toolName ?? "", parameters: page.records.toolInvocations.find(t=>t.id===interaction.invocationId)?.arguments ?? {}})}} : {}) },
+      nativeInteraction: { questionnaire:Array.isArray(presented), reason: approval ? "approval_required" : "input_required", responseSchema: schema, optionPayloads, ...(approval ? {details: {...(parseToolApprovalDetails(interaction.presentation) ?? {tool: page.records.toolInvocations.find(t=>t.id===interaction.invocationId)?.toolName ?? "", parameters: page.records.toolInvocations.find(t=>t.id===interaction.invocationId)?.arguments ?? {}}), risk: approvalView?.risk}} : {}) },
     };
   });
 }

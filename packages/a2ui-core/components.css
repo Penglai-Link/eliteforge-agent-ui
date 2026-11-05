@@ -654,6 +654,10 @@
 .a2ui-approval-header > div { display:grid; gap:0.25rem; min-width:0; flex:1; }
 .a2ui-approval-header > svg { width:1.25rem; height:1.25rem; flex:none; }
 .a2ui-approval-tool, .a2ui-approval-index { font-size:0.8em; opacity:0.7; overflow-wrap:anywhere; }
+.a2ui-approval-meta { display:flex; flex-wrap:wrap; justify-content:flex-end; align-items:center; gap:0.5rem; margin-inline-start:auto; }
+.a2ui-approval-risk { font-size:0.75em; font-weight:600; line-height:1.4; padding:0.2rem 0.5rem; border:1px solid color-mix(in srgb, currentColor 25%, transparent); border-radius:0.35rem; white-space:nowrap; background:color-mix(in srgb, currentColor 8%, transparent); }
+.a2ui-approval-risk[data-level="medium"], .a2ui-approval-risk[data-level="high"] { color:var(--agent-ui-a2ui-color-on-warning-container, var(--color-on-warning-container, #3f2f0b)); background:var(--agent-ui-a2ui-color-warning-container, var(--color-warning-container, #f4e8c8)); }
+.a2ui-approval-risk[data-level="critical"] { color:var(--agent-ui-a2ui-color-on-error-container, var(--color-on-error-container, #93000a)); background:var(--agent-ui-a2ui-color-error-container, var(--color-error-container, #ffdad6)); }
 .a2ui-approvalcard p { margin:0; line-height:1.6; overflow-wrap:anywhere; }
 .a2ui-approvalcard .a2ui-approval-label { display:block; font-size:0.8em; font-weight:600; margin-bottom:0.5rem; opacity:0.7; }
 .a2ui-approvalcard pre { margin:0; padding:0.75rem; max-height:18rem; overflow:auto; white-space:pre-wrap; overflow-wrap:anywhere; font-size:0.85em; line-height:1.6; border-radius:0.35rem; background:color-mix(in srgb, currentColor 5%, transparent); }

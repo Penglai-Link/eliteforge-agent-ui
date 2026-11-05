@@ -8,7 +8,7 @@ import {
   Terminal,
 } from "lucide-vue-next";
 import {
-  formatJsonBlockValue,
+  toolOperationDetails,
   hasPendingBatchItems,
   interactionToolSummary,
   toolCompactLabel,
@@ -17,10 +17,8 @@ import {
   type ChatWorkRailLabels,
   type ToolWorkCard,
 } from "@eliteforge/agent-ui-chat-core";
-import { computed, nextTick, ref, watch } from "vue";
+import { computed, ref, watch } from "vue";
 import { cx } from "../utils";
-import ToolResultView from "./ToolResultView.vue";
-import JsonBlock from "./JsonBlock.vue";
 import CopyValueButton from "./CopyValueButton.vue";
 
 const props = defineProps<{
@@ -35,8 +33,6 @@ const props = defineProps<{
 }>();
 
 const expanded = ref(false);
-const parametersExpanded = ref(false);
-const logRef = ref<HTMLDivElement | null>(null);
 
 const interactionInfo = computed(() => interactionToolSummary(props.card.toolName, props.card.args));
 const partial = computed(() => hasPendingBatchItems(props.card.result));
@@ -53,13 +49,6 @@ const failed = computed(() => {
   }
 });
 const running = computed(() => props.card.started && !complete.value);
-const hasParameters = computed(() => hasToolParameterPayload(props.card.args));
-const parametersText = computed(() =>
-  hasParameters.value ? formatJsonBlockValue(props.card.args) : "",
-);
-const resultText = computed(() =>
-  props.card.result ? formatJsonBlockValue(props.card.result) : "",
-);
 const subagentDispatch = computed(() => props.card.toolName.toLowerCase() === "agent_spawn");
 const presentationLocale = computed(() => detectToolPresentationLocale(props.locale, [
   props.labels?.ariaLabel,
@@ -67,6 +56,7 @@ const presentationLocale = computed(() => detectToolPresentationLocale(props.loc
   props.labels?.preparing,
   props.labels?.responding,
 ]));
+const operations = computed(() => toolOperationDetails(props.card.toolName, props.card.args, presentationLocale.value));
 // A host-provided name still wins unless it only echoes the raw tool id; the
 // presenter parses and appends the subject.
 const hostToolName = computed(() => props.labels?.tool?.resolveName?.(props.card.toolName, props.card.args));
@@ -93,22 +83,6 @@ watch(
   },
   { immediate: true },
 );
-
-watch([expanded, complete], async () => {
-  if (!expanded.value || complete.value || !props.card.logs.length) return;
-  await nextTick();
-  const element = logRef.value;
-  if (!element) return;
-  element.scrollTop = element.scrollHeight;
-});
-
-function hasToolParameterPayload(value: unknown): boolean {
-  if (value == null) return false;
-  if (typeof value === "string") return Boolean(value.trim());
-  if (Array.isArray(value)) return value.length > 0;
-  if (typeof value === "object") return true;
-  return true;
-}
 
 function subagentDispatchedLabel(name: string) {
   if (props.labels?.tool?.subagentDispatched) return props.labels.tool.subagentDispatched(name);
@@ -174,7 +148,7 @@ function subagentDispatchedLabel(name: string) {
               {{ props.nested || props.compact ? nestedToolLabel : toolLabel }}
             </span>
             <span
-              v-if="!props.nested && !subagentDispatch"
+              v-if="complete && !props.nested && !subagentDispatch"
               :class="
                 cx(
                   'ef-chat__tool-status',
@@ -208,71 +182,24 @@ function subagentDispatchedLabel(name: string) {
     >
       <div class="ef-chat__tool-sections">
         <p v-if="interactionInfo !== null">{{ interactionInfo.join(" · ") || toolLabel }}</p>
-        <template v-else>
-        <section v-if="hasParameters">
-          <div
-            class="ef-chat__tool-section-header"
-            :style="{ marginBottom: parametersExpanded ? '8px' : '0' }"
-          >
-            <button
-              :aria-expanded="parametersExpanded"
-              class="ef-chat__tool-subtoggle"
-              type="button"
-              @click="parametersExpanded = !parametersExpanded"
-            >
-              <span class="ef-chat__tool-subtoggle-label">
-                <ChevronDown v-if="parametersExpanded" :size="13" />
-                <ChevronRight v-else :size="13" />
-                <span>{{ props.labels?.tool?.parameters ?? "Parameters" }}</span>
-              </span>
-            </button>
-            <CopyValueButton
-              :ariaLabel="props.labels?.tool?.copyParameters ?? 'Copy parameters'"
-              :title="props.labels?.tool?.copyParameters ?? 'Copy parameters'"
-              :value="parametersText"
-            />
-          </div>
-          <JsonBlock v-if="parametersExpanded" :value="props.card.args" />
-        </section>
-
-        <section v-if="complete || partial">
-          <div
-            class="ef-chat__tool-section-header"
-            style="margin-bottom: 8px"
-          >
-            <h3 class="ef-chat__tool-section-title">{{ props.labels?.tool?.result ?? "Result" }}</h3>
-            <CopyValueButton
-              :ariaLabel="props.labels?.tool?.copyResult ?? 'Copy result'"
-              :title="props.labels?.tool?.copyResult ?? 'Copy result'"
-              :value="resultText"
-            />
-          </div>
-          <ToolResultView v-if="props.card.result" :value="props.card.result" :locale="props.locale" />
-          <div v-else class="ef-chat__result-block">No result payload.</div>
-        </section>
-
-        <section v-else>
-          <h3 class="ef-chat__tool-section-title" style="margin-bottom: 8px">
-            {{ props.labels?.tool?.log ?? "Log" }}
-          </h3>
-          <div
-            ref="logRef"
-            class="ef-chat__code-block"
-            style="max-height: 256px; overflow-y: auto"
-          >
-            <template v-if="props.card.logs.length">
-              <p
-                v-for="(line, index) in props.card.logs"
-                :key="`${props.card.id}-log-${index}`"
-                style="margin: 0; white-space: pre-wrap"
-              >
-                {{ line }}
-              </p>
-            </template>
-            <p v-else style="margin: 0">Waiting for tool activity...</p>
-          </div>
-        </section>
-        </template>
+        <div v-else class="ef-chat__tool-operations">
+          <section v-for="(operation, index) in operations" :key="index" class="ef-chat__tool-operation" :data-tool-operation-index="index">
+            <p v-if="operations.length > 1" class="ef-chat__tool-operation-title">{{ index + 1 }}. {{ toolName }}</p>
+            <dl v-if="operation.fields.length" class="ef-chat__tool-operation-fields">
+              <div v-for="(field, fieldIndex) in operation.fields" :key="fieldIndex">
+                <dt>{{ field.label }}</dt>
+                <dd>
+                  <div v-if="field.code" class="ef-chat__tool-operation-code">
+                    <pre>{{ field.value }}</pre>
+                    <CopyValueButton :ariaLabel="field.copyLabel" :title="field.copyLabel" :value="field.value" />
+                  </div>
+                  <p v-else>{{ field.value }}</p>
+                </dd>
+              </div>
+            </dl>
+            <p v-else-if="operations.length === 1" class="ef-chat__tool-operation-summary">{{ toolLabel }}</p>
+          </section>
+        </div>
       </div>
     </div>
   </div>

@@ -9,6 +9,7 @@ export * from "./mock";
 export * from "./normalize";
 export * from "./transcript";
 export * from "./toolPresentation";
+export * from "./toolOperationDetails";
 export * from "./types";
 export * from "./window-state";
 

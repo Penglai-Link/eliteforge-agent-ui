@@ -159,7 +159,7 @@ const streamingAssistantMessageCode = computed(() => {
   return latestMessage?.role === "ASSISTANT" ? latestMessage.messageId : undefined;
 });
 const transcriptMessages = computed(() =>
-  interactionMessages(props.messages, props.userInputRequests, props.workRailLabels).filter((message) =>
+  interactionMessages(props.messages, props.userInputRequests, props.workRailLabels, props.userInputLabels).filter((message) =>
     message.messageId !== streamingAssistantMessageCode.value || message.content.trim().length > 0 || !!message.a2ui,
   ),
 );

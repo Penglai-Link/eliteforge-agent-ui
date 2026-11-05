@@ -97,7 +97,7 @@ export interface ChatMessage {
   phase?: string | null;
   annotations?: ChatAnnotation[];
   /** Display-only response to an interaction; never sent as another chat turn. */
-  interactionResponse?: { requestId: string; answeredAt?: number; rows: { label: string; value: string }[] };
+  interactionResponse?: { requestId: string; answeredAt?: number; rows: { label: string; value: string }[]; approval?: ChatApprovalResponse };
   provenance?: MessageProvenance;
   /** Ordered A2UI protocol envelopes; persist alongside the message. */
   a2ui?: { messages: unknown[]; surfaceIds?: string[] };
@@ -161,6 +161,13 @@ export interface ChatSendResult {
 
 export type ChatUserInputAnswerKind = "Option" | "Other" | "Skipped";
 
+/** Semantic approval data retained so transcript labels can follow the host locale. */
+export interface ChatApprovalResponse {
+  approved: boolean;
+  tool: string;
+  parameters: unknown;
+}
+
 export interface ChatUserInputOption {
   optionId: string;
   label: string;
@@ -219,7 +226,11 @@ export interface ChatUserInputLabels {
   continue: string;
   confirm?: string;
   approve?: string;
+  approveAll?: string;
+  rejectAll?: string;
   approvalTitle?: string;
+  approvalQuestion?: (action: string) => string;
+  approvalFallbackQuestion?: string;
   approvalTool?: string;
   approvalExecution?: string;
   approvalReason?: string;

@@ -1,5 +1,6 @@
 import { historyEventRunId, type SessionHistory } from "./history";
 import { parseToolApprovalDetails } from "./toolBatch";
+import { approvalPresentation } from "./approvalPresentation";
 import { isAguiPresentationFailureEvent } from "./transcript";
 import type { ChatAguiStreamEvent, ChatUserInputAnswer, ChatUserInputAnswerInput, ChatUserInputLabels, ChatUserInputRequest } from "./types";
 
@@ -25,12 +26,14 @@ export function nativeUserInputRequests(events: ChatAguiStreamEvent[], sessionId
       return { optionId, label: approval ? payload ? labels?.approve ?? "Approve" : labels?.reject ?? "Reject" : typeof payload === "string" ? payload : JSON.stringify(payload) };
     });
     const question = interrupt.message || (typeof schema.title === "string" ? schema.title : "Input required");
+    const approvalView = approval ? approvalPresentation(interaction.prompt, question) : undefined;
     return {
-      requestId: interrupt.id, sessionId, runId: terminal.runId!, intro: question, status: "Pending" as const,
+      requestId: interrupt.id, sessionId, runId: terminal.runId!, intro: approvalView?.reason ?? question, status: "Pending" as const,
+      ...(typeof interaction.expires_at_unix_ms === "number" ? { expiresAtMs: interaction.expires_at_unix_ms } : {}),
       ...(!approval && presentation.kind === "a2ui" && Array.isArray(presentation.messages) ? { a2uiInteraction: {messages: presentation.messages, surfaceId: String((presentation.messages[0] as any)?.createSurface?.surfaceId ?? "")} } : {}),
       requestedAt: terminal.timestamp ?? 0,
       questions: Array.isArray(presentation.questions) ? presentation.questions.map((q: any)=>({questionId:String(q.id),question:String(q.question),options:(q.options??[]).map((o:any)=>({optionId:String(o.id),label:String(o.label),description:o.description})),allowCustomAnswer:q.allow_free_text,allowSkip:q.allow_skip})) : [{ questionId: interrupt.id, question, options, allowCustomAnswer: !choices.length, allowSkip: false }],
-      nativeInteraction: { questionnaire:Array.isArray(presentation.questions), reason: interrupt.reason, responseSchema: interrupt.responseSchema, optionPayloads, ...(approval ? {details:{...parseToolApprovalDetails(presentation)}} : {}) },
+      nativeInteraction: { questionnaire:Array.isArray(presentation.questions), reason: interrupt.reason, responseSchema: interrupt.responseSchema, optionPayloads, ...(approval ? {details:{...parseToolApprovalDetails(presentation), risk: approvalView?.risk}} : {}) },
     };
   });
 }
@@ -89,4 +92,17 @@ export function pendingApprovalRequests(request: ChatUserInputRequest, requests:
 export function nativeUserInputBatchAnswer(requests: ChatUserInputRequest[], answers: ChatUserInputAnswer[]): ChatUserInputAnswerInput {
   if (requests.length === 1) return nativeUserInputAnswer(requests[0], answers);
   return { answers: [], resume: requests.flatMap(request => nativeUserInputAnswer(request, answers).resume ?? []) };
+}
+
+/** Resolve every pending approval using its own schema-backed option IDs. */
+export function batchApprovalDecisions(requests: ChatUserInputRequest[], approved: boolean): Record<string, ChatUserInputAnswer[]> | null {
+  if (!requests.length) return null;
+  const decisions: Record<string, ChatUserInputAnswer[]> = {};
+  for (const request of requests) {
+    if (request.status !== "Pending" || request.expiresAtMs != null && request.expiresAtMs <= Date.now()) return null;
+    const option = Object.entries(request.nativeInteraction?.optionPayloads ?? {}).find(([, value]) => value === approved);
+    if (!option) return null;
+    decisions[request.requestId] = [{ questionId: request.requestId, answerKind: "Option", optionId: option[0], otherText: null }];
+  }
+  return decisions;
 }
