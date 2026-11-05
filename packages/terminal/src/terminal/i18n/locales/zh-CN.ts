@@ -21,6 +21,7 @@ export default {
   executeFailed: "执行失败",
   rejectFailed: "拒绝失败",
   activityLabel: "智能体工作过程",
+  activityWorking: "工作中",
   activityElapsed: "耗时",
   activityMinute: "分钟",
   activityProcessed: "已处理",

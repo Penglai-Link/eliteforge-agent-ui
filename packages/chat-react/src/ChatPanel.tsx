@@ -21,6 +21,7 @@ import {
   LoaderCircle,
   MessageSquareText,
   Pencil,
+  Trash2,
   Square,
   Terminal,
   UserRound,
@@ -469,6 +470,8 @@ function ChatBubble({
   a2uiDisabled,
   onA2UIAction,
   onEditMessage,
+  onDeleteTurn,
+  deleteTurnLabel = "Delete turn",
 }: {
   currentUserDisplayName?: string;
   emptyAssistantMessage?: string;
@@ -479,6 +482,8 @@ function ChatBubble({
   a2uiDisabled?: boolean;
   onA2UIAction?: ActionHandler;
   onEditMessage?: (content: string, message?: ChatMessage) => void;
+  onDeleteTurn?: (message: ChatMessage) => void;
+  deleteTurnLabel?: string;
 }) {
   const isSystemNotice = message.provenance?.sender.kind.toUpperCase() === "SYSTEM";
   const isUser = message.role === "USER" && !isSystemNotice;
@@ -536,6 +541,11 @@ function ChatBubble({
             onClick={() => onEditMessage(message.content, message)}
           >
             <Pencil size={14} />
+          </button>
+        ) : null}
+        {isUser && !message.interactionResponse && message.history?.run && onDeleteTurn ? (
+          <button className="ef-chat__icon-button" type="button" aria-label={deleteTurnLabel} title={deleteTurnLabel} onClick={() => onDeleteTurn(message)}>
+            <Trash2 aria-hidden="true" size={14} />
           </button>
         ) : null}
         {!message.interactionResponse || message.interactionResponse.answeredAt != null ? <span className="ef-chat__message-time">
@@ -918,8 +928,8 @@ function ReasoningCard({
   );
 }
 
-function RunErrorDetails({ raw, fallback }: { raw: string; fallback: string }) {
-  const error = chatErrorPresentation(raw, fallback);
+function RunErrorDetails({ raw, fallback, code }: { raw: string; fallback: string; code?: string }) {
+  const error = chatErrorPresentation(raw, fallback, code);
   return <><div className="ef-chat__run-notice-detail">{error.summary}</div>
     {error.details ? <details className="ef-chat__error-details"><summary>{/[\u3400-\u9fff]/.test(fallback) ? "错误详情" : "Error details"}</summary><pre>{error.details}</pre></details> : null}</>;
 }
@@ -977,7 +987,7 @@ function AguiRunStatus({ notices, labels }: { notices: AguiRunNotice[]; labels: 
         <Icon size={16} aria-hidden="true" className={pending ? "animate-spin" : undefined} />
         <div className="ef-chat__run-notice-content">
           <div className="ef-chat__run-notice-title">{title}</div>
-          {detail ? <RunErrorDetails raw={detail} fallback={labels.failed ?? "Run failed"} /> : null}
+          {detail ? <RunErrorDetails raw={detail} fallback={labels.failed ?? "Run failed"} code={notice.kind === "runError" || notice.kind === "runStopped" ? notice.code : undefined} /> : null}
           {hint ? <div className="ef-chat__run-notice-detail">{hint}</div> : null}
         </div>
       </div>
@@ -1235,7 +1245,7 @@ function WaitingRail({ labels = defaultWorkRailLabels }: { labels?: ChatWorkRail
   );
 }
 
-export interface ChatPanelProps extends Pick<ComposerReactProps, "pendingAttachments" | "showAttachmentControl" | "attachmentUploadPending" | "onAttachFile" | "onRemoveAttachment" | "attachLabel" | "uploadingLabel" | "removeAttachmentLabel" | "editQueuedLabel" | "removeQueuedLabel" | "reorderQueuedLabel"> {
+export interface ChatPanelProps extends Pick<ComposerReactProps, "renderAttachmentControl" | "pendingAttachments" | "showAttachmentControl" | "attachmentUploadPending" | "onAttachFile" | "onRemoveAttachment" | "attachLabel" | "uploadingLabel" | "removeAttachmentLabel" | "editQueuedLabel" | "removeQueuedLabel" | "reorderQueuedLabel"> {
   pendingAnnotations?: ChatAnnotation[];
   onPendingAnnotationsChange?: (annotations: ChatAnnotation[]) => void;
   annotationLabels?: ChatAnnotationLabels;
@@ -1282,6 +1292,8 @@ export interface ChatPanelProps extends Pick<ComposerReactProps, "pendingAttachm
   a2uiDisabled?: boolean;
   onA2UIAction?: ActionHandler;
   onEditMessage?: (content: string, message?: ChatMessage) => void;
+  onDeleteTurn?: (message: ChatMessage) => void;
+  deleteTurnLabel?: string;
   onEditQueuedMessage?: (id: string, content: string) => void;
   onRemoveQueuedMessage?: (id: string) => void;
   onSteerQueuedMessage?: (id: string) => void;
@@ -1322,7 +1334,7 @@ export interface ChatPanelProps extends Pick<ComposerReactProps, "pendingAttachm
 }
 
 export function ChatPanel({
-  pendingAttachments, showAttachmentControl, attachmentUploadPending, onAttachFile, onRemoveAttachment, attachLabel, uploadingLabel, removeAttachmentLabel, editQueuedLabel, removeQueuedLabel, reorderQueuedLabel,
+  renderAttachmentControl, pendingAttachments, showAttachmentControl, attachmentUploadPending, onAttachFile, onRemoveAttachment, attachLabel, uploadingLabel, removeAttachmentLabel, editQueuedLabel, removeQueuedLabel, reorderQueuedLabel,
   pendingAnnotations: controlledPendingAnnotations,
   onPendingAnnotationsChange,
   annotationLabels = defaultChatAnnotationLabels,
@@ -1367,6 +1379,8 @@ export function ChatPanel({
   a2uiDisabled,
   onA2UIAction,
   onEditMessage,
+  onDeleteTurn,
+  deleteTurnLabel = "Delete turn",
   onEditQueuedMessage,
   onRemoveQueuedMessage,
   onSteerQueuedMessage,
@@ -1526,7 +1540,7 @@ export function ChatPanel({
       <StructuredMessageDetails message={message} labels={workRailLabels} historyLabels={historyLabels} locale={locale} hasRunError={workTimeline.managedMessageIds.has(message.messageId) || displayedErrorRuns.has(message.runId ?? "") || lastHistoryErrorByRun.get(message.runId) !== message.messageId} />
       {message.content.trim() || message.a2ui ? <ChatBubble currentUserDisplayName={currentUserDisplayName} processMessage
         isStreaming={message.messageId === streamingAssistantMessageCode} message={message} a2uiSession={a2uiSession}
-        a2uiDisabled={a2uiDisabled} onA2UIAction={onA2UIAction} onEditMessage={onEditMessage} /> : null}
+        a2uiDisabled={a2uiDisabled} onA2UIAction={onA2UIAction} onEditMessage={onEditMessage} onDeleteTurn={onDeleteTurn} deleteTurnLabel={deleteTurnLabel} /> : null}
     </>;
   }
   function renderWorkRun(run: TranscriptWorkRun) {
@@ -1650,7 +1664,7 @@ export function ChatPanel({
                                   a2uiSession={a2uiSession}
                                   a2uiDisabled={a2uiDisabled}
                                   onA2UIAction={onA2UIAction}
-                                  onEditMessage={onEditMessage}
+                                  onEditMessage={onEditMessage} onDeleteTurn={onDeleteTurn} deleteTurnLabel={deleteTurnLabel}
                                 />
                             </div>
                           ) : message.history && !message.a2ui && !message.content.trim() ? null : (
@@ -1661,7 +1675,7 @@ export function ChatPanel({
                               a2uiSession={a2uiSession}
                                   a2uiDisabled={a2uiDisabled}
                                   onA2UIAction={onA2UIAction}
-                                  onEditMessage={onEditMessage}
+                                  onEditMessage={onEditMessage} onDeleteTurn={onDeleteTurn} deleteTurnLabel={deleteTurnLabel}
                             />
                           )}
                           </> : null}
@@ -1761,6 +1775,7 @@ export function ChatPanel({
               attachmentUploadPending={attachmentUploadPending}
               onAttachFile={onAttachFile}
               onRemoveAttachment={onRemoveAttachment}
+              renderAttachmentControl={renderAttachmentControl}
               attachLabel={attachLabel}
               uploadingLabel={uploadingLabel}
               removeAttachmentLabel={removeAttachmentLabel}

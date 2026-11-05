@@ -44,6 +44,7 @@ export interface HistoryRun {
 export interface HistoryCursor { sessionId: string; version: string; before: number }
 export interface HistoryQuery { limit: number; cursor: HistoryCursor | null }
 export interface SessionHistory {
+  canDeleteTurns?: boolean;
   sessionId: string; version: string; nextCursor: HistoryCursor | null; runs: HistoryRun[];
   records: { steps: HistoryStep[]; messages: HistoryMessage[]; toolInvocations: HistoryToolInvocation[]; interactions: HistoryInteraction[] };
   pendingInteractions: HistoryInteraction[]; activeRuns: HistoryRun[];

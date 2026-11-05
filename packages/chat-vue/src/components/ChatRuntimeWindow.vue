@@ -208,6 +208,8 @@ const attachmentUploadPending = ref(false);
 const sending = ref(false);
 const steering = ref(false);
 const loading = ref(false);
+const deletingTurn = ref(false);
+let historyMutationEpoch = 0;
 const historySnapshot = shallowRef<SessionHistory | null>(null);
 watch([historySnapshot, protocolEvents, liveAguiEvents], () => {
   const events = mergeTranscriptAguiEvents(protocolEvents.value, liveAguiEvents.value) as ChatAguiStreamEvent[];
@@ -692,19 +694,20 @@ async function readPresentation(sessionId: string, signal?: AbortSignal, adapter
 }
 async function loadOlderHistory() {
   const sessionId = session.value?.sessionId;
-  if (!sessionId || !historyCursor.value || !activeAdapter.value.loadHistory || historyLoadingOlder.value) return;
+  const readEpoch = historyMutationEpoch;
+  if (deletingTurn.value || !sessionId || !historyCursor.value || !activeAdapter.value.loadHistory || historyLoadingOlder.value) return;
   historyLoadingOlder.value = true;
   try {
     const page = await activeAdapter.value.loadHistory(sessionId, { limit: 20, cursor: historyCursor.value });
-    if (activeSessionCodeRef.value !== sessionId) return;
+    if (activeSessionCodeRef.value !== sessionId || readEpoch !== historyMutationEpoch) return;
     messages.value = mergeChatMessagesChronologically(historyMessages(page, props.config.userInputLabels), messages.value);
     protocolEvents.value = mergeTranscriptAguiEvents(historyCompactionEvents(page), protocolEvents.value) as ChatAguiStreamEvent[];
     historyCursor.value = page.nextCursor;
   } catch (error) {
-    if ((error as { status?: number })?.status === 409 && activeSessionCodeRef.value === sessionId) {
+    if ((error as { status?: number })?.status === 409 && activeSessionCodeRef.value === sessionId && readEpoch === historyMutationEpoch) {
       try {
         const page = await activeAdapter.value.loadHistory(sessionId, { limit: 20, cursor: null });
-        if (activeSessionCodeRef.value === sessionId) { messages.value = historyMessages(page, props.config.userInputLabels); protocolEvents.value = historyCompactionEvents(page); acceptHistory(page); }
+        if (activeSessionCodeRef.value === sessionId && readEpoch === historyMutationEpoch) { messages.value = historyMessages(page, props.config.userInputLabels); protocolEvents.value = historyCompactionEvents(page); acceptHistory(page); }
       } catch (reloadError) { reportError(reloadError instanceof Error ? reloadError.message : "Chat data could not be loaded", "Chat load failed"); }
     } else reportError(error instanceof Error ? error.message : "Chat data could not be loaded", "Chat load failed");
   }
@@ -752,8 +755,9 @@ watch(
     if (!sessionId || !shouldPollRuntime.value) return;
     let refreshing = false;
     const intervalId = window.setInterval(async () => {
-      if (refreshing || activeSessionCodeRef.value !== sessionId) return;
+      if (deletingTurn.value || refreshing || activeSessionCodeRef.value !== sessionId) return;
       refreshing = true;
+      const readEpoch = historyMutationEpoch;
       const [dataResult, queriedActiveRunResult] = await Promise.all([
         readPresentation(sessionId, undefined).then(
           ([nextMessages, nextAguiEvents, nextProtocolEvents, nextUserInputRequests, nextHistory]) => ({
@@ -771,7 +775,7 @@ watch(
       const activeRunResult = dataResult.kind === "success" && dataResult.nextHistory
         ? { kind: "success" as const, activeRun: historyActiveRun(dataResult.nextHistory) }
         : queriedActiveRunResult;
-      if (activeSessionCodeRef.value === sessionId) {
+      if (activeSessionCodeRef.value === sessionId && readEpoch === historyMutationEpoch) {
         let protocolSnapshot = protocolEvents.value;
         if (dataResult.kind === "success") {
           if (!sending.value) { messages.value = dataResult.nextMessages; acceptHistory(dataResult.nextHistory); }
@@ -807,14 +811,14 @@ watch(
 );
 
 const sendDisabled = computed(() => {
-  if (compacting.value || loading.value || props.config.disabledInput || userInputRequest.value) return true;
+  if (deletingTurn.value || compacting.value || loading.value || props.config.disabledInput || userInputRequest.value) return true;
   if (!draft.value.trim() && !pendingAttachments.value.length && !pendingAnnotations.value.length) return true;
   return false;
 });
 const queueDisabled = computed(
   () =>
     loading.value ||
-    compacting.value || Boolean(props.config.disabledInput) ||
+    deletingTurn.value || compacting.value || Boolean(props.config.disabledInput) ||
     Boolean(userInputRequest.value) ||
     (!draft.value.trim() && !pendingAttachments.value.length && !pendingAnnotations.value.length) ||
     !session.value,
@@ -1411,7 +1415,9 @@ async function handleAnswerUserInput(answers: ChatUserInputAnswer[]) {
   const continuationAnchorMessageCode = [...messages.value]
     .reverse()
     .find((message) => message.role === "ASSISTANT")?.messageId ?? messages.value.at(-1)?.messageId ?? "";
+  let answerAccepted = false;
   const markAnswered = () => {
+    answerAccepted = true;
     if (activeSessionCodeRef.value !== activeSession.sessionId) return;
     acceptedUserInputRequests.value = [...acceptedUserInputRequests.value.filter(item => !submittedIds.has(item.requestId)), ...submittedRequests.map(item => ({ ...item, answers:itemAnswers(item), answeredAt:Date.now(), assistantMessageId:item.assistantMessageId ?? continuationAnchorMessageCode, status:"Answered" as const }))];
   };
@@ -1499,10 +1505,11 @@ async function handleAnswerUserInput(answers: ChatUserInputAnswer[]) {
     liveAguiPendingAnchorMessageCode.value = "";
     await refreshActiveRun(activeSession.sessionId, undefined, false).catch(() => undefined);
   } catch (error) {
-    if (activeSessionCodeRef.value === activeSession.sessionId) failedUserInput.value = { sessionId: activeSession.sessionId, requestId: request.requestId };
+    if (activeSessionCodeRef.value !== activeSession.sessionId) return;
+    if (!answerAccepted) failedUserInput.value = { sessionId: activeSession.sessionId, requestId: request.requestId };
     reportError(
-      error instanceof Error ? error.message : "Answer submission failed",
-      "Answer submission failed",
+      error instanceof Error ? error.message : "Chat answer failed",
+      answerAccepted ? "Chat continuation failed" : "Chat answer failed",
     );
   } finally {
     if (activeSessionCodeRef.value !== activeSession.sessionId) return;
@@ -1695,6 +1702,43 @@ function handleDraftChange(value: string) {
   draft.value = value;
 }
 
+async function handleDeleteTurn(message: ChatMessage) {
+  const sessionId = session.value?.sessionId;
+  const rootRunId = message.history?.run?.rootRunId;
+  const expectedVersion = historySnapshot.value?.version;
+  const adapter = activeAdapter.value;
+  if (!sessionId || !rootRunId || !expectedVersion || !adapter.deleteTurn || !adapter.loadHistory
+    || !historySnapshot.value?.canDeleteTurns || deletingTurn.value || sending.value || remoteActiveRun.value || compacting.value || historySnapshot.value?.activeRuns.length) return;
+  deletingTurn.value = true;
+  ++historyMutationEpoch;
+  try {
+    const confirmed = props.confirmDeleteTurn ? await props.confirmDeleteTurn(message)
+      : window.confirm(props.config.turnDeletionLabels?.confirm ?? "Delete this user message and its agent replies? They will no longer appear in the conversation or be sent to the model. Rebuilding context may reduce cache hits and increase latency and cost.");
+    if (!confirmed || activeSessionCodeRef.value !== sessionId) return;
+    await adapter.deleteTurn(sessionId, { rootRunId, expectedVersion });
+    if (activeSessionCodeRef.value !== sessionId) return;
+    const removedIds = new Set(messages.value.filter(m => m.history?.run?.rootRunId === rootRunId).map(m => m.messageId));
+    messages.value = messages.value.filter(m => m.history?.run?.rootRunId !== rootRunId);
+    pendingAnnotations.value = pendingAnnotations.value.filter(a => !removedIds.has(a.messageId));
+    liveAguiEvents.value = []; liveAguiAnchorMessageCodes.value = {}; protocolEvents.value = []; aguiEvents.value = [];
+    acceptedUserInputRequests.value = []; userInputRequests.value = []; userInputRequest.value = null;
+    historySnapshot.value = null; historyCursor.value = null;
+    const page = await adapter.loadHistory(sessionId, { limit: 20, cursor: null });
+    if (activeSessionCodeRef.value !== sessionId) return;
+    messages.value = historyMessages(page, props.config.userInputLabels); acceptHistory(page);
+    protocolEvents.value = historyCompactionEvents(page);
+    await reloadA2ui();
+  } catch (error) {
+    if (activeSessionCodeRef.value === sessionId) {
+      reportError(error instanceof Error ? error.message : String(error), "Chat delete failed");
+      try {
+        const page = await adapter.loadHistory(sessionId, { limit: 20, cursor: null });
+        if (activeSessionCodeRef.value === sessionId) { messages.value = historyMessages(page, props.config.userInputLabels); acceptHistory(page); }
+      } catch { /* Original mutation/read failure is already reported. */ }
+    }
+  } finally { ++historyMutationEpoch; deletingTurn.value = false; }
+}
+
 function handleEditMessage(content: string, message?: ChatMessage) {
   draftSkills.value = message?.requestedSkills ?? [];
   pendingAnnotations.value = message?.annotations ?? [];
@@ -1735,7 +1779,7 @@ const panelCommonProps = computed(() => ({
   createSessionLabel: "Start chat",
   currentUserDisplayName: props.currentUserDisplayName,
   debugOptions: resolvedDebugOptions.value,
-  disabledInput: compacting.value || Boolean(props.config.disabledInput) || Boolean(userInputRequest.value),
+  disabledInput: deletingTurn.value || compacting.value || Boolean(props.config.disabledInput) || Boolean(userInputRequest.value),
   draft: draft.value,
   emptyDescription: props.emptyDescription ?? "Create a session to start chatting.",
   emptyTitle: props.emptyTitle,
@@ -1759,7 +1803,9 @@ const panelCommonProps = computed(() => ({
   onNewSession: handleNewSession,
   onDraftChange: handleDraftChange,
   onPasteAttachment: handleAttachmentUpload,
-  onEditMessage: compacting.value ? undefined : handleEditMessage,
+  onEditMessage: deletingTurn.value || compacting.value ? undefined : handleEditMessage,
+  deleteTurnLabel: props.config.turnDeletionLabels?.action,
+  onDeleteTurn: activeAdapter.value.deleteTurn && historySnapshot.value?.canDeleteTurns && !loading.value && !sending.value && !remoteActiveRun.value && !deletingTurn.value && !compacting.value && !historySnapshot.value.activeRuns.length ? (message: ChatMessage) => { void handleDeleteTurn(message); } : undefined,
   onEditQueuedMessage: handleEditQueuedMessage,
   onRemoveQueuedMessage: handleRemoveQueuedMessage,
   onSteerQueuedMessage: (id: string) => { void handleSteer(id); },

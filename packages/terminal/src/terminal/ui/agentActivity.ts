@@ -56,7 +56,14 @@ export function renderAgentActivity(state: AgentActivityState) {
     return true;
   });
   const snapshot = currentAguiWorkSnapshot([...events]);
-  if (!cards.length && !snapshot) return nothing;
+  if (!cards.length && !snapshot) {
+    if (state.activityComplete) return nothing;
+    return html`<section class="ai-terminal-model-session__activity" aria-label=${state.i18n.t("activityLabel")}>
+      <div class="ai-terminal-model-session__activity-item ai-terminal-model-session__activity-item--snapshot" role="status">
+        <span class=${activityStatusClass(state)}>${formatActivityStatus(state.i18n.t("activityWorking"), state, state.i18n)}</span>
+      </div>
+    </section>`;
+  }
 
   return html`<section class="ai-terminal-model-session__activity" aria-label=${state.i18n.t("activityLabel")}>
     ${snapshot && !cards.length ? renderActivitySnapshot(snapshot, state) : nothing}

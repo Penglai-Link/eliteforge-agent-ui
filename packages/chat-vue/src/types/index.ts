@@ -67,6 +67,8 @@ export interface ChatPanelProps extends Pick<ComposerVueProps, "pendingAttachmen
   onDraftChange: (value: string) => void;
   onPasteAttachment?: (file: File) => void | Promise<void>;
   onEditMessage?: (content: string, message?: ChatMessage) => void;
+  onDeleteTurn?: (message: ChatMessage) => void;
+  deleteTurnLabel?: string;
   onEditQueuedMessage?: (id: string, content: string) => void;
   onSteerQueuedMessage?: (id: string) => void;
   onReorderQueuedMessage?: (sourceId: string, targetId: string) => void;
@@ -135,6 +137,7 @@ export interface ChatRuntimeWindowProps {
   onCreateSession?: () => void;
   onDraftChange?: (draft: string) => void;
   onError?: ToastLikeCallback;
+  confirmDeleteTurn?: (message: ChatMessage) => boolean | Promise<boolean>;
   onInfo?: ToastLikeCallback;
   onPendingAttachmentsChange?: (attachments: ChatMessageAttachment[]) => void;
   onRunStateChange?: (state: ChatRuntimeRunState) => void;

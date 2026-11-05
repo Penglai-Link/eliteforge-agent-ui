@@ -2,7 +2,7 @@
 import { chatAnnotationTooltip, defaultChatAnnotationLabels, type ChatAnnotationLabels, type ChatAnnotation } from "@eliteforge/agent-ui-chat-core";
 import ChatA2UI from "./ChatA2UI.vue";
 import type { ChatA2uiActionHandler as ActionHandler, ChatA2uiSession } from "@eliteforge/agent-ui-chat-core";
-import { Bot, Pencil, UserRound } from "lucide-vue-next";
+import { Bot, Pencil, Trash2, UserRound } from "lucide-vue-next";
 import { computed } from "vue";
 import { formatTime, messageActorName, messageSenderIsHuman, messageSenderAvatar } from "@eliteforge/agent-ui-chat-core";
 import type { ChatMessage } from "@eliteforge/agent-ui-chat-core";
@@ -21,6 +21,8 @@ const props = defineProps<{
   onA2UIAction?: ActionHandler;
   a2uiSession?: ChatA2uiSession;
   a2uiDisabled?: boolean;
+  onDeleteTurn?: (message: ChatMessage) => void;
+  deleteTurnLabel?: string;
 }>();
 
 const emit = defineEmits<{
@@ -62,6 +64,10 @@ const actorName = computed(() =>
           @click="emit('editMessage', props.message.content, props.message)"
         >
           <Pencil :size="14" />
+        </button>
+        <button v-if="isUser && !message.interactionResponse && message.history?.run && onDeleteTurn" class="ef-chat__icon-button" type="button"
+          :aria-label="deleteTurnLabel ?? 'Delete turn'" :title="deleteTurnLabel ?? 'Delete turn'" @click="onDeleteTurn(message)">
+          <Trash2 :size="14" aria-hidden="true" />
         </button>
         <span v-if="!message.interactionResponse || message.interactionResponse.answeredAt != null" class="ef-chat__message-time">{{ formatTime(props.message.createdAt) }}</span>
       </div>

@@ -31,7 +31,7 @@ const notices = computed(() => {
         detail = budget && copy?.toolSchemaBudget ? copy.toolSchemaBudget(budget.estimatedTokens, budget.limitTokens, budget.toolCount) : "";
       }
     }
-    return { title, failed, error: detail ? chatErrorPresentation(detail, props.labels.failed ?? "Run failed") : { summary: "", details: "" } };
+    return { title, failed, error: detail ? chatErrorPresentation(detail, props.labels.failed ?? "Run failed", notice.kind === "runError" || notice.kind === "runStopped" ? notice.code : undefined) : { summary: "", details: "" } };
   });
 });
 </script>

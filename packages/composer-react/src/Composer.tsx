@@ -31,6 +31,8 @@ export interface ComposerReactProps extends ComposerProps {
   composerRef?: Ref<HTMLTextAreaElement>;
   composerHeader?: ReactNode;
   footerAddon?: ReactNode;
+  /** Customize the attachment trigger while retaining file selection and upload state. */
+  renderAttachmentControl?: (control: { disabled: boolean; uploading: boolean; onClick: () => void }) => ReactNode;
   onDraftChange: (value: string) => void;
   onSend: (mode?: ChatSubmitMode) => void;
   onStop?: () => void;
@@ -205,6 +207,7 @@ export function Composer({
   attachmentDownloader,
   onRemoveAttachment,
   onAttachFile,
+  renderAttachmentControl,
   showAttachmentControl = false,
   attachmentUploadPending = false,
   attachLabel = "Attach file",
@@ -629,7 +632,11 @@ export function Composer({
                       void onAttachFile(file);
                   }}
                 />
-                <button
+                {renderAttachmentControl ? renderAttachmentControl({
+                  disabled: Boolean(disabledInput || attachmentUploadPending),
+                  uploading: attachmentUploadPending,
+                  onClick: () => attachmentFileInputRef.current?.click(),
+                }) : <button
                   aria-label={attachLabel}
                   className="ef-chat__icon-button"
                   disabled={disabledInput || attachmentUploadPending}
@@ -644,7 +651,7 @@ export function Composer({
                       height: "var(--agent-ui-composer-icon-size, 16px)",
                     }}
                   />
-                </button>
+                </button>}
               </>
             ) : null}
             {footerAddon}

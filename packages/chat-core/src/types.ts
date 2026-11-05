@@ -144,7 +144,7 @@ export interface ChatRunSummary {
   runId: string;
   conversationId?: string | null;
   reasoningEffort?: ReasoningEffort | null;
-  status: "COMPLETED" | "AWAITING_USER_INPUT";
+  status: "COMPLETED" | "AWAITING_USER_INPUT" | "STEP_LIMIT" | "TOOL_CALL_LIMIT";
   finalOutput: string;
   finalMessageIds?: string[];
   stepCount: number;
@@ -496,6 +496,7 @@ export interface ChatAdapter {
   loadAguiEvents: (sessionId: string) => Promise<ChatAguiEvent[]>;
   loadMessages: (sessionId: string) => Promise<ChatMessage[]>;
   /** Authoritative structured history. Ordinary reads skip all replay endpoints. */
+  deleteTurn?: (sessionId: string, input: { rootRunId: string; expectedVersion: string }, signal?: AbortSignal) => Promise<void>;
   loadHistory?: (sessionId: string, query: HistoryQuery, signal?: AbortSignal) => Promise<SessionHistory>;
   loadUserInputRequests?: (
     sessionId: string,
@@ -548,6 +549,7 @@ export interface ChatClientConfig {
   inputSuggestions?: ChatInputSuggestion[];
   skillSuggestionTriggers?: Array<"$" | "/">;
   inputSuggestionLabels?: ChatInputSuggestionLabels;
+  turnDeletionLabels?: { action: string; confirm: string; failed: string };
   historyLabels?: ChatHistoryLabels;
   defaultSessionId?: string;
   disabledInput?: boolean;

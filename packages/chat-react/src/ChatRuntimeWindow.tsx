@@ -1,3 +1,4 @@
+import type { ComposerReactProps } from "@eliteforge/agent-ui-composer-react";
 import type { ChatGoalIndicatorProps } from "./ChatGoalIndicator";
 import { contextCompactionInProgress, historyCompactionEvents } from "@eliteforge/agent-ui-chat-core";
 import type { ChatAnnotation } from "@eliteforge/agent-ui-chat-core";
@@ -115,6 +116,7 @@ export interface ChatRuntimeWindowProps {
   onCreateSession?: () => void;
   onDraftChange?: (draft: string) => void;
   onError?: ToastLikeCallback;
+  confirmDeleteTurn?: (message: ChatMessage) => boolean | Promise<boolean>;
   onInfo?: ToastLikeCallback;
   onPendingAttachmentsChange?: (attachments: ChatMessageAttachment[]) => void;
   /** Hosts can stage pasted files locally until the first submission. */
@@ -129,6 +131,7 @@ export interface ChatRuntimeWindowProps {
     content: string,
     attachments: ChatMessageAttachment[],
   ) => SendChatMessageInput | null;
+  renderAttachmentControl?: ComposerReactProps["renderAttachmentControl"];
   showAttachmentControl?: boolean;
   showHeader?: boolean;
   showHistoryRail?: boolean;
@@ -198,6 +201,7 @@ export function ChatRuntimeWindow({
   onCreateSession,
   onDraftChange,
   onError = defaultErrorReporter,
+  confirmDeleteTurn,
   onInfo,
   onPendingAttachmentsChange,
   onPasteAttachment,
@@ -207,6 +211,7 @@ export function ChatRuntimeWindow({
   onPendingAnnotationsChange,
   pendingAttachments: controlledPendingAttachments,
   createSendInput: createSendInputOverride,
+  renderAttachmentControl,
   showAttachmentControl = true,
   showHeader,
   showHistoryRail,
@@ -265,6 +270,8 @@ export function ChatRuntimeWindow({
   const answeredNativeInteractionsRef = useRef(new Set<string>());
   const [userInputAnswerPending, setUserInputAnswerPending] = useState(false);
   const [failedUserInput, setFailedUserInput] = useState<{ sessionId: string; requestId: string } | null>(null);
+  const [deletingTurn, setDeletingTurn] = useState(false);
+  const deletingTurnRef = useRef(false);
   const [submissionError, setSubmissionError] = useState<string | null>(null);
   const [aguiEvents, setAguiEvents] = useState<ChatAguiEvent[]>([]);
   const [protocolEvents, setProtocolEvents] = useState<ChatAguiStreamEvent[]>([]);
@@ -842,19 +849,20 @@ export function ChatRuntimeWindow({
   async function loadOlderHistory() {
     const sessionId = session?.sessionId;
     const cursor = historyCursor;
-    if (!sessionId || !cursor || !activeAdapter.loadHistory || historyLoadingOlder) return;
+    const readEpoch = presentationRefreshEpochRef.current;
+    if (!sessionId || !cursor || !activeAdapter.loadHistory || historyLoadingOlder || deletingTurnRef.current) return;
     setHistoryLoadingOlder(true);
     try {
       const page = await activeAdapter.loadHistory(sessionId, { limit: 20, cursor });
-      if (activeSessionCodeRef.current !== sessionId) return;
+      if (activeSessionCodeRef.current !== sessionId || readEpoch !== presentationRefreshEpochRef.current) return;
       setMessages((current) => mergeChatMessagesChronologically(historyMessages(page, config.userInputLabels), current));
       setProtocolEvents((current) => mergeTranscriptAguiEvents(historyCompactionEvents(page), current) as ChatAguiStreamEvent[]);
       setHistoryCursor(page.nextCursor);
     } catch (error) {
-      if ((error as { status?: number })?.status === 409 && activeSessionCodeRef.current === sessionId) {
+      if ((error as { status?: number })?.status === 409 && activeSessionCodeRef.current === sessionId && readEpoch === presentationRefreshEpochRef.current) {
         try {
           const page = await activeAdapter.loadHistory(sessionId, { limit: 20, cursor: null });
-          if (activeSessionCodeRef.current === sessionId) {
+          if (activeSessionCodeRef.current === sessionId && readEpoch === presentationRefreshEpochRef.current) {
             setMessages(historyMessages(page, config.userInputLabels)); setHistorySnapshot(page); setHistoryCursor(page.nextCursor);
             setProtocolEvents(historyCompactionEvents(page));
             const pending = historyUserInputRequests(page, config.userInputLabels);
@@ -960,7 +968,7 @@ export function ChatRuntimeWindow({
   useEffect(() => {
     if (!session?.sessionId || !shouldPollData) return;
     const intervalId = window.setInterval(async () => {
-      if (!session?.sessionId) return;
+      if (!session?.sessionId || deletingTurnRef.current) return;
       const readEpoch = presentationRefreshEpochRef.current;
       try {
         const { nextMessages, nextAguiEvents, nextProtocolEvents, nextActiveRun, nextUserInputRequests, nextHistory, errors, healthNotice, healthyProtocolEvents } =
@@ -1058,13 +1066,13 @@ export function ChatRuntimeWindow({
   }, [protocolEvents, protocolReplayEnabled, remoteActiveRun, session]);
 
   const sendDisabled = useMemo(() => {
-    if (compacting || loading || creatingSession || config.disabledInput || userInputRequest || userInputAnswerPending) return true;
+    if (deletingTurn || compacting || loading || creatingSession || config.disabledInput || userInputRequest || userInputAnswerPending) return true;
     if (!draft.trim() && !pendingAttachments.length && !pendingAnnotations.length) return true;
     return false;
-  }, [compacting, config.disabledInput, creatingSession, draft, loading, pendingAttachments.length, pendingAnnotations.length, session, userInputAnswerPending, userInputRequest]);
+  }, [deletingTurn, compacting, config.disabledInput, creatingSession, draft, loading, pendingAttachments.length, pendingAnnotations.length, session, userInputAnswerPending, userInputRequest]);
   const queueDisabled = useMemo(
-    () => compacting || loading || Boolean(config.disabledInput) || Boolean(userInputRequest) || userInputAnswerPending || (!draft.trim() && !pendingAttachments.length && !pendingAnnotations.length) || !session,
-    [compacting, config.disabledInput, draft, loading, pendingAttachments.length, pendingAnnotations.length, session, userInputAnswerPending, userInputRequest],
+    () => deletingTurn || compacting || loading || Boolean(config.disabledInput) || Boolean(userInputRequest) || userInputAnswerPending || (!draft.trim() && !pendingAttachments.length && !pendingAnnotations.length) || !session,
+    [deletingTurn, compacting, config.disabledInput, draft, loading, pendingAttachments.length, pendingAnnotations.length, session, userInputAnswerPending, userInputRequest],
   );
   const steerDisabled = queueDisabled || steering || !canSteer;
 
@@ -1448,7 +1456,9 @@ export function ChatRuntimeWindow({
     const itemAnswers = (request: ChatUserInputRequest) => submittedRequests.length === 1 ? answers : answers.filter(answer => answer.questionId === request.requestId);
     const submittedSessionId = session.sessionId;
     const textStream = new AssistantMessageStream(session);
+    let answerAccepted = false;
     const markAnswered = () => {
+      answerAccepted = true;
       if (activeSessionCodeRef.current !== submittedSessionId) return;
       for (const request of submittedRequests) if (request.nativeInteraction) answeredNativeInteractionsRef.current.add(request.requestId);
       setAcceptedUserInputRequests(current => [...current.filter(request => !submittedIds.has(request.requestId)), ...submittedRequests.map(request => ({ ...request, answers:itemAnswers(request), answeredAt:Date.now(), assistantMessageId:request.assistantMessageId ?? continuationAnchorMessageCode, status:"Answered" as const }))]);
@@ -1515,8 +1525,9 @@ export function ChatRuntimeWindow({
       setLiveAguiAnchorMessageCodes({});
       void refreshCompletedTurn(result.session.sessionId, result.run.runId, presentationEpoch);
     } catch (error) {
-      if (activeSessionCodeRef.current === submittedSessionId) setFailedUserInput({ sessionId: submittedSessionId, requestId: submittedRequest.requestId });
-      onError(error instanceof Error ? error.message : "Chat answer failed", "Chat answer failed");
+      if (activeSessionCodeRef.current !== submittedSessionId) return;
+      if (!answerAccepted) setFailedUserInput({ sessionId: submittedSessionId, requestId: submittedRequest.requestId });
+      onError(error instanceof Error ? error.message : "Chat answer failed", answerAccepted ? "Chat continuation failed" : "Chat answer failed");
     } finally {
         if (activeSessionCodeRef.current !== submittedSessionId) return;
         assistantReplyQueueRef.current?.flush(); setStreamingAssistantMessageCode(null);
@@ -1530,7 +1541,7 @@ export function ChatRuntimeWindow({
   }
 
   async function handleSend(submitted?: Pick<SendChatMessageInput, "content" | "attachments">): Promise<boolean> {
-    if (compacting || initialSubmitPendingRef.current || sendingRef.current || config.disabledInput || creatingSession || (!submitted && sendDisabled) || userInputRequest || userInputAnswerPending) return false;
+    if (deletingTurnRef.current || compacting || initialSubmitPendingRef.current || sendingRef.current || config.disabledInput || creatingSession || (!submitted && sendDisabled) || userInputRequest || userInputAnswerPending) return false;
     // Capture the submitted draft before awaiting session creation. Subsequent
     // input changes must not alter the message being admitted.
     const content = (submitted?.content ?? draft).trim();
@@ -1779,6 +1790,51 @@ export function ChatRuntimeWindow({
     await handleSend();
   }
 
+  async function handleDeleteTurn(message: ChatMessage) {
+    const sessionId = session?.sessionId;
+    const rootRunId = message.history?.run?.rootRunId;
+    const expectedVersion = historySnapshot?.version;
+    if (!sessionId || !rootRunId || !expectedVersion || !activeAdapter.deleteTurn || !activeAdapter.loadHistory
+      || !historySnapshot?.canDeleteTurns || deletingTurnRef.current || sendingRef.current || remoteActiveRunRef.current || compacting || historySnapshot?.activeRuns.length) return;
+    deletingTurnRef.current = true;
+    setDeletingTurn(true);
+    ++presentationRefreshEpochRef.current;
+    try {
+      const confirmed = confirmDeleteTurn ? await confirmDeleteTurn(message)
+        : window.confirm(config.turnDeletionLabels?.confirm ?? "Delete this user message and its agent replies? They will no longer appear in the conversation or be sent to the model. Rebuilding context may reduce cache hits and increase latency and cost.");
+      if (!confirmed || activeSessionCodeRef.current !== sessionId) return;
+      await activeAdapter.deleteTurn(sessionId, { rootRunId, expectedVersion });
+      if (activeSessionCodeRef.current !== sessionId) return;
+      const removedIds = new Set(messages.filter(m => m.history?.run?.rootRunId === rootRunId).map(m => m.messageId));
+      // Remove immediately after commit even if the following refresh fails.
+      setMessages(current => current.filter(m => m.history?.run?.rootRunId !== rootRunId));
+      setLiveAguiEvents([]); setLiveAguiAnchorMessageCodes({}); setProtocolEvents([]); setAguiEvents([]);
+      setAcceptedUserInputRequests([]); setUserInputRequests([]); setUserInputRequest(null);
+      setHistorySnapshot(null); setHistoryCursor(null);
+      setPendingAnnotations(pendingAnnotations.filter(a => !removedIds.has(a.messageId)));
+      const page = await activeAdapter.loadHistory(sessionId, { limit: 20, cursor: null });
+      if (activeSessionCodeRef.current !== sessionId) return;
+      setMessages(historyMessages(page, config.userInputLabels)); setHistorySnapshot(page); setHistoryCursor(page.nextCursor);
+      setProtocolEvents(historyCompactionEvents(page));
+      await reloadA2ui();
+    } catch (error) {
+      if (activeSessionCodeRef.current === sessionId) {
+        onError(error instanceof Error ? error.message : String(error), "Chat delete failed");
+        // Resolve stale versions and ambiguous network failures from the server.
+        try {
+          const page = await activeAdapter.loadHistory(sessionId, { limit: 20, cursor: null });
+          if (activeSessionCodeRef.current === sessionId) {
+            setMessages(historyMessages(page, config.userInputLabels)); setHistorySnapshot(page); setHistoryCursor(page.nextCursor);
+          }
+        } catch { /* Keep the last confirmed view and surface the original error. */ }
+      }
+    } finally {
+      ++presentationRefreshEpochRef.current;
+      deletingTurnRef.current = false;
+      setDeletingTurn(false);
+    }
+  }
+
   function handleEditMessage(content: string, message?: ChatMessage) {
     draftSkillsRef.current = message?.requestedSkills ?? [];
     setPendingAnnotations(message?.annotations ?? []);
@@ -1936,7 +1992,7 @@ export function ChatRuntimeWindow({
       createSessionLabel={createSessionLabel}
       currentUserDisplayName={currentUserDisplayName}
       debugOptions={resolvedDebugOptions}
-      disabledInput={compacting || creatingSession || Boolean(config.disabledInput) || userInputRequest?.status === "Pending"}
+      disabledInput={deletingTurn || compacting || creatingSession || Boolean(config.disabledInput) || userInputRequest?.status === "Pending"}
       draft={draft}
       emptyDescription={emptyDescription ?? "Create a session to start chatting."}
       emptyTitle={emptyTitle}
@@ -1947,6 +2003,7 @@ export function ChatRuntimeWindow({
       onPendingAnnotationsChange={setPendingAnnotations}
       onRemoveAttachment={(id) => setPendingAttachments(current => current.filter(item => item.id !== id))}
       onAttachFile={handleAttachmentUpload}
+      renderAttachmentControl={renderAttachmentControl}
       showAttachmentControl={showAttachmentControl && Boolean(activeAdapter.uploadAttachment)}
       attachmentUploadPending={attachmentUploadPending}
       formatAnnotationCount={formatAnnotationCount}
@@ -1971,7 +2028,9 @@ export function ChatRuntimeWindow({
       onNewSession={handleNewSession}
       onDraftChange={setDraft}
       onPasteAttachment={onPasteAttachment ?? handleAttachmentUpload}
-      onEditMessage={compacting ? undefined : handleEditMessage}
+      onEditMessage={deletingTurn || compacting ? undefined : handleEditMessage}
+      deleteTurnLabel={config.turnDeletionLabels?.action}
+      onDeleteTurn={activeAdapter.deleteTurn && historySnapshot?.canDeleteTurns && !loading && !sending && !remoteActiveRun && !deletingTurn && !compacting && !historySnapshot.activeRuns.length ? message => { void handleDeleteTurn(message); } : undefined}
       onEditQueuedMessage={handleEditQueuedMessage}
       onRemoveQueuedMessage={handleRemoveQueuedMessage}
       onSteerQueuedMessage={(id) => { void handleSteer(id); }}
@@ -2024,7 +2083,7 @@ export function ChatRuntimeWindow({
         composerHeader={composerFeedback}
         currentUserDisplayName={currentUserDisplayName}
         debugOptions={resolvedDebugOptions}
-        disabledInput={compacting || creatingSession || Boolean(config.disabledInput) || userInputRequest?.status === "Pending"}
+        disabledInput={deletingTurn || compacting || creatingSession || Boolean(config.disabledInput) || userInputRequest?.status === "Pending"}
         draft={draft}
         emptyDescription={emptyDescription ?? "Create a session to start chatting."}
         emptyTitle={emptyTitle}
@@ -2035,6 +2094,7 @@ export function ChatRuntimeWindow({
       onPendingAnnotationsChange={setPendingAnnotations}
         onRemoveAttachment={(id) => setPendingAttachments(current => current.filter(item => item.id !== id))}
         onAttachFile={handleAttachmentUpload}
+        renderAttachmentControl={renderAttachmentControl}
         showAttachmentControl={showAttachmentControl && Boolean(activeAdapter.uploadAttachment)}
         attachmentUploadPending={attachmentUploadPending}
         formatAnnotationCount={formatAnnotationCount}
@@ -2058,7 +2118,9 @@ export function ChatRuntimeWindow({
         onNewSession={handleNewSession}
         onDraftChange={setDraft}
         onPasteAttachment={onPasteAttachment ?? handleAttachmentUpload}
-        onEditMessage={compacting ? undefined : handleEditMessage}
+        onEditMessage={deletingTurn || compacting ? undefined : handleEditMessage}
+      deleteTurnLabel={config.turnDeletionLabels?.action}
+      onDeleteTurn={activeAdapter.deleteTurn && historySnapshot?.canDeleteTurns && !loading && !sending && !remoteActiveRun && !deletingTurn && !compacting && !historySnapshot.activeRuns.length ? message => { void handleDeleteTurn(message); } : undefined}
         onEditQueuedMessage={handleEditQueuedMessage}
         onRemoveQueuedMessage={handleRemoveQueuedMessage}
         onSteerQueuedMessage={(id) => { void handleSteer(id); }}

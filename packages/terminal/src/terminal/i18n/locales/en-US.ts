@@ -22,6 +22,7 @@ export default {
   executeFailed: "Failed to execute",
   rejectFailed: "Failed to reject",
   activityLabel: "Agent activity",
+  activityWorking: "Working",
   activityElapsed: "Elapsed",
   activityMinute: "m",
   activityProcessed: "Processed",
