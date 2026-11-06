@@ -6,6 +6,7 @@ import {
   truncateLabel,
 } from "./display";
 import { CONTEXT_COMPACTION_STEP, historyEventRunId, type SessionHistory } from "./history";
+import { metadataRecordWith } from "./eventMetadata";
 import { parseToolPayload, presentToolCall, unwrapGatewayToolCall } from "./toolPresentation";
 import type {
   ChatAguiStreamEvent,
@@ -81,13 +82,12 @@ export function buildAguiRunNotices(events: TranscriptAguiEvent[]): AguiRunNotic
       ? event.metadata as Record<string, unknown> : {};
     presentationIncomplete ||= (metadata.replayIncomplete === true || metadata.replayIncomplete === "true")
       || ("presentationIncomplete" in event && event.presentationIncomplete === true)
-      || (type === "CUSTOM" && "name" in event && (event.name === "tron.presentation.incomplete" || event.name === "agent.presentation.incomplete"));
+      || (type === "CUSTOM" && "name" in event && typeof event.name === "string" && event.name.endsWith(".presentation.incomplete"));
 
     if (type === "CUSTOM" && "name" in event && typeof event.name === "string") {
-      if (event.name === "tron.mcp.runtime.warning") {
+      if (event.name.endsWith(".mcp.runtime.warning")) {
         const value = "value" in event && event.value && typeof event.value === "object" ? event.value as Record<string, unknown> : {};
-        const tron = metadata.tron && typeof metadata.tron === "object" ? metadata.tron as Record<string, unknown> : {};
-        const id = typeof tron.eventId === "string" ? tron.eventId : `${"runId" in event ? event.runId : ""}:mcp:${value.serverCode ?? ""}`;
+        const id = protocolEventId(metadata) ?? `${"runId" in event ? event.runId : ""}:mcp:${value.serverCode ?? ""}`;
         const message = [value.serverName, value.message].filter((part): part is string => typeof part === "string" && part.length > 0).join(": ");
         warnings.set(id,{kind:"integrationWarning",id,code:"MCP_RUNTIME_UNAVAILABLE",message});
       }
@@ -286,13 +286,22 @@ export function aguiEventToolArgs(event: TranscriptAguiEvent) {
   return "toolCallArgs" in event ? event.toolCallArgs : undefined;
 }
 
+/** A host can provide a transport identity in any metadata namespace. */
+function protocolEventId(metadata: Record<string, unknown>): string | null {
+  const candidates = [metadata.protocol, ...Object.values(metadata)];
+  for (const candidate of candidates) {
+    if (candidate && typeof candidate === "object" && "eventId" in candidate
+        && typeof candidate.eventId === "string" && candidate.eventId) return candidate.eventId;
+  }
+  return null;
+}
+
 export function aguiEventStableKey(event: TranscriptAguiEvent): string | null {
   const metadata = "metadata" in event && event.metadata && typeof event.metadata === "object"
     ? event.metadata as Record<string, unknown> : {};
-  const tron = metadata.tron && typeof metadata.tron === "object"
-    ? metadata.tron as Record<string, unknown> : {};
-  if (typeof tron.eventId === "string" && tron.eventId) {
-    return JSON.stringify(["protocol", aguiEventThreadId(event), tron.eventId]);
+  const eventId = protocolEventId(metadata);
+  if (eventId) {
+    return JSON.stringify(["protocol", aguiEventThreadId(event), eventId]);
   }
   if ("id" in event && typeof event.id === "string" && event.id) {
     return JSON.stringify(["canonical", aguiEventThreadId(event), event.id]);
@@ -326,14 +335,12 @@ export function mergeTranscriptAguiEvents<T extends TranscriptAguiEvent>(...sour
   const executions = new Map<string, Array<{ index: number; event: T; sequence: number }>>();
   merged.forEach((event, index) => {
     const metadata = "metadata" in event ? event.metadata : undefined;
-    const framework = metadata && typeof metadata === "object" && "framework" in metadata ? metadata.framework : undefined;
-    if (!framework || typeof framework !== "object" || !("executionId" in framework)
-      || typeof framework.executionId !== "string" || !framework.executionId
-      || !("sourceSequence" in framework) || typeof framework.sourceSequence !== "number"
-      || !Number.isSafeInteger(framework.sourceSequence)) return;
-    const key = JSON.stringify([aguiEventThreadId(event), framework.executionId]);
+    const execution = metadataRecordWith(metadata, (record) => typeof record.executionId === "string" && typeof record.sourceSequence === "number");
+    if (!execution || typeof execution.executionId !== "string" || !execution.executionId
+      || typeof execution.sourceSequence !== "number" || !Number.isSafeInteger(execution.sourceSequence)) return;
+    const key = JSON.stringify([aguiEventThreadId(event), execution.executionId]);
     const entries = executions.get(key) ?? [];
-    entries.push({ index, event, sequence: framework.sourceSequence });
+    entries.push({ index, event, sequence: execution.sourceSequence });
     executions.set(key, entries);
   });
   for (const entries of executions.values()) {
@@ -401,7 +408,7 @@ export function openAguiProtocolRunCodes(events: TranscriptAguiEvent[], sessionI
     const runId = aguiEventRunId(event);
     if (!runId || runId === "stream") return;
     const type = aguiEventType(event).toUpperCase();
-    if (type === "CUSTOM" && "name" in event && (event.name === "agent.presentation.incomplete" || event.name === "tron.presentation.incomplete")) return;
+    if (type === "CUSTOM" && "name" in event && typeof event.name === "string" && event.name.endsWith(".presentation.incomplete")) return;
     if (!terminalByRun.has(runId)) terminalByRun.set(runId, false);
     if (isAguiExecutionTerminalEvent(event)) {
       terminalByRun.set(runId, true);
@@ -833,7 +840,7 @@ export function buildAguiUserWorkCards(events: TranscriptAguiEvent[]): AguiUserW
       }
       return;
     }
-    if (type === "ACTIVITY_SNAPSHOT" && "activityType" in event && event.activityType === TOOL_BATCH_ACTIVITY_TYPE) {
+    if (type === "ACTIVITY_SNAPSHOT" && "activityType" in event && typeof event.activityType === "string" && (event.activityType === TOOL_BATCH_ACTIVITY_TYPE || event.activityType.endsWith(".tool.batch"))) {
       const snapshot = parseToolBatchSnapshot("content" in event ? event.content : null);
       if (!snapshot) return;
       const card = ensureToolCard(toolCards, reasoningCards, latestReasoningCardIdsByRun, {
@@ -849,7 +856,7 @@ export function buildAguiUserWorkCards(events: TranscriptAguiEvent[]): AguiUserW
       }
       return;
     }
-    if (type === "ACTIVITY_SNAPSHOT" && "activityType" in event && event.activityType === "tron.tool.progress") {
+    if (type === "ACTIVITY_SNAPSHOT" && "activityType" in event && typeof event.activityType === "string" && event.activityType.endsWith(".tool.progress")) {
       const content = "content" in event && event.content && typeof event.content === "object" ? event.content as Record<string, unknown> : {};
       if (typeof content.toolCallId !== "string" || typeof content.line !== "string") return;
       const card = ensureToolCard(toolCards, reasoningCards, latestReasoningCardIdsByRun, {
@@ -876,10 +883,11 @@ export function buildAguiUserWorkCards(events: TranscriptAguiEvent[]): AguiUserW
     }
     if (type === "TOOL_CALL_END") {
       const card = ensureToolCard(toolCards, reasoningCards, latestReasoningCardIdsByRun, event);
-      // Framework's END closes the argument stream before execution. Legacy
-      // host frames used END as their final execution marker and remain readable.
+      // A protocol with execution metadata closes the argument stream before
+      // execution; other transports can use END as their terminal marker.
       const native = "metadata" in event && event.metadata && typeof event.metadata === "object"
-        && "framework" in event.metadata;
+        && (Boolean("execution" in event.metadata && event.metadata.execution && typeof event.metadata.execution === "object")
+          || Boolean(metadataRecordWith(event.metadata, (item) => item !== event.metadata && (typeof item.runId === "string" || typeof item.executionId === "string"))));
       if (card && !native) card.ended = true;
     }
   });
@@ -1149,9 +1157,9 @@ export function contextCompactionInProgress(events: ChatAguiStreamEvent[], runId
     .some(notice => notice.kind === "compaction" && (notice.status === "started" || notice.status === "requested"));
 }
 
-/** Restore maintenance notices and failed run outcomes from Framework history. */
+/** Restore maintenance notices and failed run outcomes from history. */
 export function historyCompactionEvents(history: SessionHistory): ChatAguiStreamEvent[] {
-  const steps = history.records.steps.filter(step => step.name === CONTEXT_COMPACTION_STEP);
+  const steps = history.records.steps.filter(step => step.name === CONTEXT_COMPACTION_STEP || step.name.endsWith(".context.compaction"));
   const output: ChatAguiStreamEvent[] = [];
   const runs = new Map(history.runs.map(run => [run.id, run]));
   const started = new Set<string>();

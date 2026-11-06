@@ -60,5 +60,13 @@ export function interactionMessages(messages: readonly ChatMessage[], requests: 
     });
     insert(source, request.requestId, request.runId, rows, request.answeredAt ?? undefined, undefined, approval);
   }
-  return result;
+  return result.map(message => message.interactionResponse ? {
+    ...message,
+    interactionResponse: {
+      ...message.interactionResponse,
+      summaryLabel: message.interactionResponse.approval
+        ? message.interactionResponse.rows[0]?.value
+        : inputLabels?.responseSubmitted ?? "Submitted",
+    },
+  } : message);
 }

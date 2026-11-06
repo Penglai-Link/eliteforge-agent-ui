@@ -1597,3 +1597,34 @@
 @container chat-content (max-width: 1260px) {
   .ef-chat__content--with-sidebar > .ef-chat-history-rail { display: none; }
 }
+
+/* Submitted interactions use compact receipts instead of user message cards. */
+.ef-chat__interaction-receipt { align-self: flex-end; width: fit-content; max-width: 100%; }
+.ef-chat__interaction-chip {
+  display: inline-flex; align-items: center; gap: 6px; max-width: 100%;
+  min-height: 28px; padding: 4px 10px; border: 0; border-radius: 999px;
+  font: inherit; font-size: 12px; line-height: 20px; cursor: pointer;
+  color: var(--agent-ui-chat-text, #303030);
+  background: var(--agent-ui-chat-surface-muted, #f1f1f1);
+}
+.ef-chat__interaction-chip > svg { flex: none; opacity: .75; }
+.ef-chat__interaction-chip > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ef-chat__interaction-chip:hover, .ef-chat__interaction-chip[aria-expanded="true"] {
+  box-shadow: inset 0 0 0 1px var(--agent-ui-chat-border, #ddd);
+}
+.ef-chat__interaction-chip:focus-visible, .ef-chat__interaction-popover:focus-visible {
+  outline: 2px solid var(--agent-ui-chat-focus, currentColor); outline-offset: 3px;
+}
+.ef-chat__interaction-popover {
+  position: fixed; box-sizing: border-box; margin: 0; padding: 14px 16px;
+  overflow: auto; overscroll-behavior: contain; border-radius: 12px;
+  border: 1px solid var(--agent-ui-chat-border, #ddd);
+  background: var(--agent-ui-chat-surface, #fff);
+  color: var(--agent-ui-chat-text, #303030);
+  font-family: inherit; font-size: 13px; line-height: 1.6;
+  box-shadow: 0 8px 28px rgb(0 0 0 / 12%); text-align: start;
+}
+.ef-chat__interaction-popover::backdrop { background: transparent; pointer-events: none; }
+.ef-chat__interaction-meta { display: flex; justify-content: space-between; gap: 16px; opacity: .65; font-size: 12px; }
+.ef-chat__interaction-popover .ef-chat__interaction-summary { margin: 10px 0 0; gap: 12px; }
+.ef-chat__interaction-popover .ef-chat__interaction-summary dd { user-select: text; }

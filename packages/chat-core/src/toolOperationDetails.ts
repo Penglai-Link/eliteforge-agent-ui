@@ -52,7 +52,7 @@ export function approvalCommandTexts(rawToolName: string, rawArgs: unknown): str
 export function toolOperationDetails(rawToolName: string, rawArgs: unknown, locale?: string): ToolOperationDetails[] {
   const unwrapped = unwrapGatewayToolCall(rawToolName, parseToolPayload(rawArgs) ?? rawArgs);
   const payload = parseToolPayload(unwrapped.args) ?? {};
-  // Framework batches contain the same tool's input objects in their original order.
+  // Batch inputs retain their original order.
   if (Object.keys(payload).length === 1 && Array.isArray(payload.items)
     && payload.items.length > 0 && payload.items.length <= 32) {
     return payload.items.map(item => describeOperation(unwrapped.toolName, parseToolPayload(item) ?? {}, locale));
@@ -70,8 +70,10 @@ export function toolCommandCountLabel(rawToolName: string, rawArgs: unknown, loc
   if (!executesCommands) return undefined;
   const payload = parseToolPayload(unwrapped.args);
   if (!payload) return undefined;
-  const items = Object.keys(payload).length === 1 && Array.isArray(payload.items)
-    ? payload.items : [payload];
+  // A single command is more useful by its actual text. Reserve the count
+  // summary for a batch of operations.
+  if (Object.keys(payload).length !== 1 || !Array.isArray(payload.items)) return undefined;
+  const items = payload.items;
   // Incomplete streamed input must not claim a command count yet.
   if (!items.length || items.length > 32 || !items.every(item => commandText(parseToolPayload(item) ?? {}))) return undefined;
   const count = items.length;

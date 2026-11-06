@@ -1,4 +1,4 @@
-/* Shared A2UI defaults: restrained controls, Tron color tokens, host overrides. */
+/* Shared A2UI defaults with optional host color overrides. */
 .a2ui-surface.a2ui-surface {
   --_agent-ui-control-height: var(--agent-ui-control-height, 2.25rem);
   --_agent-ui-control-radius: var(--agent-ui-control-radius, 6px);

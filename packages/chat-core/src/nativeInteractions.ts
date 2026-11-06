@@ -2,6 +2,7 @@ import { historyEventRunId, type SessionHistory } from "./history";
 import { parseToolApprovalDetails } from "./toolBatch";
 import { approvalPresentation } from "./approvalPresentation";
 import { isAguiPresentationFailureEvent } from "./transcript";
+import { metadataRecordWith } from "./eventMetadata";
 import type { ChatAguiStreamEvent, ChatUserInputAnswer, ChatUserInputAnswerInput, ChatUserInputLabels, ChatUserInputRequest } from "./types";
 
 function record(value: unknown): Record<string, unknown> {
@@ -50,14 +51,14 @@ export function activeNativeUserInputRequests(requests: ChatUserInputRequest[], 
     if (event.threadId && event.threadId !== sessionId) continue;
     const nativeId = historyEventRunId(event);
     if (event.runId) aliases.set(event.runId, nativeId);
-    if (record(record(event.metadata).framework).node || isAguiPresentationFailureEvent(event)) continue;
+    if (metadataRecordWith(event.metadata, (item) => Boolean(item.node)) || isAguiPresentationFailureEvent(event)) continue;
     if (event.type === "RUN_ERROR" || event.type === "RUN_FINISHED" && event.outcome?.type !== "interrupt") closed.add(nativeId);
   }
   return requests.filter(request => !request.nativeInteraction || request.status !== "Pending"
     || !answered.has(request.requestId) && !closed.has(aliases.get(request.runId) ?? request.runId));
 }
 
-/** Keep native payloads as JSON values; the Framework remains the schema authority. */
+/** Keep native payloads as JSON values; the adapter owns their schema. */
 export function nativeUserInputAnswer(request: ChatUserInputRequest, answers: ChatUserInputAnswer[]): ChatUserInputAnswerInput {
   const native = request.nativeInteraction;
   if (!native) return { answers };

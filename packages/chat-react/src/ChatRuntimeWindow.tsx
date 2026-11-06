@@ -97,6 +97,8 @@ export interface ChatRuntimeWindowProps {
   composerRef?: Ref<HTMLTextAreaElement>;
   submitterRef?: Ref<ChatRuntimeSubmitter>;
   composerHeader?: ReactNode;
+  /** Host controls displayed above, outside the input surface. */
+  composerTop?: ReactNode;
   createSessionLabel?: string;
   currentUserDisplayName?: string;
   currentSender?: MessageSender;
@@ -180,6 +182,7 @@ export function ChatRuntimeWindow({
   attachmentLabels,
   autoFocusComposer = false,
   composerHeader,
+  composerTop,
   config,
   composerRef,
   submitterRef,
@@ -558,7 +561,7 @@ export function ChatRuntimeWindow({
     if (activeAdapter.loadHistory) {
       const page = await activeAdapter.loadHistory(sessionId, { limit: 20, cursor: null }, signal);
       const run = page.activeRuns.find((r) => r.status === "Running" && r.parentRunId === null);
-      return run ? { runId: run.id, runtimeAdapterKey: "framework", supportsSteer: activeAdapter.capabilities.supportsSteer ?? false, state: "RUNNING" as const } : null;
+      return run ? { runId: run.id, runtimeAdapterKey: "native", supportsSteer: activeAdapter.capabilities.supportsSteer ?? false, state: "RUNNING" as const } : null;
     }
     if (
       !activeAdapter.capabilities.supportsActiveRun
@@ -799,7 +802,7 @@ export function ChatRuntimeWindow({
         try { foreground = await loadActiveRunSnapshot(sessionId, signal); }
         catch (error) { errors.push(error); }
       } else {
-        foreground = running ? { runId: running.id, runtimeAdapterKey: "framework", supportsSteer: activeAdapter.capabilities.supportsSteer ?? false, state: "RUNNING" } : null;
+        foreground = running ? { runId: running.id, runtimeAdapterKey: "native", supportsSteer: activeAdapter.capabilities.supportsSteer ?? false, state: "RUNNING" } : null;
       }
       const notices = historyCompactionEvents(page);
       return { nextHistory: page, nextMessages: historyMessages(page, config.userInputLabels), nextAguiEvents: [] as ChatAguiEvent[], nextProtocolEvents: notices,
@@ -1989,6 +1992,7 @@ export function ChatRuntimeWindow({
       autoFocusComposer={autoFocusComposer}
       composerRef={composerRef}
       composerHeader={composerFeedback}
+      composerTop={compacting ? <fieldset disabled style={{ display: "contents" }}>{composerTop}</fieldset> : composerTop}
       createSessionLabel={createSessionLabel}
       currentUserDisplayName={currentUserDisplayName}
       debugOptions={resolvedDebugOptions}
@@ -2081,6 +2085,7 @@ export function ChatRuntimeWindow({
         autoFocusComposer={autoFocusComposer}
         composerRef={composerRef}
         composerHeader={composerFeedback}
+        composerTop={compacting ? <fieldset disabled style={{ display: "contents" }}>{composerTop}</fieldset> : composerTop}
         currentUserDisplayName={currentUserDisplayName}
         debugOptions={resolvedDebugOptions}
         disabledInput={deletingTurn || compacting || creatingSession || Boolean(config.disabledInput) || userInputRequest?.status === "Pending"}

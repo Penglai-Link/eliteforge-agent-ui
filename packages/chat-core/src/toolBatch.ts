@@ -1,5 +1,4 @@
-/** Framework core tool_batch.rs wire contract. Cross-repository fixture tests
- * validate this consumer against Rust serialization, not handwritten examples. */
+/** Shared batch operation payload used by adapters and presentation components. */
 export interface ToolBatchItem {
   parentCallId: string; parentInvocationId: string;
   callId: string; invocationId: string; index: number;
@@ -18,7 +17,7 @@ export function hasPendingBatchItems(raw: string): boolean {
     return Boolean(batch?.results.some(row => ["Pending", "Waiting", "Running"].includes(row.status)));
   } catch { return false; }
 }
-export const TOOL_BATCH_ACTIVITY_TYPE = "framework.tool.batch";
+export const TOOL_BATCH_ACTIVITY_TYPE = "agent.tool.batch";
 /** Revisions are decimal strings and scoped to a parent invocation. */
 export function validBatchRevision(value: unknown): value is string {
   return typeof value === "string" && /^[1-9][0-9]*$/.test(value);

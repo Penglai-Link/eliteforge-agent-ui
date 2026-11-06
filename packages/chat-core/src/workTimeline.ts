@@ -82,7 +82,7 @@ export function createSteerWorkSegmentEvents(input: {
     timestamp: input.at,
     fromMessageId: input.fromMessageId,
     toMessageId: input.toMessageId,
-    metadata: { framework: { runId: input.nativeRunId } },
+    metadata: { execution: { runId: input.nativeRunId } },
   };
   return [
     { ...common, type: workSegmentEndEvent },

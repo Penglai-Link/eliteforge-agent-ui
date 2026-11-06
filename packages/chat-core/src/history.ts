@@ -3,10 +3,11 @@ import { approvalPresentation } from "./approvalPresentation";
 import type { ChatAnnotation } from "./annotations";
 import type { ChatMessage, MessageProvenance, ChatUserInputLabels, ChatUserInputRequest } from "./types";
 import { interactionMessages } from "./interactionMessages";
+import { metadataRecordWith } from "./eventMetadata";
 
 export type HistoryStatus = "Running" | "Waiting" | "Completed" | "Interrupted" | "Failed" | "Unknown" | "Planned" | "Approved";
-/** Framework's public maintenance step name, with ordinary HistoryStep status. */
-export const CONTEXT_COMPACTION_STEP = "framework.context.compaction";
+/** A protocol-neutral maintenance step, with ordinary HistoryStep status. */
+export const CONTEXT_COMPACTION_STEP = "agent.context.compaction";
 export type HistoryContentBlock =
   | { type: "Text" | "Reasoning"; text: string }
   | { type: "Json"; value: unknown }
@@ -59,8 +60,8 @@ export function historyText(blocks: HistoryContentBlock[]): string {
 }
 /** Native execution identity survives protocol run aliases used by host adapters. */
 export function historyEventRunId(event: { runId?: string | null; metadata?: unknown }): string {
-  const metadata = event.metadata as { nativeRunId?: unknown; framework?: { runId?: unknown } } | undefined;
-  const nativeId = metadata?.framework?.runId ?? metadata?.nativeRunId;
+  const metadata = event.metadata as { nativeRunId?: unknown } | undefined;
+  const nativeId = metadataRecordWith(event.metadata, (record) => record !== metadata && typeof record.runId === "string")?.runId ?? metadata?.nativeRunId;
   return typeof nativeId === "string" ? nativeId : event.runId ?? "";
 }
 /** Projection of structured records; no AG-UI replay or checkpoint parsing. */
@@ -83,11 +84,12 @@ export function historyMessages(page: SessionHistory, labels?: ChatUserInputLabe
         // ask_user creates its own interaction identity; the generated question
         // IDs in its structured result bind it without guessing from tool order.
         const questions = i.presentation?.questions;
-        let output = t.structured as { frameworkInteractionId?: string; questions?: { id?: string }[] } | null;
+        let output = t.structured as { interactionId?: string; questions?: { id?: string }[]; [key: string]: unknown } | null;
         if (!output) {
           try { output = JSON.parse(historyText(t.content)); } catch { /* Ordinary text output. */ }
         }
-        if (t.runId === i.runId && output?.frameworkInteractionId === i.id) return true;
+        const interactionId = output?.interactionId ?? (output && Object.entries(output).find(([key]) => key.endsWith("InteractionId"))?.[1]);
+        if (t.runId === i.runId && interactionId === i.id) return true;
         return t.runId === i.runId && Array.isArray(questions) && questions.length > 0
           && output?.questions?.length === questions.length
           && questions.every((q, index) => (q as {id?: string}).id === output.questions![index]?.id);

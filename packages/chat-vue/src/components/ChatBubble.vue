@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import InteractionReceipt from "./InteractionReceipt.vue";
 import { chatAnnotationTooltip, defaultChatAnnotationLabels, type ChatAnnotationLabels, type ChatAnnotation } from "@eliteforge/agent-ui-chat-core";
 import ChatA2UI from "./ChatA2UI.vue";
 import type { ChatA2uiActionHandler as ActionHandler, ChatA2uiSession } from "@eliteforge/agent-ui-chat-core";
@@ -37,7 +38,8 @@ const actorName = computed(() =>
 </script>
 
 <template>
-  <article
+  <InteractionReceipt v-if="isUser && message.interactionResponse" :message="message" :actor-name="actorName" />
+  <article v-else
     :class="cx('ef-chat__message', isUser && 'ef-chat__message--user', isSystemNotice && 'ef-chat__message--system')"
     :data-message-id="props.message.messageId"
     data-theme-anchor="chat-message" :data-theme-part="isSystemNotice ? 'chat-message-system' : isUser ? 'chat-message-user' : 'chat-message-assistant'"

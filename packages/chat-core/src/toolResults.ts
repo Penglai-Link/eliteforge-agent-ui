@@ -1,5 +1,5 @@
 import { parseToolBatchResult, type ToolBatchItemResult } from "./toolBatch";
-/** Safe, shared projection of live and persisted Framework tool outputs. */
+/** Safe, shared projection of live and persisted tool outputs. */
 export interface ToolResultPreview {
   toolSearch?: {
     mode: "summary" | "definition";

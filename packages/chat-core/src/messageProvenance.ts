@@ -27,7 +27,7 @@ export function messageSenderAvatar(message: ChatMessage): string | undefined {
 export function applyMessageProvenance(messages: readonly ChatMessage[], events: readonly ChatAguiStreamEvent[]): ChatMessage[] {
   const byIdentity = new Map<string, MessageProvenance>();
   for (const event of events) {
-    if (event.type !== "CUSTOM" || event.name !== "framework.message.provenance" || !event.threadId) continue;
+    if (event.type !== "CUSTOM" || typeof event.name !== "string" || !event.name.endsWith(".message.provenance") || !event.threadId) continue;
     const value = event.value as { messageId?: unknown; provenance?: MessageProvenance } | undefined;
     const sender = value?.provenance?.sender;
     if (typeof value?.messageId !== "string" || !sender || typeof sender.kind !== "string") continue;

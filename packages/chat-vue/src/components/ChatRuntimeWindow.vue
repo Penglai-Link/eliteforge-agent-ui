@@ -723,7 +723,7 @@ function acceptHistory(page: SessionHistory | null) {
 }
 function historyActiveRun(page: SessionHistory): ChatActiveRun | null {
   const run = page.activeRuns.find((r) => r.status === "Running" && r.parentRunId === null);
-  return run ? { runId: run.id, runtimeAdapterKey: "framework", supportsSteer: activeAdapter.value.capabilities.supportsSteer ?? false, state: "RUNNING" } : null;
+  return run ? { runId: run.id, runtimeAdapterKey: "native", supportsSteer: activeAdapter.value.capabilities.supportsSteer ?? false, state: "RUNNING" } : null;
 }
 
 const shouldPollData = computed(() =>

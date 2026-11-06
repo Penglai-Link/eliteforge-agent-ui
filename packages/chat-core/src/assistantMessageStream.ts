@@ -2,6 +2,7 @@ import type { ChatAguiStreamEvent, ChatMessage, ChatSession } from "./types";
 import { historyEventRunId } from "./history";
 import { aguiEventStableKey } from "./transcript";
 import { mergeChatMessagesChronologically } from "./chatMessages";
+import { metadataRecordWith } from "./eventMetadata";
 
 interface StreamMessage {
   message: ChatMessage;
@@ -38,14 +39,13 @@ export class AssistantMessageStream {
     if (event.threadId && event.threadId !== this.session.sessionId) return null;
     const type = event.type.toUpperCase();
     if (type === "RUN_FINISHED" && event.runId) {
-      const metadata = event.metadata as { framework?: { finalMessageIds?: unknown } } | undefined;
-      const ids = metadata?.framework?.finalMessageIds;
+      const ids = metadataRecordWith(event.metadata, (record) => Array.isArray(record.finalMessageIds))?.finalMessageIds;
       if (Array.isArray(ids) && ids.every(id => typeof id === "string") && ids.length) {
         this.finalMessageIdsByRun.set(event.runId, ids);
       }
       return null;
     }
-    if (type === "CUSTOM" && event.name === "framework.message.metadata") {
+    if (type === "CUSTOM" && typeof event.name === "string" && event.name.endsWith(".message.metadata")) {
       const value = event.value as { messageId?: unknown; phase?: unknown } | undefined;
       if (typeof value?.messageId !== "string" || typeof value.phase !== "string") return null;
       const state = this.messages.get(value.messageId);
@@ -58,8 +58,8 @@ export class AssistantMessageStream {
     this.hasIdentity = true;
     if (type === "TEXT_MESSAGE_START" && event.role && event.role !== "assistant") this.ignored.add(event.messageId);
     if (this.ignored.has(event.messageId)) return null;
-    const metadata = event.metadata as { framework?: { message?: { phase?: unknown } } } | undefined;
-    const phase = metadata?.framework?.message?.phase;
+    const metadata = metadataRecordWith(event.metadata, (record) => Boolean(record.message) && typeof record.message === "object");
+    const phase = (metadata?.message as { phase?: unknown } | undefined)?.phase;
     const existing = this.messages.get(event.messageId);
     if (type === "TEXT_MESSAGE_END" && existing?.ended && typeof phase === "string" && existing.message.phase == null) {
       existing.message = { ...existing.message, phase };

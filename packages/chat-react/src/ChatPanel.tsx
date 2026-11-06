@@ -1,3 +1,4 @@
+import { InteractionReceipt } from "./InteractionReceipt";
 import { ChatUserInputGroup } from "./ChatUserInputGroup";
 import { ChatGoalIndicator, type ChatGoalIndicatorProps } from "./ChatGoalIndicator";
 import { hasPendingBatchItems } from "@eliteforge/agent-ui-chat-core";
@@ -492,6 +493,9 @@ function ChatBubble({
   const missingCitations = isUser ? [] : turnAnnotations.filter(annotation => !message.content.includes(`#chat-annotation-${annotation.id}`));
   const actorName = messageActorName(message, currentUserDisplayName);
   const senderAvatar = messageSenderAvatar(message);
+  if (isUser && message.interactionResponse) {
+    return <div className="ef-chat__message-entry ef-chat__message-entry--user"><InteractionReceipt message={message} actorName={actorName} /></div>;
+  }
   return (
     <div
       className={cx(
@@ -1261,6 +1265,8 @@ export interface ChatPanelProps extends Pick<ComposerReactProps, "renderAttachme
   disabledInput?: boolean;
   draft: string;
   composerHeader?: ReactNode;
+  /** Host controls displayed above, outside the input surface. */
+  composerTop?: ReactNode;
   emptyDescription?: string;
   emptyTitle?: string;
   footerAddon?: ReactNode;
@@ -1349,6 +1355,7 @@ export function ChatPanel({
   disabledInput = false,
   draft,
   composerHeader,
+  composerTop,
   emptyDescription = "Create a session to start chatting.",
   emptyTitle = "No session selected",
   footerAddon,
@@ -1735,6 +1742,7 @@ export function ChatPanel({
               </div>)}
             </div> : null}
             {showComposer && goal ? <ChatGoalIndicator {...goal} /> : null}
+            {showComposer ? composerTop : null}
             {showComposer ? <Composer
               composerKey={session?.sessionId}
               autoFocusComposer={autoFocusComposer}
