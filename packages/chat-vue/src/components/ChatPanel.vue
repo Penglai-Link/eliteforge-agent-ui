@@ -306,7 +306,7 @@ onMounted(() => {
                   <template #message="{ message: processMessage }">
                     <StructuredMessageDetails :message="processMessage" :labels="props.historyLabels" :locale="props.locale" hide-run-error />
                     <ChatBubble v-if="processMessage.content.trim() || processMessage.a2ui" :annotation-labels="props.annotationLabels" :format-annotation-count="formatAnnotationCount" :annotations="annotationMap.get(processMessage.messageId)" :message="processMessage"
-                      :current-user-display-name="currentUserDisplayName" :is-streaming="processMessage.messageId === streamingAssistantMessageCode"
+                      :hide-message-identity="props.hideMessageIdentity" :current-user-display-name="currentUserDisplayName" :is-streaming="processMessage.messageId === streamingAssistantMessageCode"
                       :on-delete-turn="props.onDeleteTurn" :delete-turn-label="props.deleteTurnLabel" :on-a2-u-i-action="props.onA2UIAction" :a2ui-session="props.a2uiSession" :a2ui-disabled="props.a2uiDisabled"
                       @edit-message="(content: string, message: ChatMessage) => emit('edit-message', content, message)" />
                   </template>
@@ -317,7 +317,7 @@ onMounted(() => {
               <StructuredMessageDetails :message="message" :labels="props.historyLabels" :locale="props.locale" :hide-run-error="workTimeline.managedMessageIds.has(message.messageId)" />
               <ChatBubble
                 v-if="(message.role === 'USER' || !message.history || message.a2ui || message.content.trim())"
-                :current-user-display-name="currentUserDisplayName"
+                :hide-message-identity="props.hideMessageIdentity" :current-user-display-name="currentUserDisplayName"
                 :is-streaming="message.messageId === streamingAssistantMessageCode"
                 :annotation-labels="props.annotationLabels" :format-annotation-count="formatAnnotationCount" :annotations="annotationMap.get(message.messageId)"
                 :message="message"
@@ -359,7 +359,7 @@ onMounted(() => {
                   <template #message="{ message: processMessage }">
                     <StructuredMessageDetails :message="processMessage" :labels="props.historyLabels" :locale="props.locale" hide-run-error />
                     <ChatBubble v-if="processMessage.content.trim() || processMessage.a2ui" :annotation-labels="props.annotationLabels" :format-annotation-count="formatAnnotationCount" :annotations="annotationMap.get(processMessage.messageId)" :message="processMessage"
-                      :current-user-display-name="currentUserDisplayName" :is-streaming="processMessage.messageId === streamingAssistantMessageCode"
+                      :hide-message-identity="props.hideMessageIdentity" :current-user-display-name="currentUserDisplayName" :is-streaming="processMessage.messageId === streamingAssistantMessageCode"
                       :on-delete-turn="props.onDeleteTurn" :delete-turn-label="props.deleteTurnLabel" :on-a2-u-i-action="props.onA2UIAction" :a2ui-session="props.a2uiSession" :a2ui-disabled="props.a2uiDisabled"
                       @edit-message="(content: string, message: ChatMessage) => emit('edit-message', content, message)" />
                   </template>

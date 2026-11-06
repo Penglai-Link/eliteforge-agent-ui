@@ -1786,6 +1786,7 @@ const panelCommonProps = computed(() => ({
   attachmentUploadPending: attachmentUploadPending.value,
   ...composerLabels.value,
   createSessionLabel: props.createSessionLabel ?? ((props.locale ?? props.config.locale ?? "").toLowerCase().startsWith("zh") ? "开始对话" : "Start chat"),
+  hideMessageIdentity: props.config.hideMessageIdentity,
   currentUserDisplayName: props.currentUserDisplayName,
   debugOptions: resolvedDebugOptions.value,
   disabledInput: deletingTurn.value || compacting.value || Boolean(props.config.disabledInput) || Boolean(userInputRequest.value),

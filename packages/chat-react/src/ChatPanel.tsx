@@ -463,6 +463,7 @@ function CopyValueButton({
 
 function ChatBubble({
   currentUserDisplayName,
+  hideMessageIdentity = false,
   emptyAssistantMessage = "No assistant response was produced.",
   isStreaming = false,
   message,
@@ -475,6 +476,7 @@ function ChatBubble({
   deleteTurnLabel = "Delete turn",
 }: {
   currentUserDisplayName?: string;
+  hideMessageIdentity?: boolean;
   emptyAssistantMessage?: string;
   isStreaming?: boolean;
   processMessage?: boolean;
@@ -494,7 +496,7 @@ function ChatBubble({
   const actorName = messageActorName(message, currentUserDisplayName);
   const senderAvatar = messageSenderAvatar(message);
   if (isUser && message.interactionResponse) {
-    return <div className="ef-chat__message-entry ef-chat__message-entry--user"><InteractionReceipt message={message} actorName={actorName} /></div>;
+    return <div className="ef-chat__message-entry ef-chat__message-entry--user"><InteractionReceipt message={message} actorName={actorName} hideMessageIdentity={hideMessageIdentity} /></div>;
   }
   return (
     <div
@@ -511,7 +513,7 @@ function ChatBubble({
         data-theme-part={isSystemNotice ? "chat-message-system" : isUser ? "chat-message-user" : "chat-message-assistant"}
         data-streaming={isStreaming ? "true" : undefined}
       >
-        {!processMessage ? <div className="ef-chat__message-header">
+        {!processMessage && !hideMessageIdentity ? <div className="ef-chat__message-header">
           <div className="ef-chat__message-actor">
             {senderAvatar ? <img src={senderAvatar} alt="" width={16} height={16} /> : messageSenderIsHuman(message) ? <UserRound size={16} /> : <Bot size={16} />}
             <span data-interaction-response-sender={message.interactionResponse ? message.provenance?.sender.kind : undefined}>{actorName}</span>
@@ -1260,6 +1262,7 @@ export interface ChatPanelProps extends Pick<ComposerReactProps, "renderAttachme
   autoFocusComposer?: boolean;
   createSessionLabel?: string;
   currentUserDisplayName?: string;
+  hideMessageIdentity?: boolean;
   composerRef?: Ref<HTMLTextAreaElement>;
   debugOptions?: ChatDebugOptions;
   disabledInput?: boolean;
@@ -1350,6 +1353,7 @@ export function ChatPanel({
   autoFocusComposer = false,
   createSessionLabel = "Create session",
   currentUserDisplayName,
+  hideMessageIdentity = false,
   composerRef,
   debugOptions,
   disabledInput = false,
@@ -1545,7 +1549,7 @@ export function ChatPanel({
   function renderProcessMessage(message: ChatMessage) {
     return <>
       <StructuredMessageDetails message={message} labels={workRailLabels} historyLabels={historyLabels} locale={locale} hasRunError={workTimeline.managedMessageIds.has(message.messageId) || displayedErrorRuns.has(message.runId ?? "") || lastHistoryErrorByRun.get(message.runId) !== message.messageId} />
-      {message.content.trim() || message.a2ui ? <ChatBubble currentUserDisplayName={currentUserDisplayName} processMessage
+      {message.content.trim() || message.a2ui ? <ChatBubble currentUserDisplayName={currentUserDisplayName} hideMessageIdentity={hideMessageIdentity} processMessage
         isStreaming={message.messageId === streamingAssistantMessageCode} message={message} a2uiSession={a2uiSession}
         a2uiDisabled={a2uiDisabled} onA2UIAction={onA2UIAction} onEditMessage={onEditMessage} onDeleteTurn={onDeleteTurn} deleteTurnLabel={deleteTurnLabel} /> : null}
     </>;
@@ -1666,6 +1670,7 @@ export function ChatPanel({
                               />
                               <ChatBubble
                                   currentUserDisplayName={currentUserDisplayName}
+                                  hideMessageIdentity={hideMessageIdentity}
                                   isStreaming={message.messageId === streamingAssistantMessageCode}
                                   message={message}
                                   a2uiSession={a2uiSession}
@@ -1677,6 +1682,7 @@ export function ChatPanel({
                           ) : message.history && !message.a2ui && !message.content.trim() ? null : (
                             <ChatBubble
                               currentUserDisplayName={currentUserDisplayName}
+                              hideMessageIdentity={hideMessageIdentity}
                               isStreaming={message.messageId === streamingAssistantMessageCode}
                               message={message}
                               a2uiSession={a2uiSession}

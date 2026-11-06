@@ -42,6 +42,7 @@ export interface ChatPanelProps extends Pick<ComposerVueProps, "pendingAttachmen
   composerTop?: ComposerVueProps["composerHeader"];
   createSessionLabel?: string;
   currentUserDisplayName?: string;
+  hideMessageIdentity?: boolean;
   currentSender?: MessageSender;
   debugOptions?: ChatDebugOptions;
   disabledInput?: boolean;

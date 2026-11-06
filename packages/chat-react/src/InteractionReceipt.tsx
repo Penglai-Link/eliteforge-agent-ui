@@ -3,7 +3,7 @@ import { Check, MessageSquare, X } from "lucide-react";
 import { formatTime, type ChatMessage } from "@eliteforge/agent-ui-chat-core";
 
 /** A display-only receipt. The original interaction and timeline stay unchanged. */
-export function InteractionReceipt({ message, actorName }: { message: ChatMessage; actorName: string }) {
+export function InteractionReceipt({ message, actorName, hideMessageIdentity = false }: { message: ChatMessage; actorName: string; hideMessageIdentity?: boolean }) {
   const response = message.interactionResponse!;
   const id = useId();
   const trigger = useRef<HTMLButtonElement>(null);
@@ -55,7 +55,7 @@ export function InteractionReceipt({ message, actorName }: { message: ChatMessag
     <div ref={panel} id={id} popover="auto" role="dialog" aria-label={label} tabIndex={0}
       className="ef-chat__interaction-popover" onMouseEnter={cancelClose} onMouseLeave={scheduleClose}
       onToggle={event => { const visible = event.newState === "open"; setOpen(visible); if (!visible) pinned.current = false; }}>
-      <div className="ef-chat__interaction-meta"><span>{actorName}</span>{response.answeredAt != null && <time>{formatTime(message.createdAt)}</time>}</div>
+      <div className="ef-chat__interaction-meta">{!hideMessageIdentity && <span>{actorName}</span>}{response.answeredAt != null && <time>{formatTime(message.createdAt)}</time>}</div>
       <dl className="ef-chat__interaction-summary">{response.rows.map((row, index) => <div key={index}><dt>{row.label}</dt><dd>{row.value}</dd></div>)}</dl>
     </div>
   </div>;

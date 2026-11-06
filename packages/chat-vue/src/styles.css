@@ -558,6 +558,10 @@
   margin-bottom: 10px;
 }
 
+.ef-chat__message-header--identity-hidden {
+  justify-content: flex-end;
+}
+
 .ef-chat__message-actor {
   display: inline-flex;
   min-width: 0;

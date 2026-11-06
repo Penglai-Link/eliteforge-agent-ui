@@ -13,6 +13,7 @@ import CopyValueButton from "./CopyValueButton.vue";
 
 const props = defineProps<{
   currentUserDisplayName?: string;
+  hideMessageIdentity?: boolean;
   emptyAssistantMessage?: string;
   isStreaming?: boolean;
   message: ChatMessage;
@@ -38,15 +39,15 @@ const actorName = computed(() =>
 </script>
 
 <template>
-  <InteractionReceipt v-if="isUser && message.interactionResponse" :message="message" :actor-name="actorName" />
+  <InteractionReceipt v-if="isUser && message.interactionResponse" :message="message" :actor-name="actorName" :hide-message-identity="hideMessageIdentity" />
   <article v-else
     :class="cx('ef-chat__message', isUser && 'ef-chat__message--user', isSystemNotice && 'ef-chat__message--system')"
     :data-message-id="props.message.messageId"
     data-theme-anchor="chat-message" :data-theme-part="isSystemNotice ? 'chat-message-system' : isUser ? 'chat-message-user' : 'chat-message-assistant'"
     :data-streaming="isStreaming ? 'true' : undefined"
   >
-    <div class="ef-chat__message-header">
-      <div class="ef-chat__message-actor">
+    <div class="ef-chat__message-header" :class="{ 'ef-chat__message-header--identity-hidden': hideMessageIdentity }">
+      <div v-if="!hideMessageIdentity" class="ef-chat__message-actor">
         <img v-if="messageSenderAvatar(message)" :src="messageSenderAvatar(message)" alt="" width="16" height="16" />
         <UserRound v-else-if="messageSenderIsHuman(message)" :size="16" />
         <Bot v-else :size="16" />

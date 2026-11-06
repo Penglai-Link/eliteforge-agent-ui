@@ -3,7 +3,7 @@ import { onMounted, onBeforeUnmount, ref, useId, computed } from "vue";
 import { Check, MessageSquare, X } from "lucide-vue-next";
 import { formatTime, type ChatMessage } from "@eliteforge/agent-ui-chat-core";
 
-const props = defineProps<{ message: ChatMessage; actorName: string }>();
+const props = defineProps<{ message: ChatMessage; actorName: string; hideMessageIdentity?: boolean }>();
 const response = computed(() => props.message.interactionResponse!);
 const label = computed(() => response.value.summaryLabel ?? response.value.rows[0]?.value ?? "");
 const icon = computed(() => response.value.approval ? response.value.approval.approved ? Check : X : MessageSquare);
@@ -49,7 +49,7 @@ onBeforeUnmount(() => { cancelClose(); window.removeEventListener("scroll", dism
     </button>
     <div :id="id" ref="panel" popover="auto" role="dialog" :aria-label="label" tabindex="0" class="ef-chat__interaction-popover"
       @mouseenter="cancelClose" @mouseleave="scheduleClose" @toggle="onToggle">
-      <div class="ef-chat__interaction-meta"><span>{{ actorName }}</span><time v-if="response.answeredAt != null">{{ formatTime(message.createdAt) }}</time></div>
+      <div class="ef-chat__interaction-meta"><span v-if="!hideMessageIdentity">{{ actorName }}</span><time v-if="response.answeredAt != null">{{ formatTime(message.createdAt) }}</time></div>
       <dl class="ef-chat__interaction-summary"><div v-for="(row, index) in response.rows" :key="index"><dt>{{ row.label }}</dt><dd>{{ row.value }}</dd></div></dl>
     </div>
   </div>

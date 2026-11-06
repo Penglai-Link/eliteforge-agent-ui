@@ -196,6 +196,8 @@ export const adapter: ChatAdapter = {
 
 `ChatRuntimeWindow` 管理常见会话与运行状态。宿主要完全控制状态时可使用 `ChatPanel`；要在可移动、可调整大小的悬浮窗中显示聊天时可使用 `ChatWindow`。React 和 Vue 都使用同一个 `ChatAdapter` 类型。
 
+设置 `config.hideMessageIdentity: true` 可隐藏消息和交互回执中的发送者名称及头像；默认值为 `false`。时间、消息操作和消息数据不受影响。直接使用 `ChatPanel` 或 `ChatWindow` 时，通过同名 `hideMessageIdentity` 属性控制。
+
 ## 4. 接入终端
 
 终端包渲染终端、Shell 命令块和可选的 AI 交互。传输由宿主提供，组件初始化时会连接终端服务：

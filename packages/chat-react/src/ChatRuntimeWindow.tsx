@@ -2000,6 +2000,7 @@ export function ChatRuntimeWindow({
       composerHeader={composerFeedback}
       composerTop={compacting ? <fieldset disabled style={{ display: "contents" }}>{composerTop}</fieldset> : composerTop}
       createSessionLabel={createSessionLabel ?? (config.locale?.toLowerCase().startsWith("zh") ? "开始对话" : "Start chat")}
+      hideMessageIdentity={config.hideMessageIdentity}
       currentUserDisplayName={currentUserDisplayName}
       debugOptions={resolvedDebugOptions}
       disabledInput={deletingTurn || compacting || creatingSession || Boolean(config.disabledInput) || userInputRequest?.status === "Pending"}
@@ -2094,6 +2095,7 @@ export function ChatRuntimeWindow({
         composerRef={composerRef}
         composerHeader={composerFeedback}
         composerTop={compacting ? <fieldset disabled style={{ display: "contents" }}>{composerTop}</fieldset> : composerTop}
+        hideMessageIdentity={config.hideMessageIdentity}
         currentUserDisplayName={currentUserDisplayName}
         debugOptions={resolvedDebugOptions}
         disabledInput={deletingTurn || compacting || creatingSession || Boolean(config.disabledInput) || userInputRequest?.status === "Pending"}

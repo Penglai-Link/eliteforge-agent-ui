@@ -357,6 +357,7 @@ function endResize(event: PointerEvent) {
           :composer-header="composerHeader"
           :composer-top="props.composerTop"
           :create-session-label="createSessionLabel"
+          :hide-message-identity="props.hideMessageIdentity"
           :current-user-display-name="currentUserDisplayName"
           :debug-options="debugOptions"
           :disabled-input="disabledInput"

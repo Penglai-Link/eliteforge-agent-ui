@@ -548,6 +548,8 @@ export interface ChatFloatingState {
 export type ChatComposerLabels = Partial<Pick<ComposerProps, "sendLabel" | "stopLabel" | "queuedLabel" | "attachLabel" | "uploadingLabel" | "removeAttachmentLabel" | "reorderQueuedLabel" | "editQueuedLabel" | "removeQueuedLabel" | "steerQueuedLabel">>;
 
 export interface ChatClientConfig {
+  /** Hide sender names and avatars in chat messages and interaction receipts. */
+  hideMessageIdentity?: boolean;
   composerLabels?: ChatComposerLabels;
   /** Overrides Vue runtime messages by their English default text. */
   runtimeMessages?: Record<string, string>;
