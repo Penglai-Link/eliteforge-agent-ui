@@ -545,7 +545,7 @@ export interface ChatFloatingState {
   y: number;
 }
 
-export type ChatComposerLabels = Partial<Pick<ComposerProps, "sendLabel" | "stopLabel" | "queuedLabel" | "attachLabel" | "uploadingLabel" | "removeAttachmentLabel" | "reorderQueuedLabel" | "editQueuedLabel" | "removeQueuedLabel" | "steerQueuedLabel">> ;
+export type ChatComposerLabels = Partial<Pick<ComposerProps, "sendLabel" | "stopLabel" | "queuedLabel" | "attachLabel" | "uploadingLabel" | "removeAttachmentLabel" | "reorderQueuedLabel" | "editQueuedLabel" | "removeQueuedLabel" | "steerQueuedLabel">>;
 
 export interface ChatClientConfig {
   composerLabels?: ChatComposerLabels;

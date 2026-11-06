@@ -1,3 +1,4 @@
+import { resolveComposerLabels, resolveRuntimeMessage } from "@eliteforge/agent-ui-chat-core";
 import type { ComposerReactProps } from "@eliteforge/agent-ui-composer-react";
 import type { ChatGoalIndicatorProps } from "./ChatGoalIndicator";
 import { contextCompactionInProgress, historyCompactionEvents } from "@eliteforge/agent-ui-chat-core";
@@ -186,7 +187,7 @@ export function ChatRuntimeWindow({
   config,
   composerRef,
   submitterRef,
-  createSessionLabel = "Start chat",
+  createSessionLabel,
   currentUserDisplayName,
   currentSender,
   draft: controlledDraft,
@@ -247,14 +248,14 @@ export function ChatRuntimeWindow({
     const state = await activeAdapter.loadA2uiState(runtime.sessionId);
     runtime.hydrate(state);
   }, [a2uiSession, activeAdapter]);
-  useEffect(() => { void reloadA2ui().catch(error => onError(String(error), "A2UI state failed")); }, [reloadA2ui]);
+  useEffect(() => { void reloadA2ui().catch(error => onError(String(error), runtimeText("A2UI state failed"))); }, [reloadA2ui]);
   const receiveA2ui = (event: ChatAguiStreamEvent) => {
     const runtime = a2uiSessionRef.current!;
     try {
-      if (!runtime.applyEvent(event)) void reloadA2ui(runtime).catch(error => onError(String(error), "A2UI recovery failed"));
+      if (!runtime.applyEvent(event)) void reloadA2ui(runtime).catch(error => onError(String(error), runtimeText("A2UI recovery failed")));
       else if (event.type === "CUSTOM" && event.name === "agent.a2ui" && (!event.threadId || event.threadId === runtime.sessionId)) setA2uiEpoch(value => value + 1);
     }
-    catch (error) { onError(String(error), "A2UI presentation failed"); void reloadA2ui(runtime).catch(() => {}); }
+    catch (error) { onError(String(error), runtimeText("A2UI presentation failed")); void reloadA2ui(runtime).catch(() => {}); }
   };
   const presentedMessages = useMemo(() => mergeChatMessagesChronologically(messages, a2uiSession.messages()), [messages, a2uiSession, a2uiEpoch]);
 
@@ -879,11 +880,11 @@ export function ChatRuntimeWindow({
 
   const reportReadErrors = useCallback((sessionId: string, errors: unknown[]) => {
     if (!errors.length) { lastReadErrorRef.current = ""; return; }
-    const messages = errors.map((error) => error instanceof Error ? error.message : "Chat data could not be loaded");
+    const messages = errors.map((error) => error instanceof Error ? error.message : runtimeText("Chat data could not be loaded"));
     const signature = JSON.stringify([sessionId, messages]);
     if (lastReadErrorRef.current === signature) return;
     lastReadErrorRef.current = signature;
-    onError(messages.join("; "), "Chat load failed");
+    onError(messages.join("; "), runtimeText("Chat load failed"));
   }, [onError]);
 
   useEffect(() => {
@@ -946,7 +947,7 @@ export function ChatRuntimeWindow({
         }
       } catch (error) {
         if (!active || abortController.signal.aborted) return;
-        onError(error instanceof Error ? error.message : "Chat data could not be loaded", "Chat load failed");
+        onError(error instanceof Error ? error.message : runtimeText("Chat data could not be loaded"), runtimeText("Chat load failed"));
       } finally {
         if (active) setLoading(false);
       }
@@ -1103,7 +1104,7 @@ export function ChatRuntimeWindow({
 
   function requestSessionCreation() {
     void ensureSession().catch((error) => {
-      onError(error instanceof Error ? error.message : "Chat session creation failed", "Chat send failed");
+      onError(error instanceof Error ? error.message : "Chat session creation failed", runtimeText("Chat send failed"));
     });
   }
 
@@ -1121,7 +1122,7 @@ export function ChatRuntimeWindow({
         setPendingAttachments((current) => [...current, attachment]);
       }
     } catch (error) {
-      onError(error instanceof Error ? error.message : "Chat attachment upload failed", "Attachment upload failed");
+      onError(error instanceof Error ? error.message : runtimeText("Chat attachment upload failed"), runtimeText("Attachment upload failed"));
     } finally {
       setAttachmentUploadPending(false);
     }
@@ -1343,11 +1344,11 @@ export function ChatRuntimeWindow({
         shouldRestoreSourceSubmission = false;
         replaceActiveRunStatusPending(true);
         await refreshActiveRun(activeSession.sessionId);
-        onInfo?.("Another response is already running; your message was queued.", "Message queued");
+        onInfo?.("Another response is already running; your message was queued.", runtimeText("Message queued"));
       } else if (abortReason === "stop") {
         streamSucceeded = true;
         shouldRestoreSourceSubmission = false;
-        onInfo?.("Current response has been stopped", "Chat stopped");
+        onInfo?.(runtimeText("Current response has been stopped"), runtimeText("Chat stopped"));
       } else if (abortReason === "detach") {
         shouldRestoreSourceSubmission = false;
       } else {
@@ -1355,7 +1356,7 @@ export function ChatRuntimeWindow({
         if (!sourceSubmission && submittedAttachments.length) {
           setPendingAttachments((current) => [...submittedAttachments, ...current]);
         }
-        const errorMessage = chatErrorPresentation(error instanceof Error ? error.message : "Chat send failed", config.workRailLabels?.failed).summary;
+        const errorMessage = chatErrorPresentation(error instanceof Error ? error.message : runtimeText("Chat send failed"), config.workRailLabels?.failed).summary;
         const runId = activeRunCodeRef.current;
         const knownNativeFailure = Boolean(runId && currentLiveAguiFailedRunCodesRef.current.has(runId));
         if (aguiEnabled && runId && !knownNativeFailure) {
@@ -1368,7 +1369,7 @@ export function ChatRuntimeWindow({
         }
         if (!aguiEnabled || !knownNativeFailure) {
           setSubmissionError(errorMessage);
-          onError(errorMessage, "Chat send failed");
+          onError(errorMessage, runtimeText("Chat send failed"));
         }
       }
     } finally {
@@ -1438,10 +1439,10 @@ export function ChatRuntimeWindow({
       setUserInputRequest(result.userInputRequest?.status === "Pending" ? result.userInputRequest : null);
       onA2UIAction?.(message, metadata, context);
       void refreshCompletedTurn(result.session.sessionId, result.run.runId, epoch);
-      void reloadA2ui().catch(error => onError(String(error), "A2UI recovery failed"));
+      void reloadA2ui().catch(error => onError(String(error), runtimeText("A2UI recovery failed")));
     }).catch(error => {
       if (abortRef.current !== controller || activeSessionCodeRef.current !== activeSession.sessionId) return;
-      setSubmissionError(String(error)); onError(String(error), "A2UI action failed");
+      setSubmissionError(String(error)); onError(String(error), runtimeText("A2UI action failed"));
     }).finally(() => {
       if (abortRef.current !== controller || activeSessionCodeRef.current !== activeSession.sessionId) return;
       assistantReplyQueueRef.current?.flush(); setStreamingAssistantMessageCode(null);
@@ -1530,7 +1531,7 @@ export function ChatRuntimeWindow({
     } catch (error) {
       if (activeSessionCodeRef.current !== submittedSessionId) return;
       if (!answerAccepted) setFailedUserInput({ sessionId: submittedSessionId, requestId: submittedRequest.requestId });
-      onError(error instanceof Error ? error.message : "Chat answer failed", answerAccepted ? "Chat continuation failed" : "Chat answer failed");
+      onError(error instanceof Error ? error.message : runtimeText("Chat answer failed"), answerAccepted ? runtimeText("Chat continuation failed") : runtimeText("Chat answer failed"));
     } finally {
         if (activeSessionCodeRef.current !== submittedSessionId) return;
         assistantReplyQueueRef.current?.flush(); setStreamingAssistantMessageCode(null);
@@ -1571,7 +1572,7 @@ export function ChatRuntimeWindow({
       await runMessage(activeSession, sendInput);
       return true;
     } catch (error) {
-      onError(error instanceof Error ? error.message : "Chat send failed", "Chat send failed");
+      onError(error instanceof Error ? error.message : runtimeText("Chat send failed"), runtimeText("Chat send failed"));
       return false;
     } finally {
       if (initialSubmitPendingRef.current === submission) initialSubmitPendingRef.current = null;
@@ -1750,9 +1751,9 @@ export function ChatRuntimeWindow({
       }
       const stopped = error instanceof Error && error.name === "AbortError";
       if (safeQueueFallback) {
-        onInfo?.("The active run rejected steer; the message was queued", "Message queued");
+        onInfo?.(runtimeText("The active run rejected steer; the message was queued"), runtimeText("Message queued"));
       } else if (observerDetached || stopped) {
-        onInfo?.("Steer delivery was not confirmed and was not retried", "Steer not retried");
+        onInfo?.(runtimeText("Steer delivery was not confirmed and was not retried"), runtimeText("Steer not retried"));
       } else {
         if (queuedSubmission && error instanceof ChatAdapterError && error.rejectedBeforeAdmission
           && queueGenerationRef.current === queueGeneration) {
@@ -1768,8 +1769,8 @@ export function ChatRuntimeWindow({
           setPendingAnnotations(current => [...(sendInput.annotations ?? []), ...current]);
         }
         onError(
-          error instanceof Error ? error.message : "Chat steer failed",
-          "Chat steer failed",
+          error instanceof Error ? error.message : runtimeText("Chat steer failed"),
+          runtimeText("Chat steer failed"),
         );
       }
     } finally {
@@ -1804,7 +1805,7 @@ export function ChatRuntimeWindow({
     ++presentationRefreshEpochRef.current;
     try {
       const confirmed = confirmDeleteTurn ? await confirmDeleteTurn(message)
-        : window.confirm(config.turnDeletionLabels?.confirm ?? "Delete this user message and its agent replies? They will no longer appear in the conversation or be sent to the model. Rebuilding context may reduce cache hits and increase latency and cost.");
+        : window.confirm(config.turnDeletionLabels?.confirm ?? runtimeText("Delete this user message and its agent replies? They will no longer appear in the conversation or be sent to the model. Rebuilding context may reduce cache hits and increase latency and cost."));
       if (!confirmed || activeSessionCodeRef.current !== sessionId) return;
       await activeAdapter.deleteTurn(sessionId, { rootRunId, expectedVersion });
       if (activeSessionCodeRef.current !== sessionId) return;
@@ -1822,7 +1823,7 @@ export function ChatRuntimeWindow({
       await reloadA2ui();
     } catch (error) {
       if (activeSessionCodeRef.current === sessionId) {
-        onError(error instanceof Error ? error.message : String(error), "Chat delete failed");
+        onError(error instanceof Error ? error.message : String(error), runtimeText("Chat delete failed"));
         // Resolve stale versions and ambiguous network failures from the server.
         try {
           const page = await activeAdapter.loadHistory(sessionId, { limit: 20, cursor: null });
@@ -1901,14 +1902,14 @@ export function ChatRuntimeWindow({
         );
         detachRunObserver("stop");
         if (!observedLocally) {
-          onInfo?.("Current response has been stopped", "Chat stopped");
+          onInfo?.(runtimeText("Current response has been stopped"), runtimeText("Chat stopped"));
         }
         await refreshActiveRun(session.sessionId);
       } catch (error) {
         if (runKey) suppressedAutoDrainRunKeysRef.current.delete(runKey);
         onError(
-          error instanceof Error ? error.message : "Chat stop failed",
-          "Chat stop failed",
+          error instanceof Error ? error.message : runtimeText("Chat stop failed"),
+          runtimeText("Chat stop failed"),
         );
         await refreshActiveRun(session.sessionId);
       } finally {
@@ -1977,6 +1978,10 @@ export function ChatRuntimeWindow({
     return (attachment: ChatMessageAttachment) =>
       activeAdapter.downloadAttachment!(session, attachment);
   }, [activeAdapter, hostAttachmentDownloader, session]);
+  function runtimeText(message: string) {
+    return resolveRuntimeMessage(message, config.locale, config.runtimeMessages);
+  }
+
   const composerFeedback = <>
     {composerHeader}
     {errorDisplay === "inline" && submissionError ? <div className="ef-chat__run-notice ef-chat__run-notice--error" role="alert">
@@ -1986,6 +1991,7 @@ export function ChatRuntimeWindow({
 
   const panel = (
     <ChatPanel
+      {...resolveComposerLabels(config.locale, config.composerLabels)}
       allowDraftSession={allowDraftSession}
       attachmentLabels={attachmentLabels}
       attachmentDownloader={attachmentDownloader}
@@ -1993,12 +1999,12 @@ export function ChatRuntimeWindow({
       composerRef={composerRef}
       composerHeader={composerFeedback}
       composerTop={compacting ? <fieldset disabled style={{ display: "contents" }}>{composerTop}</fieldset> : composerTop}
-      createSessionLabel={createSessionLabel}
+      createSessionLabel={createSessionLabel ?? (config.locale?.toLowerCase().startsWith("zh") ? "开始对话" : "Start chat")}
       currentUserDisplayName={currentUserDisplayName}
       debugOptions={resolvedDebugOptions}
       disabledInput={deletingTurn || compacting || creatingSession || Boolean(config.disabledInput) || userInputRequest?.status === "Pending"}
       draft={draft}
-      emptyDescription={emptyDescription ?? "Create a session to start chatting."}
+      emptyDescription={emptyDescription ?? runtimeText("Create a session to start chatting.")}
       emptyTitle={emptyTitle}
       goal={goal}
       footerAddon={compacting ? <fieldset disabled style={{ display: "contents" }}>{footerAddon}</fieldset> : footerAddon}
@@ -2079,7 +2085,9 @@ export function ChatRuntimeWindow({
       <ChatWindow
         resizeHint={config.resizeHint}
         showNewSession={config.showNewSession}
+        {...resolveComposerLabels(config.locale, config.composerLabels)}
         allowDraftSession={allowDraftSession}
+        createSessionLabel={createSessionLabel ?? (config.locale?.toLowerCase().startsWith("zh") ? "开始对话" : "Start chat")}
         attachmentLabels={attachmentLabels}
         attachmentDownloader={attachmentDownloader}
         autoFocusComposer={autoFocusComposer}
@@ -2090,7 +2098,7 @@ export function ChatRuntimeWindow({
         debugOptions={resolvedDebugOptions}
         disabledInput={deletingTurn || compacting || creatingSession || Boolean(config.disabledInput) || userInputRequest?.status === "Pending"}
         draft={draft}
-        emptyDescription={emptyDescription ?? "Create a session to start chatting."}
+        emptyDescription={emptyDescription ?? runtimeText("Create a session to start chatting.")}
         emptyTitle={emptyTitle}
         goal={goal}
         footerAddon={compacting ? <fieldset disabled style={{ display: "contents" }}>{footerAddon}</fieldset> : footerAddon}

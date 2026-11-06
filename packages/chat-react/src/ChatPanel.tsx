@@ -1249,7 +1249,7 @@ function WaitingRail({ labels = defaultWorkRailLabels }: { labels?: ChatWorkRail
   );
 }
 
-export interface ChatPanelProps extends Pick<ComposerReactProps, "renderAttachmentControl" | "pendingAttachments" | "showAttachmentControl" | "attachmentUploadPending" | "onAttachFile" | "onRemoveAttachment" | "attachLabel" | "uploadingLabel" | "removeAttachmentLabel" | "editQueuedLabel" | "removeQueuedLabel" | "reorderQueuedLabel"> {
+export interface ChatPanelProps extends Pick<ComposerReactProps, "renderAttachmentControl" | "pendingAttachments" | "showAttachmentControl" | "attachmentUploadPending" | "onAttachFile" | "onRemoveAttachment" | "attachLabel" | "uploadingLabel" | "removeAttachmentLabel" | "editQueuedLabel" | "removeQueuedLabel" | "reorderQueuedLabel" | "steerQueuedLabel"> {
   pendingAnnotations?: ChatAnnotation[];
   onPendingAnnotationsChange?: (annotations: ChatAnnotation[]) => void;
   annotationLabels?: ChatAnnotationLabels;
@@ -1340,7 +1340,7 @@ export interface ChatPanelProps extends Pick<ComposerReactProps, "renderAttachme
 }
 
 export function ChatPanel({
-  renderAttachmentControl, pendingAttachments, showAttachmentControl, attachmentUploadPending, onAttachFile, onRemoveAttachment, attachLabel, uploadingLabel, removeAttachmentLabel, editQueuedLabel, removeQueuedLabel, reorderQueuedLabel,
+  renderAttachmentControl, pendingAttachments, showAttachmentControl, attachmentUploadPending, onAttachFile, onRemoveAttachment, attachLabel, uploadingLabel, removeAttachmentLabel, editQueuedLabel, removeQueuedLabel, reorderQueuedLabel, steerQueuedLabel,
   pendingAnnotations: controlledPendingAnnotations,
   onPendingAnnotationsChange,
   annotationLabels = defaultChatAnnotationLabels,
@@ -1792,6 +1792,7 @@ export function ChatPanel({
                 : "Drag to reorder; use Up/Down keys to move")}
               editQueuedLabel={editQueuedLabel}
               removeQueuedLabel={removeQueuedLabel}
+              steerQueuedLabel={steerQueuedLabel}
             /> : null}
           </footer>
         </>

@@ -2,6 +2,8 @@
 import { contextCompactionInProgress, historyCompactionEvents } from "@eliteforge/agent-ui-chat-core";
 import type { ChatAnnotation } from "@eliteforge/agent-ui-chat-core";
 import {
+  resolveComposerLabels,
+  resolveRuntimeMessage,
   AssistantReplyQueue,
   AssistantMessageStream,
   requestedSkillsFromDraft,
@@ -110,33 +112,8 @@ const forwardedSlotNames: string[] = Object.keys(useSlots()).filter(
   (name) => name !== "footerAddon" && name !== "composerTop",
 );
 
-const zhRuntimeMessages: Record<string, string> = {
-  "A2UI state failed": "A2UI 状态加载失败",
-  "A2UI recovery failed": "A2UI 恢复失败",
-  "A2UI presentation failed": "A2UI 展示失败",
-  "A2UI action failed": "A2UI 操作失败",
-  "Chat data could not be loaded": "无法加载对话数据",
-  "Chat load failed": "加载对话失败",
-  "Chat attachment upload failed": "对话附件上传失败",
-  "Attachment upload failed": "附件上传失败",
-  "The active run changed before send; the message was kept in the queue": "发送前运行状态发生变化，消息已保留在队列中",
-  "Message queued": "消息已加入队列",
-  "Chat send failed": "发送消息失败",
-  "The active run rejected steer; the message was queued": "当前运行未接受调整，消息已加入队列",
-  "Steer delivery was not confirmed and was not retried": "无法确认调整是否送达，未自动重试",
-  "Steer not retried": "未重试调整",
-  "Chat steer failed": "调整当前回复失败",
-  "Chat answer failed": "提交回答失败",
-  "Chat continuation failed": "继续对话失败",
-  "Current response has been stopped": "当前回复已停止",
-  "Chat stopped": "对话已停止",
-  "Chat stop failed": "停止对话失败",
-  "Chat delete failed": "删除对话失败",
-  "Create a session to start chatting.": "创建会话以开始对话。",
-  "Delete this user message and its agent replies? They will no longer appear in the conversation or be sent to the model. Rebuilding context may reduce cache hits and increase latency and cost.": "删除这条用户消息及其 Agent 回复？它们将不再显示在对话中，也不会发送给模型。重建上下文可能降低缓存命中率并增加延迟和成本。"
-};
 function runtimeText(message: string): string {
-  return props.config.runtimeMessages?.[message] ?? ((props.locale ?? props.config.locale ?? "").toLowerCase().startsWith("zh") ? zhRuntimeMessages[message] : undefined) ?? message;
+  return resolveRuntimeMessage(message, props.locale ?? props.config.locale, props.config.runtimeMessages);
 }
 
 const activeAdapter = computed(() => props.adapter ?? createMockChatAdapter());
@@ -1786,18 +1763,7 @@ function handleRuntimeSend(mode?: ChatSubmitMode) {
   void handleSubmit(mode);
 }
 
-const composerLabels = computed(() => {
-  const zh = (props.locale ?? props.config.locale ?? "").toLowerCase().startsWith("zh");
-  const defaults = zh ? {
-    sendLabel: "发送", stopLabel: "停止", queuedLabel: "队列中",
-    attachLabel: "添加附件", uploadingLabel: "正在上传附件",
-    removeAttachmentLabel: (name: string) => `移除${name}`,
-    reorderQueuedLabel: "拖动排序，也可使用上下方向键调整",
-    editQueuedLabel: "编辑排队消息", removeQueuedLabel: "移除排队消息",
-    steerQueuedLabel: "立即发送排队消息",
-  } : {};
-  return { ...defaults, ...props.config.composerLabels };
-});
+const composerLabels = computed(() => resolveComposerLabels(props.locale ?? props.config.locale, props.config.composerLabels));
 
 const panelCommonProps = computed(() => ({
   onA2UIAction: handleA2uiAction,
@@ -1819,7 +1785,7 @@ const panelCommonProps = computed(() => ({
   showAttachmentControl: props.showAttachmentControl && Boolean(activeAdapter.value.uploadAttachment),
   attachmentUploadPending: attachmentUploadPending.value,
   ...composerLabels.value,
-  createSessionLabel: (props.locale ?? props.config.locale ?? "").toLowerCase().startsWith("zh") ? "开始对话" : "Start chat",
+  createSessionLabel: props.createSessionLabel ?? ((props.locale ?? props.config.locale ?? "").toLowerCase().startsWith("zh") ? "开始对话" : "Start chat"),
   currentUserDisplayName: props.currentUserDisplayName,
   debugOptions: resolvedDebugOptions.value,
   disabledInput: deletingTurn.value || compacting.value || Boolean(props.config.disabledInput) || Boolean(userInputRequest.value),

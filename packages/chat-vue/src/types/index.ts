@@ -125,6 +125,7 @@ export interface ChatRuntimeWindowProps {
   composerHeader?: ComposerVueProps["composerHeader"];
   /** Content above and outside the composer. The composerTop slot takes precedence. */
   composerTop?: ComposerVueProps["composerHeader"];
+  createSessionLabel?: string;
   currentUserDisplayName?: string;
   currentSender?: MessageSender;
   draft?: string;
