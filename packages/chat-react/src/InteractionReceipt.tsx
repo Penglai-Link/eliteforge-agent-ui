@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef, useState } from "react";
-import { Check, MessageSquare, X } from "lucide-react";
+import { Check, CircleHelp, FileText, X } from "lucide-react";
 import { formatTime, type ChatMessage } from "@eliteforge/agent-ui-chat-core";
 
 /** A display-only receipt. The original interaction and timeline stay unchanged. */
@@ -12,7 +12,7 @@ export function InteractionReceipt({ message, actorName, hideMessageIdentity = f
   const pinned = useRef(false);
   const [open, setOpen] = useState(false);
   const label = response.summaryLabel ?? response.rows[0]?.value ?? "";
-  const Icon = response.approval ? response.approval.approved ? Check : X : MessageSquare;
+  const Icon = response.approval ? response.approval.approved ? Check : X : response.kind === "form" ? FileText : CircleHelp;
 
   function cancelClose() { clearTimeout(timer.current); }
   function close() { cancelClose(); panel.current?.hidePopover(); pinned.current = false; }

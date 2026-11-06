@@ -1,12 +1,12 @@
 <script setup lang="ts">
 import { onMounted, onBeforeUnmount, ref, useId, computed } from "vue";
-import { Check, MessageSquare, X } from "lucide-vue-next";
+import { Check, CircleHelp, FileText, X } from "lucide-vue-next";
 import { formatTime, type ChatMessage } from "@eliteforge/agent-ui-chat-core";
 
 const props = defineProps<{ message: ChatMessage; actorName: string; hideMessageIdentity?: boolean }>();
 const response = computed(() => props.message.interactionResponse!);
 const label = computed(() => response.value.summaryLabel ?? response.value.rows[0]?.value ?? "");
-const icon = computed(() => response.value.approval ? response.value.approval.approved ? Check : X : MessageSquare);
+const icon = computed(() => response.value.approval ? response.value.approval.approved ? Check : X : response.value.kind === "form" ? FileText : CircleHelp);
 const id = useId();
 const trigger = ref<HTMLButtonElement>();
 const panel = ref<HTMLDivElement>();

@@ -327,14 +327,14 @@ export function renderCommon(
           h("input", {
             type: "text",
             inputMode: "decimal",
-            value: view.numericDraft ?? (value == null ? "" : String(value)),
+            value: value == null ? (view.numericDraft ?? "") : String(value),
             readOnly: !bound,
             onInput: (event: any) => {
               const input = event.currentTarget as HTMLInputElement;
               const draft = input.value;
               // Allow intermediate edits such as a leading minus or trailing dot.
               if (!/^-?\d*(?:\.\d*)?$/.test(draft)) {
-                input.value = view.numericDraft ?? (value == null ? "" : String(value));
+                input.value = value == null ? (view.numericDraft ?? "") : String(value);
                 return;
               }
               if (!draft) {

@@ -678,12 +678,12 @@ function ToolCard({
   const failed = !partial && (statusFailed || toolResultFailed(card.result));
   const running = card.started && !complete;
   const interactionInfo = interactionToolSummary(card.toolName, card.args);
-  // Input is presented by its own form; the tool row is only a status label.
-  const expandable = interactionInfo === null;
-  const ToolHeader = expandable ? "button" : "div";
   const toolCopy = { ...defaultToolWorkLabels, ...labels.tool };
   const presentationLocale = resolveToolCardLocale(labels, locale);
   const operations = useMemo(() => toolOperationDetails(card.toolName, card.args, presentationLocale), [card.toolName, card.args, presentationLocale]);
+  // Interaction forms own their details; other rows expand only for visible fields.
+  const expandable = interactionInfo === null && operations.some((operation) => operation.fields.length > 0);
+  const ToolHeader = expandable ? "button" : "div";
   const commandCountLabel = toolCommandCountLabel(card.toolName, card.args, presentationLocale);
   // A host-provided name still wins unless it only echoes the raw tool id; the
   // presenter parses and appends the subject.
@@ -776,7 +776,7 @@ function ToolCard({
         >
           <div className="ef-chat__tool-sections">
             <div className="ef-chat__tool-operations">
-                {operations.map((operation, index) => (
+                {operations.map((operation, index) => operation.fields.length ? (
                   <section className="ef-chat__tool-operation" key={index} data-tool-operation-index={index}>
                     {operations.length > 1 ? <p className="ef-chat__tool-operation-title">{index + 1}. {toolName}</p> : null}
                     {operation.fields.length ? (
@@ -795,9 +795,9 @@ function ToolCard({
                           </div>
                         ))}
                       </dl>
-                    ) : operations.length === 1 ? <p className="ef-chat__tool-operation-summary">{toolName}</p> : null}
+                    ) : null}
                   </section>
-                ))}
+                ) : null)}
             </div>
           </div>
         </div>

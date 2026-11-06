@@ -36,8 +36,6 @@ const props = defineProps<{
 const expanded = ref(false);
 
 const interactionInfo = computed(() => interactionToolSummary(props.card.toolName, props.card.args));
-// Input is presented by its own form; the tool row is only a status label.
-const expandable = computed(() => interactionInfo.value === null);
 const partial = computed(() => hasPendingBatchItems(props.card.result));
 const complete = computed(() => props.card.ended || (!partial.value && Boolean(props.card.result)));
 const failed = computed(() => {
@@ -60,6 +58,8 @@ const presentationLocale = computed(() => detectToolPresentationLocale(props.loc
   props.labels?.responding,
 ]));
 const operations = computed(() => toolOperationDetails(props.card.toolName, props.card.args, presentationLocale.value));
+// Interaction forms own their details; other rows expand only for visible fields.
+const expandable = computed(() => interactionInfo.value === null && operations.value.some((operation) => operation.fields.length > 0));
 const commandCountLabel = computed(() => toolCommandCountLabel(props.card.toolName, props.card.args, presentationLocale.value));
 // A host-provided name still wins unless it only echoes the raw tool id; the
 // presenter parses and appends the subject.
@@ -188,7 +188,8 @@ function subagentDispatchedLabel(name: string) {
     >
       <div class="ef-chat__tool-sections">
         <div class="ef-chat__tool-operations">
-          <section v-for="(operation, index) in operations" :key="index" class="ef-chat__tool-operation" :data-tool-operation-index="index">
+          <template v-for="(operation, index) in operations" :key="index">
+          <section v-if="operation.fields.length" class="ef-chat__tool-operation" :data-tool-operation-index="index">
             <p v-if="operations.length > 1" class="ef-chat__tool-operation-title">{{ index + 1 }}. {{ toolName }}</p>
             <dl v-if="operation.fields.length" class="ef-chat__tool-operation-fields">
               <div v-for="(field, fieldIndex) in operation.fields" :key="fieldIndex">
@@ -202,8 +203,8 @@ function subagentDispatchedLabel(name: string) {
                 </dd>
               </div>
             </dl>
-            <p v-else-if="operations.length === 1" class="ef-chat__tool-operation-summary">{{ toolLabel }}</p>
           </section>
+          </template>
         </div>
       </div>
     </div>
