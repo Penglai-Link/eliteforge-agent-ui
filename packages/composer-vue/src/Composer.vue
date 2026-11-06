@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { GripVertical, Pencil, Send, Square, X, Paperclip } from "lucide-vue-next";
+import { GripVertical, Pencil, Send, Square, X, Plus } from "lucide-vue-next";
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import {
   suggestionQuery as getSuggestionQuery,
@@ -502,7 +502,7 @@ function handleComposerPaste(event: ClipboardEvent) {
               type="button"
               @click="attachmentFileInput?.click()"
             >
-              <Paperclip
+              <Plus
                 :size="16"
                 :style="{
                   width: 'var(--agent-ui-composer-icon-size, 16px)',

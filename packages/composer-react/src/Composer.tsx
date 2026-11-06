@@ -9,7 +9,7 @@ import {
   type ReactNode,
   type Ref,
 } from "react";
-import { FileText, GripVertical, Paperclip, Pencil, Send, Square, X } from "lucide-react";
+import { FileText, GripVertical, Plus, Pencil, Send, Square, X } from "lucide-react";
 import {
   attachmentLabel,
   attachmentTypeLabel,
@@ -644,7 +644,7 @@ export function Composer({
                   type="button"
                   onClick={() => attachmentFileInputRef.current?.click()}
                 >
-                  <Paperclip
+                  <Plus
                     size={16}
                     style={{
                       width: "var(--agent-ui-composer-icon-size, 16px)",
