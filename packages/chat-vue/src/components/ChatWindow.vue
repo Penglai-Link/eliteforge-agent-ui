@@ -41,6 +41,7 @@ const props = withDefaults(defineProps<ChatWindowProps>(), {
   sending: false,
   session: null,
   showAgui: true,
+  showComposer: true,
   showStop: true,
   showNewSession: true,
   state: undefined,
@@ -354,6 +355,7 @@ function endResize(event: PointerEvent) {
           :attachment-labels="attachmentLabels"
           :auto-focus-composer="autoFocusComposer"
           :composer-header="composerHeader"
+          :composer-top="props.composerTop"
           :create-session-label="createSessionLabel"
           :current-user-display-name="currentUserDisplayName"
           :debug-options="debugOptions"
@@ -402,6 +404,7 @@ function endResize(event: PointerEvent) {
           :session="session"
           :show-agui="showAgui"
           :show-header="false"
+          :show-composer="props.showComposer"
           :show-stop="showStop"
           :steer-disabled="steerDisabled"
           :stop-label="stopLabel"

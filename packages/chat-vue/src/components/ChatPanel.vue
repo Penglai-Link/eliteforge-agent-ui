@@ -405,6 +405,7 @@ onMounted(() => {
             <button type="button" :aria-label="props.annotationLabels.removeAnnotation(index + 1)" @click="changeAnnotations(annotations.filter(item => item.id !== annotation.id))">×</button>
           </div>
         </div>
+        <slot v-if="showComposer" name="composerTop"><component :is="props.composerTop" /></slot>
         <Composer
           v-if="showComposer"
           :composer-key="session?.sessionId"

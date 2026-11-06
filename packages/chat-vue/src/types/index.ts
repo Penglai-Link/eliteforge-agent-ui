@@ -38,6 +38,8 @@ export interface ChatPanelProps extends Pick<ComposerVueProps, "pendingAttachmen
   attachmentLabels?: ChatAttachmentLabels;
   autoFocusComposer?: boolean;
   composerHeader?: ComposerVueProps["composerHeader"];
+  /** Content above and outside the composer. The composerTop slot takes precedence. */
+  composerTop?: ComposerVueProps["composerHeader"];
   createSessionLabel?: string;
   currentUserDisplayName?: string;
   currentSender?: MessageSender;
@@ -121,6 +123,8 @@ export interface ChatRuntimeWindowProps {
   autoFocusComposer?: boolean;
   config: ChatClientConfig;
   composerHeader?: ComposerVueProps["composerHeader"];
+  /** Content above and outside the composer. The composerTop slot takes precedence. */
+  composerTop?: ComposerVueProps["composerHeader"];
   currentUserDisplayName?: string;
   currentSender?: MessageSender;
   draft?: string;

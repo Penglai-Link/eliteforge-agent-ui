@@ -107,7 +107,7 @@ const emit = defineEmits<{
 }>();
 
 const forwardedSlotNames: string[] = Object.keys(useSlots()).filter(
-  (name) => name !== "footerAddon",
+  (name) => name !== "footerAddon" && name !== "composerTop",
 );
 
 const activeAdapter = computed(() => props.adapter ?? createMockChatAdapter());
@@ -1862,6 +1862,10 @@ function handleWindowStateChange(state: ChatFloatingState) {
     :title-subtitle="floatingSubtitle"
     @state-change="handleWindowStateChange"
   >
+    <template v-if="$slots.composerTop || props.composerTop" #composerTop>
+      <fieldset v-if="compacting" disabled style="display: contents"><slot name="composerTop"><component :is="props.composerTop" /></slot></fieldset>
+      <slot v-else name="composerTop"><component :is="props.composerTop" /></slot>
+    </template>
     <template #footerAddon><fieldset :disabled="compacting" style="display: contents"><slot name="footerAddon" /></fieldset></template>
     <template v-for="name in forwardedSlotNames" #[name]="slotProps">
       <slot :name="name" v-bind="slotProps || {}" />
@@ -1872,6 +1876,10 @@ function handleWindowStateChange(state: ChatFloatingState) {
     v-bind="panelCommonProps"
     :show-header="props.showHeader ?? true"
   >
+    <template v-if="$slots.composerTop || props.composerTop" #composerTop>
+      <fieldset v-if="compacting" disabled style="display: contents"><slot name="composerTop"><component :is="props.composerTop" /></slot></fieldset>
+      <slot v-else name="composerTop"><component :is="props.composerTop" /></slot>
+    </template>
     <template #footerAddon><fieldset :disabled="compacting" style="display: contents"><slot name="footerAddon" /></fieldset></template>
     <template v-for="name in forwardedSlotNames" #[name]="slotProps">
       <slot :name="name" v-bind="slotProps || {}" />

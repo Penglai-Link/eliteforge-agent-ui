@@ -62,6 +62,21 @@ defineProps<{ adapter: ChatAdapter }>();
 
 组件文案可通过 props、主题 CSS 变量及 `@eliteforge/agent-ui-chat-theme` 覆盖；头部、侧栏和底部可用 `#header`、`#sidebar`、`#footerAddon` slots 扩展。
 
+`ChatPanel`、`ChatWindow` 和 `ChatRuntimeWindow` 支持 `#composerTop`，对应 React 的 `composerTop`：内容位于输入框外部上方，适合放置工作目录、Agent 等会话控件。`#composerHeader` 位于输入框内部，`#footerAddon` 位于输入框底部工具栏。也可通过 `composerTop` prop 传入 Vue 组件；同时提供时优先使用 slot。
+
+```vue
+<ChatRuntimeWindow :adapter="adapter" :config="{ floating: false }">
+  <template #composerTop>
+    <div class="conversation-controls">
+      <DirectorySelector />
+      <AgentSelector />
+    </div>
+  </template>
+</ChatRuntimeWindow>
+```
+
+上例的 `DirectorySelector`、`AgentSelector` 由宿主提供。设置 `:show-composer="false"` 的面板或窗口不渲染 `composerTop`。运行时压缩上下文期间，插槽中的原生表单控件会与 React 一样通过 `fieldset disabled` 禁用。
+
 历史定位栏默认显示，可通过 `:show-history-rail="false"` 关闭。滚动到底部时选中最新消息，向上滚动时跟随当前视口；点击标记可跳转，悬停或聚焦可预览消息。
 
 ## 工具展示
