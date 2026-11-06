@@ -448,6 +448,7 @@ onMounted(() => {
           :reorder-queued-label="props.reorderQueuedLabel ?? (props.locale?.toLowerCase().startsWith('zh') ? '拖动排序，也可使用上下方向键调整' : 'Drag to reorder; use Up/Down keys to move')"
           :edit-queued-label="props.editQueuedLabel"
           :remove-queued-label="props.removeQueuedLabel"
+          :steer-queued-label="props.steerQueuedLabel"
           @draft-change="changeAnnotatedDraft"
           @send="emit('send', $event)"
           @stop="props.onStop ? props.onStop() : emit('stop')"

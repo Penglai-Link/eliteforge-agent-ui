@@ -384,6 +384,7 @@ function endResize(event: PointerEvent) {
           :reorder-queued-label="props.reorderQueuedLabel"
           :edit-queued-label="props.editQueuedLabel"
           :remove-queued-label="props.removeQueuedLabel"
+          :steer-queued-label="props.steerQueuedLabel"
           :live-agui-anchor-message-codes="liveAguiAnchorMessageCodes"
           :live-agui-events="liveAguiEvents"
           :live-agui-pending-anchor-message-code="liveAguiPendingAnchorMessageCode"

@@ -1,5 +1,5 @@
 import type { ChatAnnotation, ChatAnnotationLabels } from "./annotations";
-import type { ComposerRunningSubmitMode, ComposerSubmitMode, ComposerAttachmentKind, ComposerAttachment, ComposerSuggestion, ComposerSuggestionLabels } from "@eliteforge/agent-ui-composer-core";
+import type { ComposerRunningSubmitMode, ComposerSubmitMode, ComposerAttachmentKind, ComposerAttachment, ComposerSuggestion, ComposerSuggestionLabels, ComposerProps } from "@eliteforge/agent-ui-composer-core";
 import type { ActionMetadata } from "@eliteforge/agent-ui-a2ui-core";
 import type { ChatA2uiState, ChatA2uiActionInput } from "./a2ui";
 import type { ChatHistoryLabels, HistoryMessageView, HistoryQuery, SessionHistory } from "./history";
@@ -545,7 +545,12 @@ export interface ChatFloatingState {
   y: number;
 }
 
+export type ChatComposerLabels = Partial<Pick<ComposerProps, "sendLabel" | "stopLabel" | "queuedLabel" | "attachLabel" | "uploadingLabel" | "removeAttachmentLabel" | "reorderQueuedLabel" | "editQueuedLabel" | "removeQueuedLabel" | "steerQueuedLabel">> ;
+
 export interface ChatClientConfig {
+  composerLabels?: ChatComposerLabels;
+  /** Overrides Vue runtime messages by their English default text. */
+  runtimeMessages?: Record<string, string>;
   annotationLabels?: ChatAnnotationLabels;
   inputSuggestions?: ChatInputSuggestion[];
   skillSuggestionTriggers?: Array<"$" | "/">;

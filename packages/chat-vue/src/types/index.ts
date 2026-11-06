@@ -27,7 +27,7 @@ import type {
   ChatWorkRailLabels,
 } from "@eliteforge/agent-ui-chat-core";
 
-export interface ChatPanelProps extends Pick<ComposerVueProps, "pendingAttachments" | "showAttachmentControl" | "attachmentUploadPending" | "onAttachFile" | "onRemoveAttachment" | "attachLabel" | "uploadingLabel" | "removeAttachmentLabel" | "editQueuedLabel" | "removeQueuedLabel" | "reorderQueuedLabel" | "queuedInputPlaceholder" | "steeringInputPlaceholder"> {
+export interface ChatPanelProps extends Pick<ComposerVueProps, "pendingAttachments" | "showAttachmentControl" | "attachmentUploadPending" | "onAttachFile" | "onRemoveAttachment" | "attachLabel" | "uploadingLabel" | "removeAttachmentLabel" | "editQueuedLabel" | "removeQueuedLabel" | "reorderQueuedLabel" | "steerQueuedLabel" | "queuedInputPlaceholder" | "steeringInputPlaceholder"> {
   pendingAnnotations?: ChatAnnotation[];
   onPendingAnnotationsChange?: (annotations: ChatAnnotation[]) => void;
   annotationLabels?: ChatAnnotationLabels;

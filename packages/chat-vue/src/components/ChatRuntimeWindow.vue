@@ -110,6 +110,35 @@ const forwardedSlotNames: string[] = Object.keys(useSlots()).filter(
   (name) => name !== "footerAddon" && name !== "composerTop",
 );
 
+const zhRuntimeMessages: Record<string, string> = {
+  "A2UI state failed": "A2UI 状态加载失败",
+  "A2UI recovery failed": "A2UI 恢复失败",
+  "A2UI presentation failed": "A2UI 展示失败",
+  "A2UI action failed": "A2UI 操作失败",
+  "Chat data could not be loaded": "无法加载对话数据",
+  "Chat load failed": "加载对话失败",
+  "Chat attachment upload failed": "对话附件上传失败",
+  "Attachment upload failed": "附件上传失败",
+  "The active run changed before send; the message was kept in the queue": "发送前运行状态发生变化，消息已保留在队列中",
+  "Message queued": "消息已加入队列",
+  "Chat send failed": "发送消息失败",
+  "The active run rejected steer; the message was queued": "当前运行未接受调整，消息已加入队列",
+  "Steer delivery was not confirmed and was not retried": "无法确认调整是否送达，未自动重试",
+  "Steer not retried": "未重试调整",
+  "Chat steer failed": "调整当前回复失败",
+  "Chat answer failed": "提交回答失败",
+  "Chat continuation failed": "继续对话失败",
+  "Current response has been stopped": "当前回复已停止",
+  "Chat stopped": "对话已停止",
+  "Chat stop failed": "停止对话失败",
+  "Chat delete failed": "删除对话失败",
+  "Create a session to start chatting.": "创建会话以开始对话。",
+  "Delete this user message and its agent replies? They will no longer appear in the conversation or be sent to the model. Rebuilding context may reduce cache hits and increase latency and cost.": "删除这条用户消息及其 Agent 回复？它们将不再显示在对话中，也不会发送给模型。重建上下文可能降低缓存命中率并增加延迟和成本。"
+};
+function runtimeText(message: string): string {
+  return props.config.runtimeMessages?.[message] ?? ((props.locale ?? props.config.locale ?? "").toLowerCase().startsWith("zh") ? zhRuntimeMessages[message] : undefined) ?? message;
+}
+
 const activeAdapter = computed(() => props.adapter ?? createMockChatAdapter());
 const normalizedInitialSession = computed(() =>
   props.initialSession ? normalizeChatSession(props.initialSession) : null,
@@ -121,10 +150,10 @@ const a2uiEpoch = ref(0);
 watch(() => session.value?.sessionId, (id, _, cleanup) => {
   const runtime = new ChatA2uiSession(id ?? ""); a2uiSession.value = runtime;
   cleanup(runtime.client.subscribe(() => a2uiEpoch.value++));
-  if (id && activeAdapter.value.loadA2uiState) void activeAdapter.value.loadA2uiState(id).then(s => runtime.hydrate(s)).catch(e => props.onError?.(String(e), "A2UI state failed"));
+  if (id && activeAdapter.value.loadA2uiState) void activeAdapter.value.loadA2uiState(id).then(s => runtime.hydrate(s)).catch(e => props.onError?.(String(e), runtimeText("A2UI state failed")));
 }, {immediate: true, flush: "sync"});
 async function reloadA2ui() { const runtime = a2uiSession.value; if (runtime.sessionId && activeAdapter.value.loadA2uiState) runtime.hydrate(await activeAdapter.value.loadA2uiState(runtime.sessionId)); }
-function receiveA2ui(event: ChatAguiStreamEvent) { try { if (!a2uiSession.value.applyEvent(event)) void reloadA2ui().catch(e => props.onError?.(String(e), "A2UI recovery failed")); } catch(e) { props.onError?.(String(e), "A2UI presentation failed"); void reloadA2ui().catch(() => {}); } }
+function receiveA2ui(event: ChatAguiStreamEvent) { try { if (!a2uiSession.value.applyEvent(event)) void reloadA2ui().catch(e => props.onError?.(String(e), runtimeText("A2UI recovery failed"))); } catch(e) { props.onError?.(String(e), runtimeText("A2UI presentation failed")); void reloadA2ui().catch(() => {}); } }
 const presentedMessages = computed(() => { void a2uiEpoch.value; return applyMessageProvenance(mergeChatMessagesChronologically(messages.value, a2uiSession.value.messages()), [...protocolEvents.value, ...liveAguiEvents.value]); });
 const streamingAssistantMessageCode = ref<string | null>(null);
 const agentReplySpeed = computed(
@@ -657,9 +686,9 @@ watch(
       const message =
         dataResult.error instanceof Error
           ? dataResult.error.message
-          : "Chat data could not be loaded";
-      props.onError?.(message, "Chat load failed");
-      emit("error", message, "Chat load failed");
+          : runtimeText("Chat data could not be loaded");
+      props.onError?.(message, runtimeText("Chat load failed"));
+      emit("error", message, runtimeText("Chat load failed"));
     }
     if (activeRunResult.kind === "success") {
       acceptActiveRunSnapshot(
@@ -708,8 +737,8 @@ async function loadOlderHistory() {
       try {
         const page = await activeAdapter.value.loadHistory(sessionId, { limit: 20, cursor: null });
         if (activeSessionCodeRef.value === sessionId && readEpoch === historyMutationEpoch) { messages.value = historyMessages(page, props.config.userInputLabels); protocolEvents.value = historyCompactionEvents(page); acceptHistory(page); }
-      } catch (reloadError) { reportError(reloadError instanceof Error ? reloadError.message : "Chat data could not be loaded", "Chat load failed"); }
-    } else reportError(error instanceof Error ? error.message : "Chat data could not be loaded", "Chat load failed");
+      } catch (reloadError) { reportError(reloadError instanceof Error ? reloadError.message : runtimeText("Chat data could not be loaded"), runtimeText("Chat load failed")); }
+    } else reportError(error instanceof Error ? error.message : runtimeText("Chat data could not be loaded"), runtimeText("Chat load failed"));
   }
   finally { if (activeSessionCodeRef.value === sessionId) historyLoadingOlder.value = false; }
 }
@@ -867,8 +896,8 @@ async function handleAttachmentUpload(file: File) {
     }
   } catch (error) {
     reportError(
-      error instanceof Error ? error.message : "Chat attachment upload failed",
-      "Attachment upload failed",
+      error instanceof Error ? error.message : runtimeText("Chat attachment upload failed"),
+      runtimeText("Attachment upload failed"),
     );
   } finally {
     attachmentUploadPending.value = false;
@@ -1139,8 +1168,8 @@ async function runMessage(
       }
       if (activeSessionCodeRef.value === activeSession.sessionId) {
         reportInfo(
-          "The active run changed before send; the message was kept in the queue",
-          "Message queued",
+          runtimeText("The active run changed before send; the message was kept in the queue"),
+          runtimeText("Message queued"),
         );
       }
     } else {
@@ -1162,8 +1191,8 @@ async function runMessage(
     }
     if (settlement.canCommit && !isRunAlreadyActiveError(error)) {
       const message =
-        error instanceof Error ? error.message : "Chat send failed";
-      reportError(message, "Chat send failed");
+        error instanceof Error ? error.message : runtimeText("Chat send failed");
+      reportError(message, runtimeText("Chat send failed"));
     }
   } finally {
     flushTurnText();
@@ -1326,15 +1355,15 @@ async function handleSteer(queuedId?: string) {
     if (safeQueueFallback) {
       if (queueIsCurrent) {
         reportInfo(
-          "The active run rejected steer; the message was queued",
-          "Message queued",
+          runtimeText("The active run rejected steer; the message was queued"),
+          runtimeText("Message queued"),
         );
       }
     } else if (observerDetached || stopped) {
       if (queueIsCurrent) {
         reportInfo(
-          "Steer delivery was not confirmed and was not retried",
-          "Steer not retried",
+          runtimeText("Steer delivery was not confirmed and was not retried"),
+          runtimeText("Steer not retried"),
         );
       }
     } else {
@@ -1351,8 +1380,8 @@ async function handleSteer(queuedId?: string) {
         pendingAnnotations.value = sendInput.annotations ?? [];
       }
       const message =
-        error instanceof Error ? error.message : "Chat steer failed";
-      reportError(message, "Chat steer failed");
+        error instanceof Error ? error.message : runtimeText("Chat steer failed");
+      reportError(message, runtimeText("Chat steer failed"));
     }
   } finally {
     if (steerAbortRef.value === abortController) {
@@ -1392,7 +1421,7 @@ const handleA2uiAction: ChatA2uiActionHandler = (message, metadata, context) => 
     userInputRequest.value = result.userInputRequest?.status === "Pending" ? result.userInputRequest : null;
     props.onA2UIAction?.(message, metadata, context);
     const [nextMessages, nextAudits, nextProtocol, nextRequests, nextHistory] = await readPresentation(current.sessionId); if (session.value?.sessionId !== current.sessionId || activeObserverRef.value !== observer) return; messages.value = nextMessages; aguiEvents.value=nextAudits; protocolEvents.value=nextProtocol; userInputRequests.value=nextRequests; userInputRequest.value=nextRequests.find(r=>r.status === "Pending") ?? null; acceptHistory(nextHistory); await reloadA2ui();
-  }).catch(e => props.onError?.(String(e), "A2UI action failed")).finally(() => { if(activeObserverRef.value === observer) {assistantReplyQueue.flush(); streamingAssistantMessageCode.value = null; activeObserverRef.value = null; sending.value = false; activeRunCode.value = "";} });
+  }).catch(e => props.onError?.(String(e), runtimeText("A2UI action failed"))).finally(() => { if(activeObserverRef.value === observer) {assistantReplyQueue.flush(); streamingAssistantMessageCode.value = null; activeObserverRef.value = null; sending.value = false; activeRunCode.value = "";} });
 };
 async function handleAnswerUserInput(answers: ChatUserInputAnswer[]) {
   if (compacting.value) return;
@@ -1508,8 +1537,8 @@ async function handleAnswerUserInput(answers: ChatUserInputAnswer[]) {
     if (activeSessionCodeRef.value !== activeSession.sessionId) return;
     if (!answerAccepted) failedUserInput.value = { sessionId: activeSession.sessionId, requestId: request.requestId };
     reportError(
-      error instanceof Error ? error.message : "Chat answer failed",
-      answerAccepted ? "Chat continuation failed" : "Chat answer failed",
+      error instanceof Error ? error.message : runtimeText("Chat answer failed"),
+      answerAccepted ? runtimeText("Chat continuation failed") : runtimeText("Chat answer failed"),
     );
   } finally {
     if (activeSessionCodeRef.value !== activeSession.sessionId) return;
@@ -1587,13 +1616,13 @@ async function handleStop() {
       pendingProtocolTerminalRun.value = null;
       activeRunStatusPending.value = false;
       detachRunObserver("stop");
-      reportInfo("Current response has been stopped", "Chat stopped");
+      reportInfo(runtimeText("Current response has been stopped"), runtimeText("Chat stopped"));
     } catch (error) {
       terminalHandledRunCodesRef.delete(expectedRunId);
       if (abortController.signal.aborted) return;
       const message =
-        error instanceof Error ? error.message : "Chat stop failed";
-      reportError(message, "Chat stop failed");
+        error instanceof Error ? error.message : runtimeText("Chat stop failed");
+      reportError(message, runtimeText("Chat stop failed"));
       try {
         await refreshActiveRun(activeSession.sessionId, undefined, true);
       } catch {
@@ -1617,7 +1646,7 @@ async function handleStop() {
     autoDrainEpochRef.value += 1;
     if (expectedRunId) terminalHandledRunCodesRef.add(expectedRunId);
     detachRunObserver("stop");
-    reportInfo("Current response has been stopped", "Chat stopped");
+    reportInfo(runtimeText("Current response has been stopped"), runtimeText("Chat stopped"));
   }
 }
 
@@ -1713,7 +1742,7 @@ async function handleDeleteTurn(message: ChatMessage) {
   ++historyMutationEpoch;
   try {
     const confirmed = props.confirmDeleteTurn ? await props.confirmDeleteTurn(message)
-      : window.confirm(props.config.turnDeletionLabels?.confirm ?? "Delete this user message and its agent replies? They will no longer appear in the conversation or be sent to the model. Rebuilding context may reduce cache hits and increase latency and cost.");
+      : window.confirm(props.config.turnDeletionLabels?.confirm ?? runtimeText("Delete this user message and its agent replies? They will no longer appear in the conversation or be sent to the model. Rebuilding context may reduce cache hits and increase latency and cost."));
     if (!confirmed || activeSessionCodeRef.value !== sessionId) return;
     await adapter.deleteTurn(sessionId, { rootRunId, expectedVersion });
     if (activeSessionCodeRef.value !== sessionId) return;
@@ -1730,7 +1759,7 @@ async function handleDeleteTurn(message: ChatMessage) {
     await reloadA2ui();
   } catch (error) {
     if (activeSessionCodeRef.value === sessionId) {
-      reportError(error instanceof Error ? error.message : String(error), "Chat delete failed");
+      reportError(error instanceof Error ? error.message : String(error), runtimeText("Chat delete failed"));
       try {
         const page = await adapter.loadHistory(sessionId, { limit: 20, cursor: null });
         if (activeSessionCodeRef.value === sessionId) { messages.value = historyMessages(page, props.config.userInputLabels); acceptHistory(page); }
@@ -1757,6 +1786,19 @@ function handleRuntimeSend(mode?: ChatSubmitMode) {
   void handleSubmit(mode);
 }
 
+const composerLabels = computed(() => {
+  const zh = (props.locale ?? props.config.locale ?? "").toLowerCase().startsWith("zh");
+  const defaults = zh ? {
+    sendLabel: "发送", stopLabel: "停止", queuedLabel: "队列中",
+    attachLabel: "添加附件", uploadingLabel: "正在上传附件",
+    removeAttachmentLabel: (name: string) => `移除${name}`,
+    reorderQueuedLabel: "拖动排序，也可使用上下方向键调整",
+    editQueuedLabel: "编辑排队消息", removeQueuedLabel: "移除排队消息",
+    steerQueuedLabel: "立即发送排队消息",
+  } : {};
+  return { ...defaults, ...props.config.composerLabels };
+});
+
 const panelCommonProps = computed(() => ({
   onA2UIAction: handleA2uiAction,
   a2uiSession: a2uiSession.value,
@@ -1776,12 +1818,13 @@ const panelCommonProps = computed(() => ({
   onAttachFile: handleAttachmentUpload,
   showAttachmentControl: props.showAttachmentControl && Boolean(activeAdapter.value.uploadAttachment),
   attachmentUploadPending: attachmentUploadPending.value,
-  createSessionLabel: "Start chat",
+  ...composerLabels.value,
+  createSessionLabel: (props.locale ?? props.config.locale ?? "").toLowerCase().startsWith("zh") ? "开始对话" : "Start chat",
   currentUserDisplayName: props.currentUserDisplayName,
   debugOptions: resolvedDebugOptions.value,
   disabledInput: deletingTurn.value || compacting.value || Boolean(props.config.disabledInput) || Boolean(userInputRequest.value),
   draft: draft.value,
-  emptyDescription: props.emptyDescription ?? "Create a session to start chatting.",
+  emptyDescription: props.emptyDescription ?? runtimeText("Create a session to start chatting."),
   emptyTitle: props.emptyTitle,
   formatAnnotationCount: props.formatAnnotationCount,
   annotationLabels: props.config.annotationLabels,
@@ -1834,7 +1877,6 @@ const panelCommonProps = computed(() => ({
   showStop: canStop.value,
   steerDisabled: steerDisabled.value || Boolean(userInputRequest.value),
   queuedSteerDisabled: steering.value || !canSteer.value || Boolean(userInputRequest.value) || userInputAnswerPending.value,
-  stopLabel: "Stop",
   title: props.config.title || props.floatingTitle,
   userInputLabels: props.config.userInputLabels,
   userInputRequests: presentedUserInputRequests.value,
