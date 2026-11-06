@@ -44,7 +44,7 @@ const defaultLabels: ChatWorkRailLabels = {
   preparing: "Preparing request…",
   responding: "Drafting response…",
   thinking: "Thinking…",
-  workedFor: (duration) => `Worked for ${duration}`,
+  workedFor: (duration) => `Work completed ${duration}`,
   workingFor: (duration) => `Working for ${duration}`,
   askingQuestions: (count) => `Asking ${count} questions`,
   askedQuestions: (count) => `Asked ${count} questions`,
@@ -126,7 +126,7 @@ onBeforeUnmount(() => {
 
 <template>
   <section
-    v-if="(props.timeline || !props.historyCovered || props.debugEvents.length) && (props.timeline?.items.length || props.events.length || userCards.length || props.debugEvents.length)"
+    v-if="props.timeline || ((!props.historyCovered || props.debugEvents.length) && (props.events.length || userCards.length || props.debugEvents.length))"
     :aria-label="labels.ariaLabel"
     class="ef-chat__rail"
   >

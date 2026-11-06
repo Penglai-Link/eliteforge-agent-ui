@@ -3,7 +3,7 @@ import type { ChatAguiStreamEvent, ChatMessage, ChatUserInputRequest, ChatWorkRa
 const start = Date.now() - 8_000;
 export const interactionTimelineDemoLabels: ChatWorkRailLabels = {
   ariaLabel: "智能体工作过程", preparing: "正在准备请求…", responding: "正在生成回复…", thinking: "正在思考…",
-  workedFor: (duration) => `已工作 ${duration}`, workingFor: (duration) => `工作中 ${duration}`,
+  workedFor: (duration) => `工作已完成 ${duration}`, workingFor: (duration) => `工作中 ${duration}`,
   askingQuestions: (count) => `正在询问 ${count} 个问题`, askedQuestions: (count) => `已询问 ${count} 个问题`,
   waitingForAnswer: "等待你的回答", skipped: "已跳过", failed: "运行失败",
   tool: { ariaLabel: "工具执行步骤", completed: (name) => `已执行：${name}`, running: (name) => `正在执行：${name}`,

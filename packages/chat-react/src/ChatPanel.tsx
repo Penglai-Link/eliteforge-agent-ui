@@ -580,7 +580,7 @@ const defaultWorkRailLabels = {
   preparing: "Preparing request…",
   responding: "Drafting response…",
   thinking: "Thinking…",
-  workedFor: (duration) => `Worked for ${duration}`,
+  workedFor: (duration) => `Work completed ${duration}`,
   workingFor: (duration) => `Working for ${duration}`,
   failed: "Run failed",
   notices: {
@@ -1549,7 +1549,7 @@ export function ChatPanel({
   function renderProcessMessage(message: ChatMessage) {
     return <>
       <StructuredMessageDetails message={message} labels={workRailLabels} historyLabels={historyLabels} locale={locale} hasRunError={workTimeline.managedMessageIds.has(message.messageId) || displayedErrorRuns.has(message.runId ?? "") || lastHistoryErrorByRun.get(message.runId) !== message.messageId} />
-      {message.content.trim() || message.a2ui ? <ChatBubble currentUserDisplayName={currentUserDisplayName} hideMessageIdentity={hideMessageIdentity} processMessage
+      {message.content.trim() || message.a2ui || message.interactionResponse ? <ChatBubble currentUserDisplayName={currentUserDisplayName} hideMessageIdentity={hideMessageIdentity} processMessage
         isStreaming={message.messageId === streamingAssistantMessageCode} message={message} a2uiSession={a2uiSession}
         a2uiDisabled={a2uiDisabled} onA2UIAction={onA2UIAction} onEditMessage={onEditMessage} onDeleteTurn={onDeleteTurn} deleteTurnLabel={deleteTurnLabel} /> : null}
     </>;
@@ -1558,7 +1558,7 @@ export function ChatPanel({
     return <AguiRunWorkRail key={run.id} timeline={run} renderMessage={renderProcessMessage} historyLabels={historyLabels}
       showReasoningCards={showReasoningCards} locale={locale}
       events={run.events as ChatAguiStreamEvent[]} labels={workRailLabels} userInputRequests={userInputRequests}
-      debugEvents={run.includeRunMetadata === false ? [] : (presentation.debugEventsByRunCode.get(run.runId) ?? []).map(describeDebugEvent)} />;
+      debugEvents={run.includeRunMetadata === false ? [] : (run.runIds ?? [run.runId]).flatMap(runId => presentation.debugEventsByRunCode.get(runId) ?? []).map(describeDebugEvent)} />;
   }
 
   function scrollToBottom(behavior: ScrollBehavior = "auto") {

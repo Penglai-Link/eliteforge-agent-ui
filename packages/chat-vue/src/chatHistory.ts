@@ -38,7 +38,7 @@ export function buildChatHistoryTurns(
   }
 
   messages.forEach((message) => {
-    if (message.role === "USER") {
+    if (message.role === "USER" && !message.interactionResponse) {
       pushCurrentTurn();
       currentTurn = {
         assistantPreview: "",
@@ -57,7 +57,7 @@ export function buildChatHistoryTurns(
 
     currentTurn.messageCodes.push(message.messageId);
 
-    if (!currentTurn.hasAssistantReply && (message.content.trim() || message.a2ui)) {
+    if (message.role === "ASSISTANT" && (message.content.trim() || message.a2ui)) {
       currentTurn.hasAssistantReply = true;
       currentTurn.assistantPreview = markdownPreview(message.content);
     }

@@ -25,20 +25,29 @@ export function aguiWorkElapsedMilliseconds(
   now = Date.now(),
   waitingAtMs?: number,
 ) {
-  const reverseStart = [...events].reverse().findIndex(event => aguiEventType(event).toUpperCase() === "RUN_STARTED");
-  const start = reverseStart < 0 ? -1 : events.length - 1 - reverseStart;
-  const segment = start < 0 ? events : events.slice(start);
-  const timestamps = segment
-    .map(aguiEventMillis)
-    .filter((value): value is number => typeof value === "number");
-  if (!timestamps.length) return 0;
-
-  const first = Math.min(...timestamps);
-  const latest = Math.max(...timestamps);
-  const terminal = currentAguiTerminalEvent(segment);
-  const end = terminal ? aguiEventMillis(terminal) ?? latest
-    : waitingAtMs !== undefined ? Math.max(first, waitingAtMs) : Math.max(latest, now);
-  return Math.max(0, end - first);
+  // Resume starts a new active interval. Count each interval once and exclude
+  // the gap between an interrupt and the next RUN_STARTED (human wait time).
+  let total = 0;
+  let start: number | null = null;
+  let latest: number | null = null;
+  let closed = false;
+  for (const event of events) {
+    const at = aguiEventMillis(event) ?? latest;
+    if (at === null) continue;
+    if (aguiEventType(event).toUpperCase() === "RUN_STARTED") {
+      if (start !== null) total += Math.max(0, at - start);
+      start = at;
+      closed = false;
+    } else if (start === null && !closed) start = at;
+    latest = at;
+    if (isAguiExecutionTerminalEvent(event)) {
+      if (start !== null) total += Math.max(0, at - start);
+      start = null;
+      closed = true;
+    }
+  }
+  if (start !== null) total += Math.max(0, (waitingAtMs ?? Math.max(latest ?? start, now)) - start);
+  return total;
 }
 
 export type AguiWorkActivity = "PREPARING" | "THINKING" | "RESPONDING";

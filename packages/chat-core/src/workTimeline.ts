@@ -25,19 +25,20 @@ export interface TranscriptWorkRun {
   segmentStartedAtMs?: number;
   segmentFinishedAtMs?: number;
   finalMessageId?: string;
+  /** Execution records contributing to this user turn, each counted once. */
+  segments?: TranscriptWorkRun[];
+  runIds?: string[];
   /** Only the last visible segment owns run-wide notices and debug details. */
   includeRunMetadata?: boolean;
 }
 
-export function workTimelineElapsedMilliseconds(run: TranscriptWorkRun, now = Date.now()) {
-  if (run.events.length && run.segmentStartedAtMs === undefined && run.segmentFinishedAtMs === undefined) {
-    return aguiWorkElapsedMilliseconds(run.events, now, run.waitingAtMs);
-  }
+export function workTimelineElapsedMilliseconds(run: TranscriptWorkRun, now = Date.now()): number {
+  if (run.segments) return run.segments.reduce((total, segment) => total + workTimelineElapsedMilliseconds(segment, now), 0);
   const eventTimes = run.events.map(aguiEventMillis).filter((value): value is number => value !== null);
   const records = run.messages.flatMap(message => message.history?.run ? [message.history.run] : []);
   const starts = records.map(record => record.startedAtMs);
   const ends = records.flatMap(record => record.finishedAtMs === null ? [] : [record.finishedAtMs]);
-  const runStartedAt = [...run.events].reverse().find(event => aguiEventType(event).toUpperCase() === "RUN_STARTED");
+  const runStartedAt = run.events.find(event => aguiEventType(event).toUpperCase() === "RUN_STARTED");
   const terminal = currentAguiTerminalEvent(run.events);
   const start = run.segmentStartedAtMs
     ?? (runStartedAt ? aguiEventMillis(runStartedAt) : null)
@@ -49,6 +50,15 @@ export function workTimelineElapsedMilliseconds(run: TranscriptWorkRun, now = Da
     ?? run.waitingAtMs
     ?? (run.completed && ends.length ? Math.max(...ends) : null)
     ?? (eventTimes.length ? Math.max(now, ...eventTimes) : now);
+  if (run.events.length) {
+    const events = run.events.filter(event => {
+      const at = aguiEventMillis(event);
+      return at === null || (at >= start && at <= end);
+    });
+    // A steering boundary can bisect an active interval without a RUN_STARTED.
+    if (run.segmentStartedAtMs !== undefined) events.unshift({ type: "RUN_STARTED", timestamp: start, runId: run.runId });
+    return aguiWorkElapsedMilliseconds(events, end, end);
+  }
   return Math.max(0, end - start);
 }
 
@@ -144,7 +154,7 @@ function steerSegmentBoundaries(
   events: TranscriptAguiEvent[],
 ): SteerSegmentBoundary[] {
   const humanIndexes = messages.flatMap((message, index) =>
-    message.role === "USER" && messageSenderIsHuman(message) ? [index] : []);
+    message.role === "USER" && messageSenderIsHuman(message) && !message.interactionResponse ? [index] : []);
   const boundaries: SteerSegmentBoundary[] = [];
   for (let humanPosition = 1; humanPosition < humanIndexes.length; humanPosition += 1) {
     const targetIndex = humanIndexes[humanPosition]!;
@@ -174,9 +184,9 @@ function steerSegmentBoundaries(
   return boundaries;
 }
 
-/** One ordered process per execution and accepted user boundary. Native
- * identities bind live frames to durable records. A steer closes only its UI
- * segment, not the underlying run. A text END only closes that step.
+/** One ordered process per ordinary user message, including interaction resumes.
+ * Native identities bind live frames to durable records. A steer closes only
+ * its UI segment, not the underlying run. A text END only closes that step.
  */
 export function buildTranscriptWorkTimeline(messages: ChatMessage[], presentation: TranscriptPresentation,
   requests: ChatUserInputRequest[] = [], options: { showReasoningCards?: boolean } = {}) {
@@ -222,7 +232,7 @@ export function buildTranscriptWorkTimeline(messages: ChatMessage[], presentatio
   }
   let scope = "";
   for (const message of messages) {
-    if (message.role === "USER" && messageSenderIsHuman(message)) scope = message.messageId;
+    if (message.role === "USER" && messageSenderIsHuman(message) && !message.interactionResponse) scope = message.messageId;
     scopeByMessage.set(message.messageId, scope);
     const nativeId = message.history?.run?.id ?? message.runId;
     if (message.role !== "ASSISTANT" || !nativeId) continue;
@@ -262,7 +272,7 @@ export function buildTranscriptWorkTimeline(messages: ChatMessage[], presentatio
         && message.interactionResponse && message.role === "USER" && messageSenderIsHuman(message));
       const precedingUser = explicitUser ?? (start === null ? undefined : [...messages].reverse().find(message =>
         message.role === "USER" && messageSenderIsHuman(message) && Date.parse(message.createdAt) <= start));
-      const eventScope = boundaryMessageId || (precedingUser?.messageId ?? scopeByMessage.get(anchor) ?? "");
+      const eventScope = boundaryMessageId || scopeByMessage.get(precedingUser?.messageId ?? anchor) || "";
       const id = `${eventScope}:${segmentNativeId}`;
       let group = boundaryMessageId ? groups.get(id) : identified ?? groups.get(id);
       if (!group) {
@@ -284,6 +294,7 @@ export function buildTranscriptWorkTimeline(messages: ChatMessage[], presentatio
   // segment-local. Resolve the whole run before rendering any one segment.
   const tools = resolvedTools(messages, mergeTranscriptAguiEvents(...eventsByNativeId.values()));
   const emittedTools = new Set<string>();
+  const turns = new Map<string, { group: Group; runs: TranscriptWorkRun[] }>();
   const firstMillis = (group: Group) => Math.min(
     ...group.events.map(event => aguiEventMillis(event) ?? Infinity),
     ...group.messages.map(message => Date.parse(message.createdAt)),
@@ -312,79 +323,52 @@ export function buildTranscriptWorkTimeline(messages: ChatMessage[], presentatio
     const requestedAt = pendingRequest?.requestedAt;
     const knownTimes = [...eventTimes, ...group.messages.flatMap(message => [Date.parse(message.createdAt), ...(message.history?.tools ?? []).flatMap(tool => [tool.startedAtMs, tool.finishedAtMs])])]
       .filter((value): value is number => typeof value === "number" && Number.isFinite(value));
-    const waitingAtMs = pending ? (terminal ? aguiEventMillis(terminal) : null)
+    const outcome = terminal && "outcome" in terminal ? terminal.outcome as { type?: string } | undefined : undefined;
+    const interrupted = outcome?.type === "interrupt"
+      || !terminal && group.messages.some(message => message.history?.run?.status === "Waiting");
+    const waitingAtMs = pending || interrupted ? (terminal ? aguiEventMillis(terminal) : null)
       ?? (typeof requestedAt === "number" && Number.isFinite(requestedAt) && requestedAt > start ? requestedAt : null)
       ?? (knownTimes.length ? Math.max(...knownTimes) : Number.isFinite(start) ? start : 0) : undefined;
-    const outcome = terminal && "outcome" in terminal ? terminal.outcome as { type?: string } | undefined : undefined;
-    const interrupted = answeredBoundary || outcome?.type === "interrupt"
-      || group.messages.some(message => message.history?.run?.status === "Waiting");
-    const completed = segmentEndedBySteer || answeredBoundary || !pending && (Boolean(terminal) || historyComplete);
+    const completed = segmentEndedBySteer || !pending && !interrupted && (Boolean(terminal) || historyComplete);
     const successful = completed && !segmentEndedBySteer && !interrupted && (terminal ? aguiEventType(terminal).toUpperCase() === "RUN_FINISHED"
       : group.messages.some(message => message.history?.run?.status === "Completed"));
     const candidate = (message: ChatMessage) => Boolean(message.content.trim() || message.a2ui || message.history?.message.structured != null);
     const final = successful ? [...group.messages].reverse().find(message => message.phase === "final_answer" && candidate(message))
       ?? [...group.messages].reverse().find(message => message.phase == null && candidate(message)) : undefined;
-    const placedItems = buildItems(group.messages, group.events, historyComplete, tools, emittedTools, group.nativeId, options.showReasoningCards !== false);
+
     const run: TranscriptWorkRun = { id: group.id, runId: [...group.wireIds][0] ?? group.nativeId,
       events: group.events, messages: group.messages, completed, ...(waitingAtMs !== undefined ? { waitingAtMs } : {}), finalMessageId: final?.messageId,
       ...(group.segmentStartedAtMs !== undefined ? { segmentStartedAtMs: group.segmentStartedAtMs } : {}),
       ...(group.segmentFinishedAtMs !== undefined ? { segmentFinishedAtMs: group.segmentFinishedAtMs } : {}),
-      items: placedItems.map(entry => entry.item) };
-    for (const message of group.messages) {
+      items: [] };
+    const turn = turns.get(group.scope) ?? { group, runs: [] };
+    turn.runs.push(run);
+    turns.set(group.scope, turn);
+  }
+  for (const [scope, { group, runs }] of turns) {
+    const last = runs.at(-1)!;
+    const events = mergeTranscriptAguiEvents(...runs.map(run => run.events));
+    const messageIds = new Set(runs.flatMap(run => run.messages.map(message => message.messageId)));
+    const turnMessages = messages.filter(message => messageIds.has(message.messageId)
+      || Boolean(message.interactionResponse && scopeByMessage.get(message.messageId) === scope));
+    const finalMessageId = last.completed ? last.finalMessageId : undefined;
+    const items = buildItems(turnMessages, events, !events.length, tools, emittedTools, group.nativeId,
+      options.showReasoningCards !== false).map(entry => entry.item)
+      .filter(item => item.kind !== "message" || item.message.messageId !== finalMessageId);
+    for (const message of turnMessages) {
       managedMessageIds.add(message.messageId);
-      if (!isVisibleTranscriptMessage(message)) processMessageIds.add(message.messageId);
+      if (message.messageId !== finalMessageId) processMessageIds.add(message.messageId);
     }
-    const replyMessages = group.messages.filter(isVisibleTranscriptMessage);
-    if (!replyMessages.length) {
-      const map = group.before ? before : after;
-      const bucket = map.get(group.anchor) ?? [];
-      bucket.push(run); map.set(group.anchor, bucket);
-      continue;
-    }
-
-    // Every reply is an ordinary transcript card, even without phase metadata.
-    // Keep folded work next to the preceding card instead of moving every tool
-    // to the beginning of the run. An invocation's parent message is the
-    // strongest placement evidence, including after history-only recovery.
-    const anchors: Array<string | null> = [null, ...replyMessages.map(message => message.messageId)];
-    const sections = anchors.flatMap(anchor => {
-      const items = placedItems.filter(entry => entry.afterMessageId === anchor).map(entry => entry.item);
-      return items.length ? [{ anchor, items }] : [];
-    });
-    if (!sections.length) sections.push({ anchor: null, items: [] });
-    // A reply closes the preceding activity group, not the execution. Keep one
-    // live tail for the next model/tool step or pending interaction. Later text
-    // must never move an already visible reply into the folded process.
-    const lastReply = replyMessages.at(-1)!;
-    if (!completed && sections.at(-1)?.anchor !== lastReply.messageId) {
-      sections.push({ anchor: lastReply.messageId, items: [] });
-    }
-    const replyTime = (message: ChatMessage) => {
-      const frame = group.events.find(event => aguiEventType(event).toUpperCase() === "TEXT_MESSAGE_START"
-        && "messageId" in event && event.messageId === message.messageId);
-      return (frame ? aguiEventMillis(frame) : null) ?? message.history?.message.createdAtMs ?? Date.parse(message.createdAt);
+    const run: TranscriptWorkRun = {
+      id: `turn:${scope || group.id}`, runId: last.runId,
+      runIds: [...new Set(runs.flatMap(run => [run.runId, ...run.events.map(historyEventRunId)]))],
+      segments: runs, events, messages: turnMessages, items,
+      completed: last.completed, waitingAtMs: last.waitingAtMs, finalMessageId,
     };
-    for (let index = 0; index < sections.length; index += 1) {
-      const section = sections[index]!;
-      const last = index === sections.length - 1;
-      const anchorMessage = group.messages.find(message => message.messageId === section.anchor);
-      const nextMessage = replyMessages[section.anchor === null ? 0 : replyMessages.findIndex(message => message.messageId === section.anchor) + 1];
-      const startAt = anchorMessage ? replyTime(anchorMessage) : start;
-      const endAt = nextMessage ? replyTime(nextMessage) : startAt;
-      const segmentStart = Number.isFinite(startAt) ? startAt : Number.isFinite(endAt) ? endAt : 0;
-      const segmentEnd = Number.isFinite(endAt) ? Math.max(segmentStart, endAt) : segmentStart;
-      const segment: TranscriptWorkRun = last ? {
-        ...run, id: `${run.id}:phase:${section.anchor ?? "start"}`, items: section.items,
-      } : {
-        ...run, id: `${run.id}:phase:${section.anchor ?? "start"}`, items: section.items,
-        events: [], messages: [], completed: true, waitingAtMs: undefined, includeRunMetadata: false,
-        segmentStartedAtMs: segmentStart, segmentFinishedAtMs: segmentEnd,
-      };
-      const map = section.anchor ? after : before;
-      const anchor = section.anchor ?? replyMessages[0]!.messageId;
-      const bucket = map.get(anchor) ?? [];
-      bucket.push(segment); map.set(anchor, bucket);
-    }
+    // One stable card belongs to the original user message. Interaction receipts
+    // and intermediate assistant replies are its contents, never new anchors.
+    if (scope && messages.some(message => message.messageId === scope)) after.set(scope, [run]);
+    else before.set(turnMessages[0]?.messageId ?? group.anchor, [run]);
   }
   return { before, after, processMessageIds, managedMessageIds };
 }
@@ -473,7 +457,6 @@ function buildItems(messages: ChatMessage[], events: TranscriptAguiEvent[], hist
   const cards = buildAguiUserWorkCards(events.map((event, index) => ({ ...event, timestamp: index + 1 })));
   const currentPhaseTools = new Set(cards.flatMap(card => card.kind === "toolGroup" && card.value.isCurrentPhase
     ? card.value.toolCards.map(tool => tool.id) : []));
-  const eventToolIds = new Set<string>();
   for (const card of cards) {
     if (card.kind === "reasoning") {
       const index = card.value.firstMillis - 1;
@@ -482,12 +465,12 @@ function buildItems(messages: ChatMessage[], events: TranscriptAguiEvent[], hist
         add({ kind: "reasoning", id: card.value.id, value: card.value }, at(index), index);
     } else for (const tool of card.kind === "toolGroup" ? card.value.toolCards : [card.value]) {
       if (!tool.started) continue;
-      const resolved = tools.get(toolKey(nativeId, tool.toolCallId));
-      const key = resolved?.value.id ?? toolKey(nativeId, tool.toolCallId);
+      const index = tool.firstMillis - 1;
+      const toolRunId = events[index] ? historyEventRunId(events[index]!) : nativeId;
+      const resolved = tools.get(toolKey(toolRunId, tool.toolCallId)) ?? tools.get(tool.id);
+      const key = resolved?.value.id ?? toolKey(toolRunId, tool.toolCallId);
       if (emittedTools.has(key)) continue;
       emittedTools.add(key);
-      eventToolIds.add(tool.toolCallId);
-      const index = tool.firstMillis - 1;
       add({ kind: "tool", id: tool.id, value: resolved ? { ...tool, ...resolved.value,
         parentReasoningId: tool.parentReasoningId } : tool,
         historyStatus: resolved?.historyStatus }, at(index), index);
@@ -500,6 +483,10 @@ function buildItems(messages: ChatMessage[], events: TranscriptAguiEvent[], hist
     const time = textIndex >= 0 && !historyComplete ? at(textIndex)
       : view?.step?.startedAtMs ?? Date.parse(message.createdAt);
     const order = textIndex >= 0 && !historyComplete ? textIndex : 0;
+    if (isVisibleTranscriptMessage(message) || message.interactionResponse) {
+      const messageTime = textIndex >= 0 ? at(textIndex) : view?.message.createdAtMs ?? Date.parse(message.createdAt);
+      add({ kind: "message", id: message.messageId, message }, messageTime, order);
+    }
     const reasoning = view?.message.content.filter(block => block.type === "Reasoning").map(block => "text" in block ? block.text : "").join("") ?? "";
     const hasEventReasoning = events.some(event =>
       aguiEventType(event).toUpperCase().startsWith("REASONING_") && "messageId" in event
@@ -510,11 +497,9 @@ function buildItems(messages: ChatMessage[], events: TranscriptAguiEvent[], hist
         ended: view?.message.status !== "Running", firstMillis: time, endMillis: view?.step?.finishedAtMs ?? null, toolCards: [] } }, time, order - 0.5);
     }
     for (const tool of view?.tools ?? []) {
-      if (eventToolIds.has(tool.id) || eventToolIds.has(tool.callId)) continue;
       const resolved = tools.get(toolKey(tool.runId, tool.id))!;
       if (emittedTools.has(resolved.value.id)) continue;
       emittedTools.add(resolved.value.id);
-      eventToolIds.add(tool.id);
       add({ kind: "tool", id: tool.id, ...resolved },
       tool.startedAtMs ?? time, order + 0.5);
     }
