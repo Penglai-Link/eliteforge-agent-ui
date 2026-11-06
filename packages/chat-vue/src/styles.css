@@ -550,16 +550,34 @@
   background: var(--agent-ui-chat-surface-strong);
 }
 
+.ef-chat__message-entry {
+  display: flex;
+  min-width: 0;
+  max-width: 100%;
+  align-items: flex-start;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ef-chat__message-entry--user {
+  align-items: flex-end;
+}
+
+.ef-chat__message-entry > .ef-chat__message {
+  align-self: stretch;
+}
+
+.ef-chat__message-entry--user > .ef-chat__message {
+  align-self: flex-end;
+  max-width: 100%;
+}
+
 .ef-chat__message-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
   margin-bottom: 10px;
-}
-
-.ef-chat__message-header--identity-hidden {
-  justify-content: flex-end;
 }
 
 .ef-chat__message-actor {

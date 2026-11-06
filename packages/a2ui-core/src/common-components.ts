@@ -15,6 +15,7 @@ export type ViewState = {
   sort?: string;
   desc?: boolean;
   expanded?: string[];
+  numericDraft?: string;
 };
 export function componentReferences(c: Component): string[] {
   return [
@@ -323,22 +324,39 @@ export function renderCommon(
       return done(
         h("label", props, [
           label,
-          h(
-            "input",
-            {
-              type: "number",
-              value: value ?? "",
-              min: c.min,
-              max: c.max,
-              step: c.step ?? "any",
-              readOnly: !bound,
-              onInput: (event: any) => {
-                if (event.target.value !== "" && event.target.validity.valid)
-                  setValue(Number(event.target.value));
-              },
+          h("input", {
+            type: "text",
+            inputMode: "decimal",
+            value: view.numericDraft ?? (value == null ? "" : String(value)),
+            readOnly: !bound,
+            onInput: (event: any) => {
+              const input = event.currentTarget as HTMLInputElement;
+              const draft = input.value;
+              // Allow intermediate edits such as a leading minus or trailing dot.
+              if (!/^-?\d*(?:\.\d*)?$/.test(draft)) {
+                input.value = view.numericDraft ?? (value == null ? "" : String(value));
+                return;
+              }
+              if (!draft) {
+                setValue(null);
+                setView({});
+                return;
+              }
+              const number = Number(draft);
+              const complete = /\d$/.test(draft) && Number.isFinite(number);
+              const inRange = (c.min === undefined || number >= c.min) && (c.max === undefined || number <= c.max);
+              const step = c.step;
+              const quotient = step ? (number - (c.min ?? 0)) / step : 0;
+              const onStep = !step || Math.abs(quotient - Math.round(quotient)) < 1e-9;
+              if (complete && inRange && onStep) {
+                setValue(number);
+                setView({});
+              } else {
+                setView({ numericDraft: draft });
+                setValue(null);
+              }
             },
-            []
-          ),
+          }, []),
         ])
       );
     case "Switch":

@@ -426,6 +426,7 @@ export class A2UIClient {
       throw new Error("Invalid selection");
     if (
       c.component === "NumberField" &&
+      value !== null &&
       (typeof value !== "number" ||
         !Number.isFinite(value) ||
         (c.min !== undefined && value < c.min) ||
@@ -956,12 +957,14 @@ function validateViewState(state: unknown): void {
             "sort",
             "desc",
             "expanded",
+            "numericDraft",
           ].includes(k)
       ) ||
       (value.tab !== undefined &&
         (!Number.isInteger(value.tab) || value.tab < 0)) ||
       (value.open !== undefined && typeof value.open !== "boolean") ||
       (value.query !== undefined && typeof value.query !== "string") ||
+      (value.numericDraft !== undefined && typeof value.numericDraft !== "string") ||
       (value.month !== undefined &&
         (typeof value.month !== "string" ||
           !/^\d{4}-\d{2}-01$/.test(value.month) ||

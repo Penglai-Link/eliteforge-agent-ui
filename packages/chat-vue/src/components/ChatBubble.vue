@@ -40,39 +40,19 @@ const actorName = computed(() =>
 
 <template>
   <InteractionReceipt v-if="isUser && message.interactionResponse" :message="message" :actor-name="actorName" :hide-message-identity="hideMessageIdentity" />
-  <article v-else
+  <div v-else :class="cx('ef-chat__message-entry', isUser && 'ef-chat__message-entry--user')">
+  <article
     :class="cx('ef-chat__message', isUser && 'ef-chat__message--user', isSystemNotice && 'ef-chat__message--system')"
     :data-message-id="props.message.messageId"
     data-theme-anchor="chat-message" :data-theme-part="isSystemNotice ? 'chat-message-system' : isUser ? 'chat-message-user' : 'chat-message-assistant'"
     :data-streaming="isStreaming ? 'true' : undefined"
   >
-    <div class="ef-chat__message-header" :class="{ 'ef-chat__message-header--identity-hidden': hideMessageIdentity }">
-      <div v-if="!hideMessageIdentity" class="ef-chat__message-actor">
+    <div v-if="!hideMessageIdentity" class="ef-chat__message-header">
+      <div class="ef-chat__message-actor">
         <img v-if="messageSenderAvatar(message)" :src="messageSenderAvatar(message)" alt="" width="16" height="16" />
         <UserRound v-else-if="messageSenderIsHuman(message)" :size="16" />
         <Bot v-else :size="16" />
         <span :data-interaction-response-sender="message.interactionResponse ? message.provenance?.sender.kind : undefined">{{ actorName }}</span>
-      </div>
-      <div class="ef-chat__message-actions">
-        <CopyValueButton
-          ariaLabel="Copy raw markdown"
-          title="Copy raw markdown"
-          :value="props.message.content"
-        />
-        <button
-          v-if="isUser && !message.interactionResponse"
-          aria-label="Edit message"
-          class="ef-chat__icon-button"
-          type="button"
-          @click="emit('editMessage', props.message.content, props.message)"
-        >
-          <Pencil :size="14" />
-        </button>
-        <button v-if="isUser && !message.interactionResponse && message.history?.run && onDeleteTurn" class="ef-chat__icon-button" type="button"
-          :aria-label="deleteTurnLabel ?? 'Delete turn'" :title="deleteTurnLabel ?? 'Delete turn'" @click="onDeleteTurn(message)">
-          <Trash2 :size="14" aria-hidden="true" />
-        </button>
-        <span v-if="!message.interactionResponse || message.interactionResponse.answeredAt != null" class="ef-chat__message-time">{{ formatTime(props.message.createdAt) }}</span>
       </div>
     </div>
     <div v-if="isUser && (message.annotations ?? []).length" class="ef-chat__text-annotations">
@@ -98,4 +78,26 @@ const actorName = computed(() =>
     </div>
     <ChatA2UI v-if="message.a2ui" :message="message" :on-action="onA2UIAction" :runtime="a2uiSession" :disabled="a2uiDisabled" />
   </article>
+      <div class="ef-chat__message-actions ef-chat__message-actions--outside">
+        <CopyValueButton
+          ariaLabel="Copy raw markdown"
+          title="Copy raw markdown"
+          :value="props.message.content"
+        />
+        <button
+          v-if="isUser && !message.interactionResponse"
+          aria-label="Edit message"
+          class="ef-chat__icon-button"
+          type="button"
+          @click="emit('editMessage', props.message.content, props.message)"
+        >
+          <Pencil :size="14" />
+        </button>
+        <button v-if="isUser && !message.interactionResponse && message.history?.run && onDeleteTurn" class="ef-chat__icon-button" type="button"
+          :aria-label="deleteTurnLabel ?? 'Delete turn'" :title="deleteTurnLabel ?? 'Delete turn'" @click="onDeleteTurn(message)">
+          <Trash2 :size="14" aria-hidden="true" />
+        </button>
+        <span v-if="!message.interactionResponse || message.interactionResponse.answeredAt != null" class="ef-chat__message-time">{{ formatTime(props.message.createdAt) }}</span>
+      </div>
+  </div>
 </template>
