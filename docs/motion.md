@@ -115,7 +115,6 @@ npm run dev --workspace @eliteforge/agent-ui-a2ui-react -- --port 5187
 npm run dev --workspace @eliteforge/agent-ui-a2ui-vue -- --port 5188
 ```
 
-演示支持切换动效策略、修改出现时长和显式重播。`tests/motion-browser.mjs` 验证两端的参数、草稿保留、运行时减弱、A2UI 展开和窄屏；`tests/a2ui-theme-browser.mjs` 验证原有主题变量。仓库检查入口为 `npm run check`。
 
 2026-10-10 验证：11 个包构建通过，470 个测试通过。以下 3 个 Chat React 历史展示测试在改动前的 `6afc042` 基线也失败，本次未修改对应展示行为：
 

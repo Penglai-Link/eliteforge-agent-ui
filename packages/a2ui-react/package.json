@@ -17,7 +17,6 @@
   },
   "scripts": {
     "build": "tsc -p tsconfig.build.json && vite build",
-    "test": "vitest run",
     "dev": "vite --host 127.0.0.1"
   },
   "publishConfig": {

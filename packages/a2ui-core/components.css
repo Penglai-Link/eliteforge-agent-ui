@@ -66,6 +66,18 @@
     var(--color-elevated-surface, #fff)
   );
 }
+/* NumberField keeps native numeric validation without spinner controls. */
+.a2ui-surface input[type="number"] {
+  appearance: textfield;
+  -moz-appearance: textfield;
+}
+
+.a2ui-surface input[type="number"]::-webkit-inner-spin-button,
+.a2ui-surface input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
 .a2ui-button {
   font: inherit;
   cursor: pointer;

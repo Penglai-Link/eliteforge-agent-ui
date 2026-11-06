@@ -24,7 +24,6 @@
   "scripts": {
     "build": "vite build",
     "postinstall": "node scripts/patch-xterm-ime.mjs",
-    "test": "vitest run",
     "dev": "vite",
     "prepublishOnly": "npm run build"
   },

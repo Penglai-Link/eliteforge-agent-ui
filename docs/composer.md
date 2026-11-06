@@ -82,5 +82,3 @@ npm run check
 npm run dev --workspace=@eliteforge/agent-ui-composer-react -- --port 5186
 npm run dev --workspace=@eliteforge/agent-ui-composer-vue -- --port 5187
 ```
-
-两页都直接导入独立 Composer，提供浅色/深色/自定义主题、运行状态、禁用、窄屏、附件和事件日志。`tests/composer-browser.mjs` 的 `verifyComposer(page)` 可通过 Playwright CLI `run-code` 对任意一页执行相同检查。

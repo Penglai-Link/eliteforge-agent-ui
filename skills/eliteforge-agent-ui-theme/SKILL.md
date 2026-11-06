@@ -29,6 +29,5 @@ metadata:
 
 - 在真实浏览器中修改祖先或 Surface 的变量，读取最终 computed style；仅检查 CSS 存在 `var()` 不算验证。
 - 覆盖字体、尺寸、圆角、内边距、过渡时间、统计字号、图表系列/图例色和阈值色；同时检查禁用、焦点及窄屏。
-- 两端可复用 `tests/a2ui-theme-browser.mjs` 中的验证函数。执行后恢复页面变量，不污染后续测试。
 - 运行受影响 workspace 的构建与测试。共享令牌或多包改动还需运行根目录 `npm run check`；已有失败应记录具体用例，不得报告全绿。
 - 修改本 skill 后，使用 skill-creator 的 `quick_validate.py` 验证，并保持 `agents/openai.yaml` 与范围一致。

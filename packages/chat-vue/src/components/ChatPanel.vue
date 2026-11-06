@@ -293,8 +293,9 @@ onMounted(() => {
           class="ef-chat__transcript"
           @scroll="handleScroll"
         >
-          <button v-if="!props.historyLoading && props.onLoadOlderHistory" type="button" :disabled="props.historyLoadingOlder" @click="props.onLoadOlderHistory">{{ props.historyLoadingOlder ? (props.historyLabels ?? defaultHistoryLabels).loading : (props.historyLabels ?? defaultHistoryLabels).loadOlder }}</button>
-          <div v-if="!props.historyLoading && transcriptMessages.length" class="ef-chat__transcript-inner">
+          <div class="ef-chat__transcript-inner">
+            <button v-if="!props.historyLoading && props.onLoadOlderHistory" type="button" :disabled="props.historyLoadingOlder" @click="props.onLoadOlderHistory">{{ props.historyLoadingOlder ? (props.historyLabels ?? defaultHistoryLabels).loading : (props.historyLabels ?? defaultHistoryLabels).loadOlder }}</button>
+            <template v-if="!props.historyLoading && transcriptMessages.length">
             <section v-for="turn in historyTurns" :key="turn.id" class="ef-chat__turn" :data-chat-turn-id="turn.id">
             <template v-for="message in turn.messageCodes.map(id => messagesById.get(id)).filter((item): item is ChatMessage => !!item)" :key="message.messageId">
               <template v-if="showAgui">
@@ -366,7 +367,7 @@ onMounted(() => {
               </template>
             </template>
             </section>
-          </div>
+            </template>
           <div v-else class="ef-chat__transcript-empty">
             <Bot :size="40" :strokeWidth="1" class="ef-chat__transcript__bot" />
             <div v-if="props.historyLoading" role="status" aria-live="polite" class="ef-chat__history-loading">
@@ -382,6 +383,7 @@ onMounted(() => {
           :request="props.userInputRequest"
           @submit="props.onAnswerUserInput"
         />
+          </div>
         </section>
         <aside v-if="$slots.sidebar" class="ef-chat__sidebar">
           <slot name="sidebar" />

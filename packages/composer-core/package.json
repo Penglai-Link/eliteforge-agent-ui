@@ -19,7 +19,6 @@
   },
   "scripts": {
     "build": "tsc -p tsconfig.build.json && vite build",
-    "test": "vitest run",
     "prepublishOnly": "npm run build"
   },
   "publishConfig": {

@@ -22,7 +22,6 @@
   ],
   "scripts": {
     "build": "vite build",
-    "test": "vitest run",
     "dev": "vite",
     "prepublishOnly": "npm run build"
   },

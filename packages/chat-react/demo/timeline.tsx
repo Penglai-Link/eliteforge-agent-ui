@@ -1,7 +1,7 @@
 import { createRoot } from "react-dom/client";
 import { useState } from "react";
 import { ChatPanel } from "../src";
-import { workTimelinePreview } from "../../chat-core/test/work-timeline-fixture";
+import { workTimelinePreview } from "../../chat-core/demo/work-timeline-fixture";
 import "@eliteforge/agent-ui-chat-theme";
 import "../src/styles.css";
 

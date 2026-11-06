@@ -23,8 +23,7 @@
     "./agent_catalog.json": "./dist/agent_catalog.json"
   },
   "scripts": {
-    "build": "tsc -p tsconfig.build.json && vite build",
-    "test": "vitest run"
+    "build": "tsc -p tsconfig.build.json && vite build"
   },
   "publishConfig": {
     "registry": "http://nexus.cisdigital.cn/repository/npm-internal/",

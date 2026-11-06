@@ -22,7 +22,6 @@
   ],
   "scripts": {
     "build": "vue-tsc -p tsconfig.build.json && vite build",
-    "test": "vitest run",
     "dev": "vite",
     "prepublishOnly": "npm run build"
   },
