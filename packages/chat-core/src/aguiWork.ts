@@ -32,7 +32,7 @@ export function aguiWorkElapsedMilliseconds(
   let latest: number | null = null;
   let closed = false;
   for (const event of events) {
-    const at = aguiEventMillis(event) ?? latest;
+    const at: number | null = aguiEventMillis(event) ?? latest;
     if (at === null) continue;
     if (aguiEventType(event).toUpperCase() === "RUN_STARTED") {
       if (start !== null) total += Math.max(0, at - start);

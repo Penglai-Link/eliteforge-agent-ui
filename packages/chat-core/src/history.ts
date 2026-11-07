@@ -50,7 +50,7 @@ export interface SessionHistory {
   records: { steps: HistoryStep[]; messages: HistoryMessage[]; toolInvocations: HistoryToolInvocation[]; interactions: HistoryInteraction[] };
   pendingInteractions: HistoryInteraction[]; activeRuns: HistoryRun[];
 }
-export interface HistoryMessageView { message: HistoryMessage; step: HistoryStep | null; tools: HistoryToolInvocation[]; run: HistoryRun | null; interactions: HistoryInteraction[] }
+export interface HistoryMessageView { interactionToolIds?: Record<string, string>; message: HistoryMessage; step: HistoryStep | null; tools: HistoryToolInvocation[]; run: HistoryRun | null; interactions: HistoryInteraction[] }
 export interface ChatHistoryLabels { loading: string; loadOlder: string; step: string; attempt: string; statuses: Record<HistoryStatus, string> }
 export const defaultHistoryLabels: ChatHistoryLabels = { loading: "Loading history…", loadOlder: "Load earlier turns", step: "Step", attempt: "Attempt",
   statuses: { Running: "Running", Waiting: "Waiting", Completed: "Completed", Interrupted: "Interrupted", Failed: "Failed", Unknown: "Result unknown", Planned: "Planned", Approved: "Approved" } };
@@ -120,7 +120,11 @@ export function historyMessages(page: SessionHistory, labels?: ChatUserInputLabe
       requestedSkills: message.requestedSkills ?? [], annotations: message.annotations ?? [],
       content: isRunDiagnostic ? "" : text, inputTokens: usage?.inputTokens, outputTokens: usage?.outputTokens,
       totalTokens: usage ? usage.inputTokens + usage.outputTokens : null,
-      createdAt: new Date(message.createdAtMs).toISOString(), history: { message, step, tools: tools.get(message.id) ?? [], run: runs.get(message.runId) ?? null, interactions: interactionsByMessage.get(message.id) ?? [] },
+      createdAt: new Date(message.createdAtMs).toISOString(), history: { message, step, tools: tools.get(message.id) ?? [], run: runs.get(message.runId) ?? null, interactions: interactionsByMessage.get(message.id) ?? [],
+        interactionToolIds: Object.fromEntries((interactionsByMessage.get(message.id) ?? []).flatMap(i => {
+          const tool = interactionTools.get(i.id);
+          return tool ? [[i.id, tool.id]] : [];
+        })) },
     };
   });
   // Submitted interactions keep only their folded answer summary. Never replay

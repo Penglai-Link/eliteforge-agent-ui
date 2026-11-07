@@ -44,6 +44,8 @@ export interface ComposerProps {
   /** Changing this identity resets and optionally focuses the editor. */
   composerKey?: string;
   disabledInput?: boolean;
+  /** Visible explanation shown while input is disabled, without replacing the draft. */
+  disabledInputReason?: string;
   inputPlaceholder?: string;
   queuedInputPlaceholder?: string;
   steeringInputPlaceholder?: string;

@@ -16,3 +16,11 @@ export function interactionEnvelopes(request: ChatUserInputRequest, labels?: Cha
     { version: "v0.9.1", updateDataModel: { surfaceId, value: { answer: approval ? request.nativeInteraction?.optionPayloads[request.answers?.[0]?.optionId ?? ""] ?? null : answers, status: submitting ? "Submitting" : request.status } } },
   ];
 }
+import { A2UIClient } from "@eliteforge/agent-ui-a2ui-core";
+/** Shared by React and Vue; the durable interaction owns the response contract. */
+export function createInteractionClient(request: ChatUserInputRequest, labels?: ChatUserInputLabels): A2UIClient {
+  const client = new A2UIClient();
+  for (const envelope of request.a2uiInteraction?.messages ?? interactionEnvelopes(request, labels)) client.apply(envelope);
+  if (request.a2uiInteraction) client.setResponseSchema(request.a2uiInteraction.surfaceId, request.nativeInteraction?.responseSchema);
+  return client;
+}

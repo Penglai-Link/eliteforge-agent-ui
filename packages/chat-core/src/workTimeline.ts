@@ -533,7 +533,26 @@ function buildItems(messages: ChatMessage[], events: TranscriptAguiEvent[], hist
     }
     return replyMessages.filter(message => Date.parse(message.createdAt) <= entry.time).at(-1)?.messageId ?? null;
   };
-  const ordered: PlacedWorkItem[] = ranked.sort((a, b) => a.time - b.time || a.order - b.order)
+  ranked.sort((a, b) => a.time - b.time || a.order - b.order);
+  // History receipts can lack answeredAt and inherit the assistant message's
+  // timestamp, which precedes its tool call. Preserve the causal relationship
+  // using the durable invocation identity instead of inventing a response time.
+  for (const receipt of [...ranked]) {
+    if (receipt.item.kind !== "message" || !receipt.item.message.interactionResponse) continue;
+    const message = receipt.item.message;
+    const response = message.interactionResponse!;
+    const tool = ranked.find(entry => entry.item.kind === "tool"
+      && response.toolCallId != null
+      && (entry.item.value.toolCallId === response.toolCallId || entry.item.id === response.toolCallId));
+    if (!tool) continue;
+    const receiptIndex = ranked.indexOf(receipt);
+    const toolIndex = ranked.indexOf(tool);
+    if (receiptIndex < toolIndex) {
+      ranked.splice(receiptIndex, 1);
+      ranked.splice(ranked.indexOf(tool) + 1, 0, receipt);
+    }
+  }
+  const ordered: PlacedWorkItem[] = ranked
     .filter(entry => showReasoningCards || entry.item.kind !== "reasoning")
     .map(entry => ({ item: entry.item, afterMessageId: afterMessageId(entry) }));
   const grouped: PlacedWorkItem[] = [];

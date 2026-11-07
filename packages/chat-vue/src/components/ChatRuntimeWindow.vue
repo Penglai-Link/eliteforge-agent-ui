@@ -1875,7 +1875,7 @@ function handleWindowStateChange(state: ChatFloatingState) {
       <fieldset v-if="compacting" disabled style="display: contents"><slot name="composerTop"><component :is="props.composerTop" /></slot></fieldset>
       <slot v-else name="composerTop"><component :is="props.composerTop" /></slot>
     </template>
-    <template #footerAddon><fieldset :disabled="compacting" style="display: contents"><slot name="footerAddon" /></fieldset></template>
+    <template #footerAddon="control"><fieldset :disabled="compacting" style="display: contents"><slot name="footerAddon" v-bind="control" /></fieldset></template>
     <template v-for="name in forwardedSlotNames" #[name]="slotProps">
       <slot :name="name" v-bind="slotProps || {}" />
     </template>
@@ -1889,7 +1889,7 @@ function handleWindowStateChange(state: ChatFloatingState) {
       <fieldset v-if="compacting" disabled style="display: contents"><slot name="composerTop"><component :is="props.composerTop" /></slot></fieldset>
       <slot v-else name="composerTop"><component :is="props.composerTop" /></slot>
     </template>
-    <template #footerAddon><fieldset :disabled="compacting" style="display: contents"><slot name="footerAddon" /></fieldset></template>
+    <template #footerAddon="control"><fieldset :disabled="compacting" style="display: contents"><slot name="footerAddon" v-bind="control" /></fieldset></template>
     <template v-for="name in forwardedSlotNames" #[name]="slotProps">
       <slot :name="name" v-bind="slotProps || {}" />
     </template>

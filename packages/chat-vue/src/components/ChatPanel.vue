@@ -3,6 +3,7 @@ import { chatAnnotationsByMessage, chatAnnotationTooltip, mountChatAnnotationSel
 import { Composer } from "@eliteforge/agent-ui-composer-vue";
 import { ArrowDown, Bot, X } from "lucide-vue-next";
 import {
+  waitingInputComposerLabel,
   buildTranscriptPresentation,
   buildTranscriptWorkTimeline,
   interactionMessages,
@@ -413,7 +414,8 @@ onMounted(() => {
           :composer-key="session?.sessionId"
           :auto-focus-composer="props.autoFocusComposer"
           :composer-header="props.composerHeader"
-          :disabled-input="props.disabledInput"
+          :disabled-input="props.disabledInput || props.userInputRequest?.status === 'Pending'"
+          :disabled-input-reason="props.userInputRequest?.status === 'Pending' ? (props.userInputLabels?.composerWaiting ?? waitingInputComposerLabel(props.locale)) : undefined"
           :draft="annotationDraft.content"
           :input-placeholder="props.inputPlaceholder"
           :input-suggestions="props.inputSuggestions"
@@ -456,7 +458,7 @@ onMounted(() => {
           @stop="props.onStop ? props.onStop() : emit('stop')"
         >
           <template v-if="$slots.composerHeader" #composerHeader><slot name="composerHeader" /></template>
-          <template #footerAddon><slot name="footerAddon" /></template>
+          <template #footerAddon="control"><slot name="footerAddon" v-bind="control" /></template>
         </Composer>
       </footer>
     </template>

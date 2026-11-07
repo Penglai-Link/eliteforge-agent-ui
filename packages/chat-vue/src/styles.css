@@ -1632,7 +1632,7 @@
 }
 
 /* Submitted interactions use compact receipts instead of user message cards. */
-.ef-chat__interaction-receipt { align-self: flex-end; width: fit-content; max-width: 100%; }
+.ef-chat__interaction-receipt { align-self: flex-start; width: fit-content; max-width: 100%; margin-inline-start: 20px; padding-inline-start: 8px; border-inline-start: 2px solid var(--agent-ui-chat-border, #ddd); }
 .ef-chat__interaction-chip {
   display: inline-flex; align-items: center; gap: 6px; max-width: 100%;
   min-height: 28px; padding: 4px 10px; border: 0; border-radius: 999px;

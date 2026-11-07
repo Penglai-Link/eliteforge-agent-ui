@@ -675,3 +675,44 @@
 :where(.ef-composer) .ef-chat__button_send {
   padding: 0;
 }
+
+/* Keep the reason readable while making the editing area visibly unavailable. */
+.ef-composer .ef-chat__composer[data-input-disabled="true"] {
+  background: var(--agent-ui-chat-surface-soft, var(--agent-ui-chat-surface-soft-color, var(--color-surface-container, #f1edec)));
+  outline: 1px dashed var(--agent-ui-chat-border, var(--agent-ui-chat-border-color, var(--color-outline-variant, #c4c7c7)));
+  outline-offset: -1px;
+  box-shadow: none;
+}
+.ef-composer .ef-chat__composer[data-input-disabled="true"] .ef-chat__composer-editor:not([data-input-locked="true"]) {
+  opacity: 0.55;
+}
+.ef-composer .ef-chat__composer-editor[data-input-locked="true"] :is(.ef-chat__textarea, .ef-chat__composer-overlay) {
+  visibility: hidden;
+}
+.ef-composer .ef-chat__composer[data-input-disabled="true"] :is(button:disabled, fieldset:disabled) {
+  opacity: 0.4;
+}
+.ef-composer .ef-chat__composer[data-input-disabled="true"] fieldset:disabled button:disabled {
+  opacity: 1;
+}
+.ef-composer .ef-chat__composer[data-input-disabled="true"] :is(textarea, button):disabled {
+  cursor: not-allowed;
+}
+.ef-composer .ef-chat__composer-disabled-reason {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px;
+  text-align: center;
+  cursor: not-allowed;
+  color: var(--agent-ui-chat-text-muted, var(--agent-ui-chat-text-muted-color, var(--color-on-surface-variant, #444748)));
+  font-size: 12px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.ef-composer .ef-chat__composer-disabled-reason svg {
+  flex: none;
+}

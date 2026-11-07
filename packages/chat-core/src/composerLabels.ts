@@ -12,3 +12,10 @@ export function resolveComposerLabels(locale?: string, overrides?: ChatComposerL
   } : {};
   return { ...defaults, ...overrides };
 }
+
+/** Shared by normal and floating chat panels in both renderers. */
+export function waitingInputComposerLabel(locale?: string): string {
+  return locale?.toLowerCase().startsWith("zh")
+    ? "输入已暂停，请先完成上方填写或确认"
+    : "Input paused. Complete the form or confirmation above to continue.";
+}

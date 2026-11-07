@@ -9,3 +9,5 @@ export { ChatA2UI } from "./ChatA2UI";
 
 export { MotionProvider, AgentMotion, useMotion } from "@eliteforge/agent-ui-motion-react";
 export type { MotionConfig, MotionEffects, MotionPreset, ResolvedMotion } from "@eliteforge/agent-ui-motion-react";
+
+export { useComposerDisabled } from "@eliteforge/agent-ui-composer-react";

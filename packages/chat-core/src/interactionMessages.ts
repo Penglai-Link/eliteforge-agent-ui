@@ -15,21 +15,21 @@ export function interactionMessages(messages: readonly ChatMessage[], requests: 
   const seen = new Set(messages.flatMap(message => message.interactionResponse ? [message.interactionResponse.requestId] : []));
   const legacyAnswers = messages.filter(message => message.role === "USER" && /^(The user answered the questions you asked:|用户回答了你提出的问题：)/.test(message.content.trimStart()));
   const claimedLegacy = new Set<string>();
-  function insert(source: ChatMessage | undefined, requestId: string, runId: string, rows: { label: string; value: string }[], timestamp?: number, provenance?: ChatMessage["provenance"], approval?: ChatApprovalResponse, kind: "form" | "question" = "question") {
+  function insert(source: ChatMessage | undefined, requestId: string, runId: string, rows: { label: string; value: string }[], timestamp?: number, provenance?: ChatMessage["provenance"], approval?: ChatApprovalResponse, kind: "form" | "question" = "question", toolCallId?: string) {
     if (!source || seen.has(requestId)) return;
     seen.add(requestId);
     const legacy = legacyAnswers.find(message => !claimedLegacy.has(message.messageId) && message.runId === runId);
     if (legacy) {
       claimedLegacy.add(legacy.messageId);
       const index = result.findIndex(message => message.messageId === legacy.messageId);
-      result[index] = { ...legacy, content: summaryContent(rows), interactionResponse: { requestId, rows, kind: approval ? "approval" : kind, ...(approval ? { approval } : {}) }, provenance: provenance ?? legacy.provenance };
+      result[index] = { ...legacy, content: summaryContent(rows), interactionResponse: { requestId, rows, toolCallId, kind: approval ? "approval" : kind, ...(approval ? { approval } : {}) }, provenance: provenance ?? legacy.provenance };
       return;
     }
     const id = `interaction:${requestId}`;
     const createdAtMs = timestamp ?? Date.parse(source.createdAt) + 1;
     const response: ChatMessage = { id, messageId: id, sessionId: source.sessionId, runId, role: "USER", channel: "interaction",
       actor: provenance?.sender.displayName ?? "User", provenance,
-      content: summaryContent(rows), interactionResponse: { requestId, rows, kind: approval ? "approval" : kind, answeredAt: timestamp, ...(approval ? { approval } : {}) },
+      content: summaryContent(rows), interactionResponse: { requestId, rows, toolCallId, kind: approval ? "approval" : kind, answeredAt: timestamp, ...(approval ? { approval } : {}) },
       createdAt: new Date(Number.isFinite(createdAtMs) ? createdAtMs : 0).toISOString() };
     let index = result.findIndex(message => message.messageId === source.messageId) + 1;
     while (result[index]?.interactionResponse && result[index].runId === runId) index += 1;
@@ -37,12 +37,13 @@ export function interactionMessages(messages: readonly ChatMessage[], requests: 
   }
   for (const message of messages) for (const interaction of message.history?.interactions ?? []) {
     if (interaction.response == null) continue;
-    const tool = message.history?.tools.find(tool => tool.id === interaction.invocationId);
+    const toolCallId = message.history?.interactionToolIds?.[interaction.id] ?? interaction.invocationId ?? undefined;
+    const tool = message.history?.tools.find(tool => tool.id === toolCallId);
     const toolDetails = tool ? { tool: tool.toolName, parameters: tool.arguments } : undefined;
     const approval = historyApprovalResponse(interaction, toolDetails);
     insert(message, interaction.id, interaction.runId ?? message.runId ?? "",
       interactionSummary(interaction, { labels: inputLabels, resolveToolName: labels?.tool?.resolveName, toolDetails }),
-      undefined, interaction.responseProvenance ?? undefined, approval, (interaction.presentation as {kind?: string} | null)?.kind === "a2ui" ? "form" : "question");
+      undefined, interaction.responseProvenance ?? undefined, approval, (interaction.presentation as {kind?: string} | null)?.kind === "a2ui" ? "form" : "question", toolCallId);
   }
   for (const request of requests) {
     if (request.status !== "Answered") continue;

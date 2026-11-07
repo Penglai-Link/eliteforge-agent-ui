@@ -87,3 +87,25 @@ const message = {
 这个独立用法由宿主通过 `onA2UIAction` 接管提交，并保存服务端确认的协议数据；它与 Runtime 的会话级 Adapter 接入不同。需要跨消息更新、快照恢复和统一提交管理时，应使用 Runtime 接入。
 
 非法协议只影响对应卡片的展示。聊天主题继续使用现有 token，文案由宿主提供。
+
+## 表单校验与必填提示
+
+表单默认最大宽度为 `36rem`，普通 A2UI surface 为 `56rem`，均不超过宿主可用宽度。表单使用轻边框、统一内边距和字段间距；提交按钮在宽屏按内容宽度显示，在窄容器中铺满。响应式规则依据 surface 容器宽度，Dude 弹框与移动端同样生效。宿主可通过 `--agent-ui-a2ui-form-max-width`、`--agent-ui-a2ui-surface-max-width`、`--agent-ui-a2ui-form-padding`、`--agent-ui-a2ui-form-gap`、`--agent-ui-a2ui-form-radius` 和 `--agent-ui-a2ui-form-background` 调整外观，React/Vue 共用实现。
+
+React 和 Vue 的 `ChatUserInputCard` 通过 `createInteractionClient` 将持久化交互的 `responseSchema` 注册到同一个 `A2UIClient`。独立使用时调用 `client.setResponseSchema(surfaceId, schema)`；默认校验动作的 `context.response`，可用第三个参数指定上下文字段。校验位于 `createAction`，直接调用动作 API 也不能绕过。
+
+```text
+responseSchema → 共享校验器 → 字段错误、必填星号、提交拦截
+                       ↓ 合法答案
+                  Framework 再校验 → 恢复交互
+```
+
+默认使用 JSON Schema 2020-12，也支持显式 draft-07、2019-09。前后端开启已知 `format` 校验，不转换类型、不注入默认值、不删除额外字段、不加载远程或文件引用。未知 format 与标准注解一样不参与断言。支持 required、字符串长度/正则/格式、数值范围/整数/倍数、枚举、数组、对象、内部引用和组合/条件规则。非法 schema 阻止提交并展示表单级错误。
+
+`required` 控制属性是否必须存在以及星号；非空文本需要同时声明 `minLength: 1`，多选至少一项需要 `minItems: 1`，必须同意需使用 `const: true`。校验失败保留原输入，显示字段错误并聚焦首个无效控件；修改后重新校验，无对应控件的错误在提交按钮旁显示一条简短提示，不在表单顶部重复汇总。
+
+有 responseSchema 的数字字段以 schema 为提交约束，不能只在组件配置 min/max/step 而省略 schema 中的 minimum/maximum/multipleOf。数字草稿中的未完成输入不能作为 null 提交。Slider 默认 step=1；小数场景声明正数 step，schema 的 multipleOf 优先，integer 使用整数步长。拖动时按步长生成实际数值，不仅格式化显示。已提交的历史答案不改写。
+
+等待交互响应时，输入区显示居中的锁定提示并保留草稿。宿主自定义输入控件必须消费同一锁定状态：React 在 Composer 后代中使用 `useComposerDisabled`（由 composer-react 和 chat-react 导出）；Vue 使用 `footerAddon` 作用域插槽的 `disabled`。修改会话输入的按钮使用原生 `disabled`，组合控件可用 `fieldset disabled` 与 `inert` 一起限制鼠标和键盘访问；只读用量指标不属于输入操作，可保持可查看。语音输入在锁定时取消录音或识别，快捷键同时停用。
+
+已完成的询问、审批和表单回执按对应工具调用 ID 排在工具之后，并在工具下方缩进展示。历史记录缺少回答时间时不依赖合成时间戳排序；点击回执仍可查看提交内容。React 与 Vue 共用 chat-core 的关联与排序逻辑。

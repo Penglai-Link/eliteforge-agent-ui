@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { GripVertical, Pencil, Send, Square, X, Plus } from "lucide-vue-next";
+import { GripVertical, LockKeyhole, Pencil, Send, Square, X, Plus } from "lucide-vue-next";
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import {
   suggestionQuery as getSuggestionQuery,
@@ -376,7 +376,7 @@ function handleComposerPaste(event: ClipboardEvent) {
         </li>
       </ol>
     </section>
-    <div class="ef-chat__composer">
+    <div class="ef-chat__composer" :data-input-disabled="disabledInput ? 'true' : undefined">
       <div
         v-if="
           suggestionQuery && !suggestionsDismissed && flatSuggestions.length
@@ -441,8 +441,13 @@ function handleComposerPaste(event: ClipboardEvent) {
       </div>
       <div
         class="ef-chat__composer-editor"
+        :data-input-locked="disabledInput && disabledInputReason ? 'true' : undefined"
         :data-has-tokens="hasTokens && !composerHasSelection ? 'true' : undefined"
       >
+      <div v-if="disabledInput && disabledInputReason" class="ef-chat__composer-disabled-reason" role="status">
+        <LockKeyhole :size="14" aria-hidden="true" />
+        <span>{{ disabledInputReason }}</span>
+      </div>
         <div class="ef-chat__composer-overlay" aria-hidden="true">
           <span
             v-for="(part, index) in overlayParts"
@@ -462,6 +467,7 @@ function handleComposerPaste(event: ClipboardEvent) {
           data-theme-anchor="chat-input"
           :autofocus="autoFocusComposer"
           :disabled="disabledInput"
+          :aria-description="disabledInput ? disabledInputReason : undefined"
           :placeholder="composerPlaceholder"
           :value="draft"
           :aria-keyshortcuts="
@@ -511,7 +517,7 @@ function handleComposerPaste(event: ClipboardEvent) {
               />
             </button>
           </template>
-          <slot name="footerAddon" />
+          <slot name="footerAddon" :disabled="disabledInput" />
         </div>
         <div class="ef-chat__composer-actions">
           <button

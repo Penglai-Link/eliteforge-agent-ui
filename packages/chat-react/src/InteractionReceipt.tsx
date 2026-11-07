@@ -23,7 +23,7 @@ export function InteractionReceipt({ message, actorName, hideMessageIdentity = f
     const above = rect.top > window.innerHeight - rect.bottom;
     Object.assign(panel.current.style, {
       width: `${Math.min(420, window.innerWidth - 24)}px`,
-      left: `${Math.max(12, Math.min(rect.right - 420, window.innerWidth - 432))}px`,
+      left: `${Math.max(12, Math.min(rect.left, window.innerWidth - Math.min(420, window.innerWidth - 24) - 12))}px`,
       top: above ? "auto" : `${rect.bottom + 8}px`,
       bottom: above ? `${window.innerHeight - rect.top + 8}px` : "auto",
       maxHeight: `${Math.max(80, (above ? rect.top : window.innerHeight - rect.bottom) - 24)}px`,

@@ -97,7 +97,7 @@ export interface ChatMessage {
   phase?: string | null;
   annotations?: ChatAnnotation[];
   /** Display-only response to an interaction; never sent as another chat turn. */
-  interactionResponse?: { kind?: "form" | "question" | "approval"; summaryLabel?: string; requestId: string; answeredAt?: number; rows: { label: string; value: string }[]; approval?: ChatApprovalResponse };
+  interactionResponse?: { toolCallId?: string; kind?: "form" | "question" | "approval"; summaryLabel?: string; requestId: string; answeredAt?: number; rows: { label: string; value: string }[]; approval?: ChatApprovalResponse };
   provenance?: MessageProvenance;
   /** Ordered A2UI protocol envelopes; persist alongside the message. */
   a2ui?: { messages: unknown[]; surfaceIds?: string[] };
@@ -219,6 +219,7 @@ export interface ChatUserInputAnswerInput {
 }
 
 export interface ChatUserInputLabels {
+  composerWaiting?: string;
   ariaLabel: string;
   progress: (current: number, total: number) => string;
   back: string;

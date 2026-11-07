@@ -10,6 +10,9 @@ import Ajv2020 from "ajv/dist/2020.js";
 import envelope from "./schemas/server_to_client.json";
 import common from "./schemas/common_types.json";
 import catalogSchema from "./schemas/catalog.json";
+import { compileResponseSchema, schemaIssues, FormValidationError, validationMessage, type FormValidationIssue } from "./response-validation";
+export { FormValidationError, compileResponseSchema, validationMessage } from "./response-validation";
+export type { FormValidationIssue } from "./response-validation";
 export const catalog: Record<string, any> = catalogSchema;
 export const agentCatalog: Record<string, any> = agentCatalogSchema;
 export const AGENT_CATALOG_ID = agentCatalog.catalogId as string;
@@ -74,6 +77,10 @@ export function readPath(model: any, path: string, scope = ""): any {
     model
   );
 }
+function absolutePath(path: string, scope = ""): string {
+  const parts = tokens(path, scope);
+  return parts.length ? "/" + parts.map(x => x.replace(/~/g, "~0").replace(/\//g, "~1")).join("/") : "";
+}
 function writePath(model: any, path: string, value: any, remove = false): any {
   const parts = tokens(path);
   if (!parts.length) return remove ? {} : copy(value);
@@ -106,6 +113,63 @@ function writePath(model: any, path: string, value: any, remove = false): any {
 }
 export class A2UIClient {
   private state: Snapshot = { version: VERSION, surfaces: {} };
+  private responseSchemas = new Map<string, { validate?: ReturnType<typeof compileResponseSchema>; contextKey: string }>();
+  private validationAttempts = new Map<string, { componentId: string; scope: string }>();
+  /** Register the authoritative interaction schema, outside the A2UI wire envelope. */
+  setResponseSchema(surfaceId: string, schema: unknown, contextKey = "response") {
+    this.surface(surfaceId);
+    try { this.responseSchemas.set(surfaceId, { validate: compileResponseSchema(schema), contextKey }); }
+    catch { this.responseSchemas.set(surfaceId, { contextKey }); }
+    this.validationAttempts.delete(surfaceId);
+    this.commit({ ...this.state });
+  }
+  hasResponseSchema(surfaceId: string) { return this.responseSchemas.has(surfaceId); }
+  private responseBindings(surfaceId: string) {
+    const contract = this.responseSchemas.get(surfaceId);
+    if (!contract?.validate) return [];
+    const validate = contract.validate;
+    return Object.values(this.surface(surfaceId).components).flatMap(component => {
+      const binding = component.action?.event?.context?.[contract.contextKey];
+      return typeof binding?.path === "string" ? [{ base: absolutePath(binding.path),
+        response: this.resolve(surfaceId, binding), validate }] : [];
+    });
+  }
+  requiredDataPaths(surfaceId: string): Set<string> {
+    return new Set(this.responseBindings(surfaceId).flatMap(({ base, response, validate }) =>
+      [...validate.requiredPaths(response)].map(path => base + path)));
+  }
+  fieldSchema(surfaceId: string, path: string): Record<string, any> {
+    const binding = this.responseBindings(surfaceId).find(({ base }) => path === base || path.startsWith(base + "/"));
+    return binding?.validate.fieldSchema(path.slice(binding.base.length), binding.response) ?? {};
+  }
+  private responseIssues(surfaceId: string, componentId: string, scope: string): FormValidationIssue[] {
+    const contract = this.responseSchemas.get(surfaceId);
+    if (!contract) return [];
+    if (!contract.validate) return [{ path: "", keyword: "schema", params: {} }];
+    const surface = this.surface(surfaceId);
+    const binding = surface.components[componentId]?.action?.event?.context?.[contract.contextKey];
+    const response = this.resolve(surfaceId, binding, scope) ?? null;
+    const base = object(binding) && typeof binding.path === "string" ? absolutePath(binding.path, scope) : undefined;
+    contract.validate(response);
+    const issues = schemaIssues(contract.validate.errors).map(issue => ({ ...issue,
+      ...(base !== undefined ? { dataPath: base + issue.path } : {}) }));
+    // A nullable schema must not accidentally submit the placeholder for an unfinished number.
+    for (const [key, state] of Object.entries(surface.viewState ?? {})) {
+      if (!state.numericDraft) continue;
+      const [id, fieldScope] = JSON.parse(key);
+      const component = surface.components[id];
+      if (component?.component !== "NumberField" || typeof component.value?.path !== "string") continue;
+      const dataPath = absolutePath(component.value.path, fieldScope);
+      if (base !== undefined && dataPath !== base && !dataPath.startsWith(base + "/")) continue;
+      issues.push({ path: base === undefined ? "" : dataPath.slice(base.length), dataPath,
+        keyword: "numericDraft", params: {} });
+    }
+    return issues;
+  }
+  getValidationIssues(surfaceId: string): FormValidationIssue[] {
+    const attempt = this.validationAttempts.get(surfaceId);
+    return attempt ? this.responseIssues(surfaceId, attempt.componentId, attempt.scope) : [];
+  }
   private listeners = new Set<() => void>();
   private expiryTimer?: ReturnType<typeof setTimeout>;
   private scheduleExpiry() {
@@ -188,6 +252,10 @@ export class A2UIClient {
       });
     }
     const next = temporary.exportSnapshot();
+    for (const id of this.responseSchemas.keys()) if (!next.surfaces[id]) {
+      this.responseSchemas.delete(id);
+      this.validationAttempts.delete(id);
+    }
     for (const [id, s] of Object.entries(snapshot.surfaces))
       if (s.viewState) {
         validateViewState(s.viewState);
@@ -233,7 +301,11 @@ export class A2UIClient {
     } else {
       if (!existing) throw new Error("Surface does not exist");
       const surface = next.surfaces[id];
-      if (operation === "deleteSurface") delete next.surfaces[id];
+      if (operation === "deleteSurface") {
+        delete next.surfaces[id];
+        this.responseSchemas.delete(id);
+        this.validationAttempts.delete(id);
+      }
       if (operation === "updateComponents") {
         const seen = new Set();
         for (const c of payload.components) {
@@ -429,8 +501,8 @@ export class A2UIClient {
       value !== null &&
       (typeof value !== "number" ||
         !Number.isFinite(value) ||
-        (c.min !== undefined && value < c.min) ||
-        (c.max !== undefined && value > c.max))
+        (!this.hasResponseSchema(surfaceId) && c.min !== undefined && value < c.min) ||
+        (!this.hasResponseSchema(surfaceId) && c.max !== undefined && value > c.max))
     )
       throw new Error("Invalid number");
     if (
@@ -480,6 +552,13 @@ export class A2UIClient {
       !event
     )
       throw new Error("No server action");
+    const issues = this.responseIssues(surfaceId, componentId, scope);
+    if (issues.length) {
+      this.validationAttempts.set(surfaceId, { componentId, scope });
+      this.commit({ ...this.state });
+      throw new FormValidationError(issues);
+    }
+    this.validationAttempts.delete(surfaceId);
     const context = Object.fromEntries(
       Object.entries(event.context ?? {}).map(([k, v]) => [
         k,
@@ -550,11 +629,19 @@ export type ActionHandler = (
 export function renderSurface<T>(
   client: A2UIClient,
   surfaceId: string,
-  element: (tag: string, props: Record<string, any>, children: any[]) => T,
+  makeElement: (tag: string, props: Record<string, any>, children: any[]) => T,
   registry: Record<string, (context: RenderContext) => any> = {},
   onAction?: ActionHandler
 ): any {
   if (!client.getSnapshot().surfaces[surfaceId]) return null;
+  const language = typeof document === "undefined" ? "zh-CN" : document.documentElement.lang;
+  const issues = client.getValidationIssues(surfaceId);
+  const requiredPaths = client.requiredDataPaths(surfaceId);
+  const fieldBindings = Object.values(client.surface(surfaceId).components)
+    .filter(c => typeof c.value?.path === "string").map(c => absolutePath(c.value.path));
+  const formIssue = issues.find(issue => !fieldBindings.some(path => issue.dataPath === path || issue.dataPath?.startsWith(path + "/"))
+    && !(["if", "anyOf", "oneOf"].includes(issue.keyword) && issues.some(other => other !== issue && other.path.startsWith(issue.path))));
+  let rootElement: HTMLElement | null = null;
   const occurrences = new Map<string, number>();
   function render(
     id: string,
@@ -564,7 +651,7 @@ export function renderSurface<T>(
   ): any {
     let c = client.surface(surfaceId).components[id];
     if (!c)
-      return element(
+      return makeElement(
         "span",
         { "data-a2ui-missing": id, "aria-busy": true },
         []
@@ -590,6 +677,45 @@ export function renderSurface<T>(
     const viewKey = occurrence === 0 ? bindingKey
       : JSON.stringify([id, JSON.stringify([scope, occurrence])]);
     const resolve = (v: any) => client.resolve(surfaceId, v, scope);
+    const fieldPath = typeof c.value?.path === "string" ? absolutePath(c.value.path, scope) : undefined;
+    const fieldIssues = fieldPath === undefined ? [] : issues.filter(issue => issue.dataPath === fieldPath
+      || issue.dataPath?.startsWith(fieldPath + "/"));
+    const errorId = `a2ui-error-${encodeURIComponent(JSON.stringify([surfaceId, viewKey]))}`;
+    const required = fieldPath !== undefined && requiredPaths.has(fieldPath);
+    const requiredLabel = required || (c.component === "Field" && componentReferences(c).some(childId => {
+      const binding = client.surface(surfaceId).components[childId]?.value;
+      return typeof binding?.path === "string" && requiredPaths.has(absolutePath(binding.path, scope));
+    }));
+    let markedRequired = false;
+    const element = (tag: string, attrs: Record<string, any>, childNodes: any[]): any => {
+      const control = fieldPath !== undefined && (["input", "textarea", "select", "button"].includes(tag));
+      if (requiredLabel && !markedRequired && ["label", "span", "div", "legend"].includes(tag)) {
+        const label = String(resolve(c.label) ?? "");
+        const labelIndex = label ? childNodes.findIndex(node => node === label) : -1;
+        if (labelIndex >= 0) {
+          childNodes = [...childNodes];
+          childNodes.splice(labelIndex, 1, makeElement("span", { class: "a2ui-field-label" }, [label,
+            makeElement("span", { class: "a2ui-required", "aria-hidden": true }, [" *"])]));
+          markedRequired = true;
+        }
+      }
+      const node = makeElement(tag, { ...attrs, ...(control ? {
+        "aria-label": attrs["aria-label"] || (!["ChoicePicker", "ToggleGroup"].includes(c.component)
+          && tag !== "button" ? String(resolve(c.label) || resolve(c.accessibility?.label) || "") || undefined : undefined),
+        "aria-required": required || undefined,
+        "aria-invalid": fieldIssues.length ? true : attrs["aria-invalid"],
+        "aria-describedby": fieldIssues.length ? [attrs["aria-describedby"], errorId].filter(Boolean).join(" ") : attrs["aria-describedby"],
+      } : {}) }, childNodes);
+      if (c.component === "Button" && formIssue && attrs["data-a2ui-component"] === id && c.action?.event) {
+        return makeElement("div", {}, [node, makeElement("div", { class: "a2ui-field-error a2ui-form-error", role: "alert", tabIndex: -1 }, [validationMessage(formIssue, language)])]);
+      }
+      // Keep the control's DOM position stable when an error appears or clears:
+      // replacing its parent would otherwise drop focus in the middle of typing.
+      return fieldPath !== undefined && attrs["data-a2ui-component"] === id
+        ? makeElement("div", { class: "a2ui-validated-field", "data-a2ui-invalid-field": fieldIssues.length ? true : undefined }, [node,
+          ...(fieldIssues.length ? [makeElement("div", { id: errorId, class: "a2ui-field-error", "aria-live": "polite" },
+            [...new Set(fieldIssues.map(issue => validationMessage(issue, language)))])] : [])]) : node;
+    };
     const children: any[] = [];
     const staticChildren: string[] = [
       ...(c.child ? [c.child] : []),
@@ -633,8 +759,20 @@ export function renderSurface<T>(
         localTrigger();
         return;
       }
-      const { message, metadata } = client.createAction(surfaceId, id, scope);
-      onAction?.(message, metadata);
+      const root = rootElement;
+      try {
+        const { message, metadata } = client.createAction(surfaceId, id, scope);
+        onAction?.(message, metadata);
+      } catch (error) {
+        if (!(error instanceof FormValidationError)) throw error;
+        // Both renderers commit asynchronously. Focus only after their error UI has rendered.
+        if (typeof requestAnimationFrame !== "undefined") requestAnimationFrame(() => {
+          if (!root?.isConnected) return;
+          const target = root.querySelector<HTMLElement>('[data-a2ui-invalid-field] input:not(:disabled), [data-a2ui-invalid-field] textarea:not(:disabled), [data-a2ui-invalid-field] select:not(:disabled), [data-a2ui-invalid-field] button:not(:disabled)')
+            ?? root.querySelector<HTMLElement>(".a2ui-form-error");
+          target?.focus();
+        });
+      }
     };
     const context: RenderContext = {
       client,
@@ -758,25 +896,39 @@ export function renderSurface<T>(
           },
           []
         );
-      case "Slider":
+      case "Slider": {
+        const schema = fieldPath === undefined ? {} : client.fieldSchema(surfaceId, fieldPath);
+        const lower = Math.max(c.min ?? 0, schema.minimum ?? -Infinity);
+        const upper = Math.min(c.max, schema.maximum ?? Infinity);
+        const step = schema.type === "integer" ? Math.max(1, schema.multipleOf ?? 1)
+          : schema.multipleOf ?? c.step ?? 1;
+        const base = schema.multipleOf ? 0 : lower;
+        const min = Number((base + Math.ceil((lower - base) / step) * step).toPrecision(12));
+        const max = Number((base + Math.floor((upper - base) / step) * step).toPrecision(12));
+        const snap = (number: number) => {
+          const first = Math.ceil((min - base) / step), last = Math.floor((max - base) / step);
+          const ticks = Math.min(last, Math.max(first, Math.round((number - base) / step)));
+          return Number((base + ticks * step).toPrecision(12));
+        };
         return element("label", props, [
           label,
           element(
             "input",
             {
               type: "range",
-              min: c.min ?? 0,
-              max: c.max,
-              step: "any",
+              min,
+              max,
+              step,
               value: value ?? c.min ?? 0,
-              disabled: !bound,
+              disabled: !bound || min > max,
               "aria-label": label || props["aria-label"] || "滑块",
-              onInput: (e: any) => setValue(Number(e.target.value)),
+              onInput: (e: any) => setValue(snap(Number(e.target.value))),
             },
             []
           ),
           element("output", {}, [String(value ?? c.min ?? 0)]),
         ]);
+      }
       case "DateTimeInput": {
         const type = dateInputType(c);
         return element("label", props, [
@@ -810,7 +962,15 @@ export function renderSurface<T>(
           {
             ...props,
             type: "button",
-            onClick: localTrigger ?? dispatch,
+            "data-a2ui-form-action": client.hasResponseSchema(surfaceId) && c.action?.event ? true : undefined,
+            onClick: localTrigger ?? ((event: { currentTarget?: HTMLElement }) => {
+              // Keep an invalid numeric draft on screen and focus its inline
+              // error instead of sending the null placeholder to the server.
+              const invalid = !client.hasResponseSchema(surfaceId) && event.currentTarget?.closest(".a2ui-surface")
+                ?.querySelector<HTMLElement>('input[aria-invalid="true"]:not(:disabled)');
+              if (invalid) { invalid.focus(); return; }
+              dispatch();
+            }),
             "data-variant": c.variant ?? "default",
           },
           children
@@ -884,7 +1044,9 @@ export function renderSurface<T>(
         return element("span", { "data-a2ui-unsupported": c.component }, []);
     }
   }
-  return element("div", { class: "a2ui-surface", "data-theme-part": "a2ui" }, [
+  return makeElement("div", { class: "a2ui-surface", "data-theme-part": "a2ui",
+    "data-a2ui-response-form": client.hasResponseSchema(surfaceId) ? true : undefined,
+    ref: (node: HTMLElement | null) => { rootElement = node; } }, [
     render("root"),
   ]);
 }

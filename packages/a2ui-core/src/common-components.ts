@@ -51,6 +51,20 @@ function text(value: any): string {
     ? JSON.stringify(value)
     : String(value);
 }
+function numberDraftError(c: Component, draft: string, zh: boolean): string {
+  if (!draft) return "";
+  const number = Number(draft);
+  if (!/^-?\d*(?:\.\d*)?\d$/.test(draft) || !Number.isFinite(number))
+    return zh ? "请输入完整的数字。" : "Enter a complete number.";
+  if (c.min !== undefined && number < c.min)
+    return zh ? `数值不能小于 ${c.min}。` : `Value must be at least ${c.min}.`;
+  if (c.max !== undefined && number > c.max)
+    return zh ? `数值不能大于 ${c.max}。` : `Value must be at most ${c.max}.`;
+  const quotient = c.step ? (number - (c.min ?? 0)) / c.step : 0;
+  if (c.step && Math.abs(quotient - Math.round(quotient)) >= 1e-9)
+    return zh ? `请从 ${c.min ?? 0} 起按 ${c.step} 的步长输入。` : `Use increments of ${c.step} starting at ${c.min ?? 0}.`;
+  return "";
+}
 export function renderCommon(
   ctx: RenderContext,
   h: Element,
@@ -320,15 +334,24 @@ export function renderCommon(
           [h("summary", {}, [text(resolve(c.title))]), h("div", { "data-agent-motion": "enter", "data-agent-motion-key": String(view.open ?? c.defaultOpen ?? false), "data-agent-motion-disabled": !(view.open ?? c.defaultOpen ?? false) }, children)]
         )
       );
-    case "NumberField":
+    case "NumberField": {
+      const schemaDriven = ctx.client.hasResponseSchema(surfaceId);
+      const draft = value == null ? (view.numericDraft ?? "") : String(value);
+      const zh = typeof document === "undefined" || !document.documentElement.lang
+        || document.documentElement.lang.toLowerCase().startsWith("zh");
+      const error = schemaDriven ? "" : numberDraftError(c, draft, zh);
+      const errorId = `a2ui-number-error-${encodeURIComponent(JSON.stringify([surfaceId, ctx.viewKey]))}`;
       return done(
         h("label", props, [
           label,
           h("input", {
             type: "text",
             inputMode: "decimal",
-            value: value == null ? (view.numericDraft ?? "") : String(value),
+            value: draft,
             readOnly: !bound,
+            "aria-label": label || props["aria-label"],
+            "aria-invalid": error ? true : undefined,
+            "aria-describedby": error ? errorId : undefined,
             onInput: (event: any) => {
               const input = event.currentTarget as HTMLInputElement;
               const draft = input.value;
@@ -348,7 +371,7 @@ export function renderCommon(
               const step = c.step;
               const quotient = step ? (number - (c.min ?? 0)) / step : 0;
               const onStep = !step || Math.abs(quotient - Math.round(quotient)) < 1e-9;
-              if (complete && inRange && onStep) {
+              if (complete && (schemaDriven || (inRange && onStep))) {
                 setValue(number);
                 setView({});
               } else {
@@ -357,8 +380,10 @@ export function renderCommon(
               }
             },
           }, []),
+          ...(error ? [h("span", { id: errorId, class: "a2ui-field-error", role: "alert" }, [error])] : []),
         ])
       );
+    }
     case "Switch":
       return done(
         h("label", props, [

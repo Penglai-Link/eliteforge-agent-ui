@@ -974,7 +974,13 @@ function anchorMessageCodeForAguiRun(
   if (liveAnchorMessageCode && messages.some((message) => message.messageId === liveAnchorMessageCode)) {
     return liveAnchorMessageCode;
   }
-  const nativeIds = new Set(events.map(historyEventRunId));
+  const nativeIds = new Set(events.map(historyEventRunId).filter(Boolean));
+  nativeIds.add(runId);
+  // A failed run may have no assistant message. Its user message still owns
+  // the failure; never attach that historical error to the latest question.
+  const user = messages.find(message => message.role === "USER"
+    && (nativeIds.has(message.runId ?? "") || nativeIds.has(message.history?.run?.id ?? "")));
+  if (user) return user.messageId;
   const textIds = new Set(events.flatMap(event => "messageId" in event ? [event.messageId] : []));
   const assistantIndex = messages.findIndex((message) => (
     message.role === "ASSISTANT" && (message.runId === runId || nativeIds.has(message.runId ?? "") || textIds.has(message.messageId))
@@ -985,7 +991,17 @@ function anchorMessageCodeForAguiRun(
     if (previousMessage.role === "ASSISTANT") return previousMessage.messageId;
     return userMessageCodeBeforeIndex(messages, assistantIndex - 1);
   }
-  return userMessageCodeBeforeIndex(messages, messages.length - 1);
+  const started = events.map(aguiEventMillis).filter((value): value is number => value !== null);
+  const firstMillis = started.length ? Math.min(...started) : null;
+  if (firstMillis !== null) {
+    for (let index = messages.length - 1; index >= 0; index -= 1) {
+      const message = messages[index];
+      // Timestamp matching is only for legacy messages without run identity.
+      if (message.role === "USER" && !message.runId && !message.history?.run
+        && Date.parse(message.createdAt) <= firstMillis) return message.messageId;
+    }
+  }
+  return "";
 }
 
 export function aguiWorkRailsByMessageCode(

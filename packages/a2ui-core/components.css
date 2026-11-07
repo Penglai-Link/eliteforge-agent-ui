@@ -4,6 +4,11 @@
 @import "../chat-theme/src/primitives.css";
 
 .a2ui-surface {
+  box-sizing: border-box;
+  inline-size: 100%;
+  max-inline-size: var(--agent-ui-a2ui-surface-max-width, 56rem);
+  min-inline-size: 0;
+  container: a2ui / inline-size;
   font-family: var(--_agent-ui-font);
   font-size: var(--agent-ui-system-font-size, 16px);
   color: var(
@@ -11,6 +16,79 @@
     var(--color-on-surface, #1c1b1b)
   );
   line-height: var(--agent-ui-a2ui-surface-line-height, 1.5);
+}
+/* A readable form measure, shared by standalone, chat and floating-window hosts. */
+.a2ui-surface[data-a2ui-response-form] {
+  max-inline-size: var(--agent-ui-a2ui-form-max-width, 36rem);
+  padding: var(--agent-ui-a2ui-form-padding, clamp(0.875rem, 2.5%, 1.25rem));
+  border: 1px solid var(--a2ui-border, var(--color-outline-variant, #e5e5e5));
+  border-radius: var(--agent-ui-a2ui-form-radius, 0.875rem);
+  background: var(--agent-ui-a2ui-form-background,
+    var(--agent-ui-a2ui-color-surface-container-lowest, var(--color-surface-container-lowest, #fff)));
+}
+.a2ui-surface[data-a2ui-response-form] > .a2ui-card {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.a2ui-surface[data-a2ui-response-form] .a2ui-column {
+  gap: var(--agent-ui-a2ui-form-gap, 1rem);
+}
+.a2ui-surface[data-a2ui-response-form] :is(.a2ui-field, .a2ui-textfield, .a2ui-numberfield, .a2ui-select, .a2ui-textarea, .a2ui-slider) {
+  gap: 0.375rem;
+  min-inline-size: 0;
+}
+.a2ui-surface[data-a2ui-response-form] :is(input:not([type="checkbox"]):not([type="radio"]), textarea, select) {
+  box-sizing: border-box;
+  inline-size: 100%;
+  min-inline-size: 0;
+  max-inline-size: 100%;
+}
+.a2ui-surface[data-a2ui-response-form] .a2ui-field > small {
+  font-size: 0.8125rem;
+  line-height: 1.45;
+}
+.a2ui-surface[data-a2ui-response-form] .a2ui-slider {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  column-gap: 0.75rem;
+}
+.a2ui-surface[data-a2ui-response-form] .a2ui-slider > input {
+  grid-column: 1;
+  grid-row: 2;
+}
+.a2ui-surface[data-a2ui-response-form] .a2ui-slider > output {
+  grid-column: 2;
+  grid-row: 2;
+  min-inline-size: 3ch;
+  text-align: end;
+  font-variant-numeric: tabular-nums;
+  font-size: 0.8125rem;
+  font-weight: 400;
+}
+.a2ui-surface[data-a2ui-response-form] .a2ui-button[data-a2ui-form-action] {
+  align-self: flex-start;
+  justify-self: start;
+  inline-size: auto;
+  min-inline-size: 6rem;
+  max-inline-size: 100%;
+  margin-block-start: 0.25rem;
+  padding-inline: 1.25rem;
+  white-space: normal;
+}
+/* Use the actual panel width: a narrow Dude on a desktop is still a narrow form. */
+@container a2ui (max-width: 30rem) {
+  .a2ui-grid { grid-template-columns: minmax(0, 1fr); }
+  .a2ui-row > * { min-inline-size: 0; max-inline-size: 100%; }
+}
+@container a2ui (max-width: 22rem) {
+  .a2ui-surface[data-a2ui-response-form] .a2ui-button[data-a2ui-form-action] {
+    inline-size: 100%;
+    align-self: stretch;
+  }
 }
 .a2ui-row,
 .a2ui-column {
@@ -647,6 +725,13 @@
 .a2ui-surface :is(input, select, textarea)[aria-invalid="true"] {
   border-color: var(--agent-ui-a2ui-color-error, var(--color-error, #ba1a1a));
 }
+.a2ui-surface .a2ui-field-error {
+  color: var(--agent-ui-a2ui-color-error, var(--color-error, #ba1a1a));
+  font-size: 0.875em;
+}
+.a2ui-surface .a2ui-validated-field { min-width: 0; }
+.a2ui-surface .a2ui-field-label { display: inline; }
+.a2ui-surface .a2ui-required { color: var(--a2ui-error-color, #b42318); }
 .a2ui-modal dialog::backdrop {
   background: var(--color-backdrop-scrim, rgba(15, 23, 42, 0.24));
 }

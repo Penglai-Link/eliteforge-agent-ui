@@ -9,7 +9,8 @@ import {
   type ReactNode,
   type Ref,
 } from "react";
-import { FileText, GripVertical, Plus, Pencil, Send, Square, X } from "lucide-react";
+import { ComposerDisabledContext } from "./disabledState";
+import { FileText, GripVertical, LockKeyhole, Plus, Pencil, Send, Square, X } from "lucide-react";
 import {
   attachmentLabel,
   attachmentTypeLabel,
@@ -173,6 +174,7 @@ export function Composer({
   composerKey,
   autoFocusComposer = false,
   disabledInput = false,
+  disabledInputReason,
   inputSuggestions = [],
   skillSuggestionTriggers,
   inputSuggestionLabels = {
@@ -336,6 +338,7 @@ export function Composer({
   }
 
   return (
+    <ComposerDisabledContext.Provider value={disabledInput}>
     <div
       className="ef-composer"
       data-theme-part="composer"
@@ -444,7 +447,7 @@ export function Composer({
           </ol>
         </section>
       ) : null}
-      <div className="ef-chat__composer">
+      <div className="ef-chat__composer" data-input-disabled={disabledInput ? "true" : undefined}>
         {suggestionQuery && suggestionsOpen && flatSuggestions.length ? (
           <div
             className="ef-chat__suggestions"
@@ -509,8 +512,15 @@ export function Composer({
         ) : null}
         <div
           className="ef-chat__composer-editor"
+          data-input-locked={disabledInput && disabledInputReason ? "true" : undefined}
           data-has-tokens={hasTokens && !composerHasSelection ? "true" : undefined}
         >
+        {disabledInput && disabledInputReason ? (
+          <div className="ef-chat__composer-disabled-reason" role="status">
+            <LockKeyhole size={14} aria-hidden="true" />
+            <span>{disabledInputReason}</span>
+          </div>
+        ) : null}
           <div className="ef-chat__composer-overlay" aria-hidden="true">
             {overlayParts.map((part, index) =>
               part.displayName !== null ? (
@@ -532,6 +542,7 @@ export function Composer({
             data-theme-part="chat-input"
             data-theme-anchor="chat-input"
             disabled={disabledInput}
+            aria-description={disabledInput ? disabledInputReason : undefined}
             placeholder={composerPlaceholder}
             value={draft}
             onChange={(event) => {
@@ -696,5 +707,6 @@ export function Composer({
         </div>
       </div>
     </div>
+    </ComposerDisabledContext.Provider>
   );
 }

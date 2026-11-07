@@ -70,6 +70,7 @@ import {
   type ChatSession,
   type ChatToolWorkLabels,
   type ChatUserInputAnswer,
+  waitingInputComposerLabel,
   type ChatUserInputLabels,
   type ChatUserInputRequest,
   type ChatWorkRailLabels,
@@ -1754,7 +1755,8 @@ export function ChatPanel({
               autoFocusComposer={autoFocusComposer}
               composerRef={composerRef}
               composerHeader={composerHeader}
-              disabledInput={disabledInput}
+              disabledInput={disabledInput || userInputRequest?.status === "Pending"}
+              disabledInputReason={userInputRequest?.status === "Pending" ? (userInputLabels?.composerWaiting ?? waitingInputComposerLabel(locale)) : undefined}
               draft={annotationDraft.content}
               footerAddon={footerAddon}
               inputPlaceholder={inputPlaceholder}

@@ -1,10 +1,9 @@
 import { useEffect, useMemo } from "react";
-import { A2UIClient } from "@eliteforge/agent-ui-a2ui-core";
 import { A2UISurface } from "@eliteforge/agent-ui-a2ui-react";
-import { interactionEnvelopes, type ChatUserInputAnswer, type ChatUserInputLabels, type ChatUserInputRequest } from "@eliteforge/agent-ui-chat-core";
+import { createInteractionClient, type ChatUserInputAnswer, type ChatUserInputLabels, type ChatUserInputRequest } from "@eliteforge/agent-ui-chat-core";
 export function ChatUserInputCard({ disabled = false, labels, onSubmit, request }: { disabled?: boolean; labels?: ChatUserInputLabels; onSubmit: (answers: ChatUserInputAnswer[]) => void; request: ChatUserInputRequest }) {
-  const presentationKey = JSON.stringify([request.a2uiInteraction ?? null, request.intro, request.nativeInteraction?.details, request.answers, labels ?? null]);
-  const client = useMemo(() => { const c = new A2UIClient(); for (const envelope of request.a2uiInteraction?.messages ?? interactionEnvelopes(request, labels)) c.apply(envelope); return c; }, [request.requestId, presentationKey]);
+  const presentationKey = JSON.stringify([request.a2uiInteraction ?? null, request.intro, request.nativeInteraction?.details, request.nativeInteraction?.responseSchema, request.answers, labels ?? null]);
+  const client = useMemo(() => createInteractionClient(request, labels), [request.requestId, presentationKey]);
   const surfaceId = request.a2uiInteraction?.surfaceId ?? `interaction:${request.requestId}`;
   useEffect(() => { if (request.a2uiInteraction) return; client.apply({ version: "v0.9.1", updateDataModel: { surfaceId, path: "/status", value: disabled ? "Submitting" : request.status } }); }, [client, disabled, request.status, surfaceId]);
   return <fieldset className="ef-chat__a2ui" disabled={disabled || request.status !== "Pending" || Boolean(request.expiresAtMs && request.expiresAtMs <= Date.now())} style={{border:0,margin:0,padding:0,minWidth:0}}><A2UISurface client={client} surfaceId={surfaceId} onAction={message => {

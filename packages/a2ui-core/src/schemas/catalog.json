@@ -540,6 +540,12 @@
               "type": "number",
               "description": "The maximum value of the slider."
             },
+            "step": {
+              "type": "number",
+              "exclusiveMinimum": 0,
+              "default": 1,
+              "description": "Slider increment. Defaults to whole numbers; response schema multipleOf takes precedence."
+            },
             "value": {
               "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicNumber",
               "description": "The current value of the slider."
