@@ -34,31 +34,31 @@ Terminal 组件
 
 ## 2. 安装
 
-这些包的发布配置指向内部 npm registry。包发布后，在消费项目配置 `.npmrc`：
+这些包通过 `@personai` 作用域发布到公共 npm。在消费项目配置 `.npmrc`：
 
 ```ini
-@eliteforge:registry=http://nexus.cisdigital.cn/repository/npm-internal/
+@personai:registry=https://registry.npmjs.org/
 ```
 
-然后按需安装。React 聊天示例：
+按需安装并固定同一版本。以下以当前仓库版本 `1.0.0-preview.3` 为例；升级时同时更新所有使用的 Agent UI 包和锁文件。React 聊天示例：
 
 ```sh
-npm install @personai/agent-ui-chat-react @personai/agent-ui-chat-core @personai/agent-ui-chat-theme
+npm install --save-exact @personai/agent-ui-chat-react@1.0.0-preview.3 @personai/agent-ui-chat-core@1.0.0-preview.3 @personai/agent-ui-chat-theme@1.0.0-preview.3
 ```
 
 Vue 聊天示例：
 
 ```sh
-npm install @personai/agent-ui-chat-vue @personai/agent-ui-chat-core @personai/agent-ui-chat-theme
+npm install --save-exact @personai/agent-ui-chat-vue@1.0.0-preview.3 @personai/agent-ui-chat-core@1.0.0-preview.3 @personai/agent-ui-chat-theme@1.0.0-preview.3
 ```
 
 终端示例：
 
 ```sh
-npm install @personai/agent-ui-terminal
+npm install --save-exact @personai/agent-ui-terminal@1.0.0-preview.3
 ```
 
-安装时还要满足对应包声明的 React、Vue 和 xterm peer dependencies。当前仓库尚未发布这些包；发布前可在本仓库运行模拟宿主演示。
+安装时还要满足对应包声明的 React、Vue 和 xterm peer dependencies。chat-theme 包含全局根色板与页面样式；已有设计系统可省略该包及其 import，改为提供公开 CSS 变量。终端安装脚本会修补 xterm 输入法行为，使用受限安装脚本策略时应核查并允许该包所需脚本。
 
 ## 3. 接入聊天组件
 
@@ -232,6 +232,8 @@ const terminal = initTerminal({
 terminal.dispose();
 ```
 
+`1.0.0-preview.3` 起，返回实例提供 `clear()`、`getSelection()` 和 `focus()`，用于 xterm 清屏、读取选中文本和聚焦输入；详见终端包 README。`1.0.0-preview.2` 不包含这些方法。
+
 AI 是可选的：省略 `ai` 后，普通终端仍可使用。`createTerminalTransport` 使用 Socket.IO 连接 PTY 服务；若现有服务不是兼容协议，请实现并注入 `TerminalTransport`。若要自定义 AI 通信方式，实现 `AITransport` 的 `request` 和 `stream` 方法。
 
 终端服务至少要负责认证用户、授权工作目录、安全创建 PTY、限制资源并在会话结束时回收进程。不要把 shell 启动权限或服务端凭据放进浏览器代码。`dispose()` 会释放终端、传输和未完成的 AI 请求。
@@ -260,7 +262,7 @@ AG-UI 正文始终显示为独立消息，包括未声明 `phase` 的模型输�
 
 - 聊天主题：先引入 `@personai/agent-ui-chat-theme`，再用 CSS 变量覆盖颜色和边框。
 - React 聊天组件提供 `headerContent`、`sidebarContent`、`footerAddon` 等扩展点；Vue 组件提供对应插槽。
-- 终端可通过 `terminalOptions`、`themeTokens`、`locale` 和 `messages` 设置终端外观及文案。
+- 终端可通过 `terminalOptions.themeTokens`、其他 `terminalOptions`、`locale` 和 `messages` 设置终端外观及文案。
 - 聊天历史时间轴在视口宽度不超过 900px 时自动隐藏。
 
 ## 6. 本地调试
@@ -297,4 +299,4 @@ React/Vue 聊天组件提供 `data-theme-anchor="chat"`、`chat-input`、`chat-m
 避免终端过滤 reasoning 时一并丢掉工具执行结果。
 
 Tron 的初始接入使用公共 chat 与 terminal 渲染器，Tron 自己维护 `@tron/chat-agent-ui-adapter`、认证、业务 API 和服务端 PTY。
-公共项目修复需要在这里验证后由宿主更新依赖；不能让宿主复制渲染器。当前联合开发使用显式本地路径，发布依赖需另行固定版本。
+公共项目修复需要在这里验证后由宿主更新依赖；不能让宿主复制渲染器。宿主通过 npm 安装统一的明确版本，不依赖本地 Agent UI 源码目录或 `.agent-deps/agent-ui` 软链接。

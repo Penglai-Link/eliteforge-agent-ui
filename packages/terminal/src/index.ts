@@ -403,6 +403,18 @@ export function initTerminal(options: ChatTerminalOptions) {
       aiTransport?.dispose?.();
       termInstance.dispose();
     },
+    /** Clears xterm's buffer while keeping the current prompt line and PTY session. */
+    clear(): void {
+      termInstance.terminal.clear();
+    },
+    /** Returns selected terminal text, or an empty string when nothing is selected. */
+    getSelection(): string {
+      return termInstance.terminal.getSelection();
+    },
+    /** Focuses the terminal input without reconnecting its transport. */
+    focus(): void {
+      termInstance.terminal.focus();
+    },
     /** Runs a command through the real prompt, producing a normal block. */
     executeCommand(command: string) {
       return termInstance.executeCommand(command);

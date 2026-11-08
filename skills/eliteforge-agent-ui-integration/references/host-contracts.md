@@ -1,0 +1,105 @@
+# 宿主运行契约
+
+## 职责与数据流
+
+```mermaid
+flowchart LR
+  UI[Chat / Composer / A2UI] <-->|公共类型、回调| Adapter[宿主 adapter 与状态]
+  Adapter <-->|认证、实体转换、流事件| API[宿主业务与 Agent 服务]
+  Terminal[Terminal] <-->|TerminalTransport / AITransport| Transport[宿主或默认传输实现]
+  Transport <-->|PTY / AI 协议| Server[宿主服务端]
+```
+
+## ChatAdapter
+
+从 `@personai/agent-ui-chat-core` 导入类型。必需成员为 `capabilities`、`createSession`、`deleteSession`、`loadMessages`、`loadAguiEvents`、`streamMessage`；具体参数与返回值以目标版本类型声明为准，尤其 `deleteSession` 返回 `ChatSession` 而非 void。
+
+| 可选能力 | 对应实现与约束 |
+| --- | --- |
+| 结构化历史 | `loadHistory` 返回权威 `SessionHistory`；常规读取不再靠重放协议拼装历史 |
+| 运行恢复 | `supportsActiveRun` + `getActiveRun`；保留 run 身份及观察状态 |
+| 协议回放 | `supportsProtocolReplay` + `loadProtocolEvents`；与普通历史读取区分 |
+| 真正停止 | `supportsStop` + `stopRun`，调用后端停止运行 |
+| 运行中调整 | `supportsSteer` + `steerMessage`，保留运行上下文 |
+| 用户问题 | `supportsUserInputRequests` + `loadUserInputRequests` / `answerUserInputRequestStream` |
+| 附件 | `uploadAttachment` / `downloadAttachment`；请求、鉴权与存储由宿主处理 |
+| A2UI | `loadA2uiState` / `sendA2uiActionStream`；宿主恢复状态并路由操作 |
+| 删除历史轮次 | `deleteTurn(sessionId, {rootRunId, expectedVersion}, signal)`；后端保证版本检查及业务删除语义 |
+
+只有后端具备对应能力时才启用标志/方法；不要用成功返回的空实现假装支持。`supportsAbort` 表示观察请求可中断，不能替代 `supportsStop`。`streamMessage` 的 AbortSignal 用于断开浏览器观察，宿主拥有的运行只由停止接口取消。
+
+### 流、历史与错误
+
+- 保留 `TEXT_MESSAGE_START`、`TEXT_MESSAGE_CONTENT`、`TEXT_MESSAGE_END` 的稳定 `messageId` 并实时转发 `handlers.onAguiEvent`；历史使用同一 ID，不能等整轮结束后再拆成卡片。
+- 老适配器可调用 `onDelta`。同一内容同时发送两种回调时先 AG-UI 再裸文本，避免镜像增量重复。
+- 保留事件 ID、executionId、sourceSequence、工具调用 ID 与运行身份；不要只按时间戳排序后丢弃源顺序。续跑可有不同 executionId。
+- `TEXT_MESSAGE_END` 只关闭一条消息，不等同于整轮成功。失败、取消、等待输入时保留已收正文，不伪造成功结果。
+- 将宿主错误映射为 `ChatAdapterError`，保留 code/status/details。`rejectedBeforeAdmission` 只有后端保证输入尚未保存或执行时才能设为 true，避免队列重复发送。
+- 问答与恢复请求的 question/option ID 要双向映射，包含 `resume[].payload.answers` 的嵌套字段；metadata 不替代后端权限检查。
+
+源码导航：`packages/chat-core/src/{types,history,a2ui}.ts`、两端 ChatRuntimeWindow、`docs/integration-guide.md`、`docs/chat-a2ui.md`。
+
+## 独立 Composer
+
+使用 `composer-react` / `composer-vue` 导出的 `Composer`。`draft` 由宿主控制；React 使用 `onDraftChange`，Vue 使用 `draft-change`。发送回调区分 `send`、`queue`、`steer`；运行中可用模式通过 `runningSubmitModes` 配置，不能把界面显示的 steer 当成后端能力。
+
+宿主实现上传、发送、停止、队列存储与排序等回调。输入法确认不应发送，Shift+Enter 换行；`/` 查询命令/技能，`$` 仅查询技能。不要只改可见文本而破坏草稿中的技能标识。React/Vue 的参数细节以各自 Props 与事件声明为准。
+
+源码导航：`packages/composer-core/src/types.ts`、两端 Composer、`docs/composer.md`、各包 README。
+
+## 独立 A2UI 与聊天集成
+
+```ts
+import { A2UIClient, CATALOG_ID } from '@personai/agent-ui-a2ui-core';
+const client = new A2UIClient();
+client.apply({ version: 'v0.9.1', createSurface: {
+  surfaceId: 'profile', catalogId: CATALOG_ID, sendDataModel: true,
+}});
+```
+
+这里的 `v0.9.1` 是 schema 要求的协议版本，不能改成 `1.0.0-preview.3`。展示完整内容还需后续组件与数据消息。以同版本 core 导出的 Catalog/schema 为准，不宣称支持整个官方 Basic Catalog。
+
+- 宿主解析 JSONL/SSE 字节流后，每次把一个完整消息交给 `apply`；捕获校验错误，不直接传入网络 chunk。
+- React/Vue 使用 `A2UISurface`，提供 client 和 surfaceId，并处理 `onAction(message, metadata)`（Vue 属性 `on-action`）。宿主路由业务、Agent 和审批；组件不自行请求服务。
+- `sendDataModel` 的内容位于 `metadata.a2uiClientDataModel.surfaces`。订阅返回的取消函数要释放；快照恢复使用 `exportSnapshot` / `importSnapshot`。
+- 自定义组件要同时注册 Catalog schema 与渲染器；仅加渲染函数不会绕过校验。QuestionCard / ApprovalCard 收集用户选择，审批授权仍在后端。
+- Chat 集成通过 adapter 的 A2UI 状态与 action 方法承接，避免重新实现第二套聊天渲染链。
+
+源码导航：`packages/a2ui-core/src/index.ts` 及 schemas、两端 A2UI 导出、`docs/a2ui-client.md`、`docs/chat-a2ui.md`。
+
+## Motion 与主题
+
+用 `MotionProvider` 传入宿主保存的偏好；基础示例 `config={{ mode: 'system', duration: 180, distance: 8 }}`。Chat/A2UI 两端都重导出 Provider；独立效果使用 `AgentMotion`。
+
+`off` / `reduced` 显示静态内容，祖先关闭不可由子 Provider 重开。仅明确的 `replayKey` / preset 变化重播，不能用 key 重建输入表单；自定义 effects 必须尊重 enabled 和局部清理。更多参数与主题变量见 `docs/motion.md`。修改公共主题时使用主题 skill；消费方只覆盖公开变量与挂点。
+
+## Terminal
+
+在 DOM 挂载后初始化，容器需有可用尺寸：
+
+```ts
+import { initTerminal, createTerminalTransport } from '@personai/agent-ui-terminal';
+import '@personai/agent-ui-terminal/styles.css';
+
+const terminal = initTerminal({
+  el: terminalElement,
+  transport: {
+    terminal: createTerminalTransport({ url: terminalEndpoint }),
+  },
+  locale: 'zh-CN',
+  onError: reportError,
+});
+// 在宿主卸载/关闭回调中执行：
+// terminal.dispose();
+```
+
+示例中的元素、地址、错误处理由宿主提供。默认 PTY transport 是 Socket.IO，不是任意 WebSocket 协议；默认 AI transport 为 SSE。协议不兼容时实现 `TerminalTransport` / `AITransport`，AI 可选，缺省不影响普通终端。
+
+初始化主题通过 `terminalOptions.themeTokens`，运行中用 `setThemeTokens` / `resetTheme` / `refreshTheme`；语言通过 `locale` / `messages` 和返回实例的方法更新。关闭时调用 `dispose()` 释放 xterm 和传输；宿主传输实现也需落实请求取消和资源清理，服务端负责 PTY 回收。
+
+源码导航：`packages/terminal/src/index.ts`、`src/transport/{types,protocol}.ts`、`src/terminal/types/themes.ts`、终端 README。
+
+
+从 `1.0.0-preview.3` 开始，`initTerminal()` 返回实例还提供 `clear(): void`、`getSelection(): string`、`focus(): void`；旧的 `1.0.0-preview.2` 没有这三个方法。升级后直接调用返回实例，不导入未导出的内部 Terminal 类，也不用类型强转伪造接口。
+
+`clear()` 委托 xterm 清空缓冲区并保留当前提示行，不向 shell 发送命令，不停止 PTY 或删除宿主历史；`getSelection()` 未选中文本时返回空字符串；`focus()` 聚焦现有输入。三者保留主题和语言，销毁后不再调用。为宿主提供清屏/复制/聚焦按钮时，分别使用这些接口，并验证焦点、选择文本和终端连接仍正常。

@@ -5,7 +5,7 @@
 ## 安装
 
 ```sh
-npm install @personai/agent-ui-terminal
+npm install --save-exact @personai/agent-ui-terminal@1.0.0-preview.3
 ```
 
 应用入口需导入 `@personai/agent-ui-terminal/styles.css`。包内 `npm run dev` 提供本地模拟宿主演示。
@@ -37,6 +37,26 @@ terminal.dispose();
 ```
 
 `createTerminalTransport` 使用 Socket.IO 连接远端 PTY。服务端负责安全地创建并管理 shell 进程；浏览器组件只发送终端输入、尺寸变化和信号。连接地址、认证、租户信息和进程启动策略均由宿主决定。
+
+## 实例控制
+
+`initTerminal()` 返回可直接调用的实例，无需获取内部 Terminal 类或 xterm 对象。以下三个方法从 `1.0.0-preview.3` 开始提供，`1.0.0-preview.2` 不包含它们。
+
+| 方法 | 返回值 | 行为 |
+| --- | --- | --- |
+| `clear()` | `void` | 调用 xterm 清屏，清除缓冲区并保留当前提示行；不向 shell 发送 clear 命令、不停止 PTY，也不删除宿主历史 |
+| `getSelection()` | `string` | 读取终端选中的文本；未选择时返回空字符串 |
+| `focus()` | `void` | 聚焦终端输入；不重建实例或连接 |
+
+```ts
+terminal.clear();
+const selectedText = terminal.getSelection();
+terminal.focus();
+```
+
+这些方法在实例存活期间使用；关闭后调用 `dispose()`，不要继续操作已销毁的实例。三个方法均保留当前主题和语言设置。
+
+主题初始化放在 `terminalOptions.themeTokens`；运行中通过 `setThemeTokens(tokens)` 更新，通过 `resetTheme()` 清除覆盖，通过 `refreshTheme()` 将当前 CSS 颜色同步到 xterm。`setLocale()` / `setMessages()` 更新文案。
 
 ## 自定义传输
 
