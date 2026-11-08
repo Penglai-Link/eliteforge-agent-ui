@@ -13,5 +13,5 @@ export type {
 
 export { ChatPanel, ChatRuntimeWindow, ChatWindow };
 
-export { MotionProvider, AgentMotion, useMotion } from "@eliteforge/agent-ui-motion-vue";
-export type { MotionConfig, MotionEffects, MotionPreset, ResolvedMotion } from "@eliteforge/agent-ui-motion-vue";
+export { MotionProvider, AgentMotion, useMotion } from "@personai/agent-ui-motion-vue";
+export type { MotionConfig, MotionEffects, MotionPreset, ResolvedMotion } from "@personai/agent-ui-motion-vue";

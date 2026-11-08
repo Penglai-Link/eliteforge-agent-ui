@@ -11,7 +11,7 @@ import {
   startQueuedMessageDrag,
   type ComposerSuggestion as ChatInputSuggestion,
   type ComposerSubmitMode as ChatSubmitMode,
-} from "@eliteforge/agent-ui-composer-core";
+} from "@personai/agent-ui-composer-core";
 import type { ComposerVueProps } from "./types";
 import PendingAttachmentCard from "./PendingAttachmentCard.vue";
 const props = withDefaults(defineProps<ComposerVueProps>(), {

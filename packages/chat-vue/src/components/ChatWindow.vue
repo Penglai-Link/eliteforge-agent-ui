@@ -11,7 +11,7 @@ import {
   type ChatFloatingState,
   type ChatMessage,
   type ChatSubmitMode,
-} from "@eliteforge/agent-ui-chat-core";
+} from "@personai/agent-ui-chat-core";
 import { computed, onBeforeUnmount, ref, useSlots, watch } from "vue";
 import { cx } from "../utils";
 import ChatPanel from "./ChatPanel.vue";

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ChevronDown, ChevronRight, Terminal } from "lucide-vue-next";
 import { computed, ref, watch } from "vue";
-import { defaultToolActionSummaryLabel, summarizeToolActions, type ChatWorkRailLabels, type ToolGroupWorkCard } from "@eliteforge/agent-ui-chat-core";
+import { defaultToolActionSummaryLabel, summarizeToolActions, type ChatWorkRailLabels, type ToolGroupWorkCard } from "@personai/agent-ui-chat-core";
 import ToolCard from "./ToolCard.vue";
 
 const props = defineProps<{

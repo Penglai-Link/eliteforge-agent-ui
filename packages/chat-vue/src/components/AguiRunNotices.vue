@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from "vue";
-import { buildAguiRunNotices, chatErrorPresentation, type ChatMessage, type ChatWorkRailLabels, type TranscriptAguiEvent } from "@eliteforge/agent-ui-chat-core";
+import { buildAguiRunNotices, chatErrorPresentation, type ChatMessage, type ChatWorkRailLabels, type TranscriptAguiEvent } from "@personai/agent-ui-chat-core";
 const props = defineProps<{ events: TranscriptAguiEvent[]; messages?: ChatMessage[]; labels: ChatWorkRailLabels }>();
 const notices = computed(() => {
   const notices = buildAguiRunNotices(props.events);

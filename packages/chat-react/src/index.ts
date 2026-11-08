@@ -7,7 +7,7 @@ export * from "./ChatWindow";
 
 export { ChatA2UI } from "./ChatA2UI";
 
-export { MotionProvider, AgentMotion, useMotion } from "@eliteforge/agent-ui-motion-react";
-export type { MotionConfig, MotionEffects, MotionPreset, ResolvedMotion } from "@eliteforge/agent-ui-motion-react";
+export { MotionProvider, AgentMotion, useMotion } from "@personai/agent-ui-motion-react";
+export type { MotionConfig, MotionEffects, MotionPreset, ResolvedMotion } from "@personai/agent-ui-motion-react";
 
-export { useComposerDisabled } from "@eliteforge/agent-ui-composer-react";
+export { useComposerDisabled } from "@personai/agent-ui-composer-react";

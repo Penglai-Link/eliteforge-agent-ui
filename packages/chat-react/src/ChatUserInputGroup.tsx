@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { batchApprovalDecisions, pendingApprovalRequests, type ChatUserInputAnswer, type ChatUserInputLabels, type ChatUserInputRequest } from "@eliteforge/agent-ui-chat-core";
+import { batchApprovalDecisions, pendingApprovalRequests, type ChatUserInputAnswer, type ChatUserInputLabels, type ChatUserInputRequest } from "@personai/agent-ui-chat-core";
 import { ChatUserInputCard } from "./ChatUserInputCard";
 
 type Props = { request: ChatUserInputRequest; requests: ChatUserInputRequest[]; labels?: ChatUserInputLabels; disabled?: boolean; submitFailed?: boolean; onSubmit: (answers: ChatUserInputAnswer[]) => void };

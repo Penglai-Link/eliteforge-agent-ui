@@ -2,7 +2,7 @@ import type { Component } from "vue";
 import type {
   ComposerProps,
   ComposerSubmitMode,
-} from "@eliteforge/agent-ui-composer-core";
+} from "@personai/agent-ui-composer-core";
 export interface ComposerVueProps extends ComposerProps {
   composerHeader?: Component;
   onDraftChange?: (value: string) => void;

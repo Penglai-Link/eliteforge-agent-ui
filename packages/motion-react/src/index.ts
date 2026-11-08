@@ -22,13 +22,13 @@ import {
   type MotionEnvironment,
   type MotionPreset,
   type ResolvedMotion,
-} from "@eliteforge/agent-ui-motion-core";
-import "@eliteforge/agent-ui-motion-core/styles.css";
+} from "@personai/agent-ui-motion-core";
+import "@personai/agent-ui-motion-core/styles.css";
 export type {
   MotionConfig,
   MotionPreset,
   ResolvedMotion,
-} from "@eliteforge/agent-ui-motion-core";
+} from "@personai/agent-ui-motion-core";
 
 export interface MotionEffectProps {
   children?: ReactNode;

@@ -1,7 +1,7 @@
 import { createApp, h, ref } from "vue";
 import { ChatPanel } from "../src";
 import { workTimelinePreview } from "../../chat-core/demo/work-timeline-fixture";
-import "@eliteforge/agent-ui-chat-theme";
+import "@personai/agent-ui-chat-theme";
 import "../src/styles.css";
 
 createApp({ setup() {

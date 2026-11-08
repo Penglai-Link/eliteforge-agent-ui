@@ -1,3 +1,3 @@
-# @eliteforge/agent-ui-a2ui-vue
+# @personai/agent-ui-a2ui-vue
 
-独立 A2UI v0.9.1 客户端。支持自定义最小 Catalog，详见仓库 [接入文档](../../docs/a2ui-client.md)。
+基于 Vue 3 的 A2UI 渲染器，支持通过 Catalog 将结构化界面数据渲染为交互组件。接入方式见仓库 [接入文档](../../docs/a2ui-client.md)。

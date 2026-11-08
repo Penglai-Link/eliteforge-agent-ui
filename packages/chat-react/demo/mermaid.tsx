@@ -2,7 +2,7 @@ import { createRoot } from "react-dom/client";
 import { useState } from "react";
 import { ChatPanel } from "../src";
 import { mermaidMarkdown } from "../../chat-core/demo/mermaid-fixture";
-import "@eliteforge/agent-ui-chat-theme";
+import "@personai/agent-ui-chat-theme";
 import "../src/styles.css";
 
 function Preview() {

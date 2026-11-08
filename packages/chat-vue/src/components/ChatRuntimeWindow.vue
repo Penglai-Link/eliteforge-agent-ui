@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { contextCompactionInProgress, historyCompactionEvents } from "@eliteforge/agent-ui-chat-core";
-import type { ChatAnnotation } from "@eliteforge/agent-ui-chat-core";
+import { contextCompactionInProgress, historyCompactionEvents } from "@personai/agent-ui-chat-core";
+import type { ChatAnnotation } from "@personai/agent-ui-chat-core";
 import {
   resolveComposerLabels,
   resolveRuntimeMessage,
@@ -47,7 +47,7 @@ import {
   isRecentPendingUserTurn,
   isSteerQueueFallbackCode,
   openAguiProtocolRunCodes,
-} from "@eliteforge/agent-ui-chat-core";
+} from "@personai/agent-ui-chat-core";
 import {
   computed,
   onBeforeUnmount,

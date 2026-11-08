@@ -31,7 +31,7 @@ export default defineConfig({
     },
     rollupOptions: {
       external: [
-        "@eliteforge/agent-ui-composer-core",
+        "@personai/agent-ui-composer-core",
         "react",
         "react-dom",
         "react/jsx-runtime",

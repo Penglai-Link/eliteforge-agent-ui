@@ -1,4 +1,4 @@
-import { MermaidDiagram, mermaidFenceClosed } from "@eliteforge/agent-ui-chat-core";
+import { MermaidDiagram, mermaidFenceClosed } from "@personai/agent-ui-chat-core";
 import { createContext, useContext, useEffect, useRef } from "react";
 import type { Components } from "react-markdown";
 

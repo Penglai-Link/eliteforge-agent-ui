@@ -14,7 +14,7 @@ import {
   type ChatHistoryLabels,
   defaultHistoryLabels,
   workTimelineElapsedMilliseconds,
-} from "@eliteforge/agent-ui-chat-core";
+} from "@personai/agent-ui-chat-core";
 import ReasoningCard from "./ReasoningCard.vue";
 import ToolGroupCard from "./ToolGroupCard.vue";
 import ToolCard from "./ToolCard.vue";

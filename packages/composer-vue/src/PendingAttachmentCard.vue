@@ -6,7 +6,7 @@ import {
   attachmentTypeLabel,
   isImageAttachment,
   type ComposerAttachment,
-} from "@eliteforge/agent-ui-composer-core";
+} from "@personai/agent-ui-composer-core";
 const props = defineProps<{
   attachment: ComposerAttachment;
   downloadAttachment?: (attachment: ComposerAttachment) => Promise<Blob>;

@@ -79,6 +79,6 @@ Tron 的 Framework Agent 使用 `AgentSelection.skills_from_host`，每轮必须
 
 ```sh
 npm run check
-npm run dev --workspace=@eliteforge/agent-ui-composer-react -- --port 5186
-npm run dev --workspace=@eliteforge/agent-ui-composer-vue -- --port 5187
+npm run dev --workspace=@personai/agent-ui-composer-react -- --port 5186
+npm run dev --workspace=@personai/agent-ui-composer-vue -- --port 5187
 ```

@@ -1,18 +1,18 @@
-# @eliteforge/agent-ui-chat-react
+# @personai/agent-ui-chat-react
 
 React 聊天界面和运行时组件。包负责展示会话、消息、附件、AG-UI 事件和运行状态；宿主负责把自己的会话服务接到 `ChatAdapter`，组件不假设具体后端。
 
 ## 安装
 
 ```sh
-npm install @eliteforge/agent-ui-chat-react @eliteforge/agent-ui-chat-core @eliteforge/agent-ui-chat-theme
+npm install @personai/agent-ui-chat-react @personai/agent-ui-chat-core @personai/agent-ui-chat-theme
 ```
 
 需要 React 19。应用入口引入主题和组件样式：
 
 ```tsx
-import "@eliteforge/agent-ui-chat-theme";
-import "@eliteforge/agent-ui-chat-react/styles.css";
+import "@personai/agent-ui-chat-theme";
+import "@personai/agent-ui-chat-react/styles.css";
 ```
 
 ## 快速试用
@@ -20,8 +20,8 @@ import "@eliteforge/agent-ui-chat-react/styles.css";
 无需后端即可用内置模拟 adapter 查看组件：
 
 ```tsx
-import { ChatRuntimeWindow } from "@eliteforge/agent-ui-chat-react";
-import { createMockChatAdapter } from "@eliteforge/agent-ui-chat-core";
+import { ChatRuntimeWindow } from "@personai/agent-ui-chat-react";
+import { createMockChatAdapter } from "@personai/agent-ui-chat-core";
 
 export function App() {
   return (
@@ -44,7 +44,7 @@ export function App() {
 为宿主实现 `ChatAdapter`，把后端协议转换成 chat-core 的通用类型。最小实现需要声明能力并提供会话、消息、AG-UI 事件和流式发送方法：
 
 ```ts
-import type { ChatAdapter } from "@eliteforge/agent-ui-chat-core";
+import type { ChatAdapter } from "@personai/agent-ui-chat-core";
 
 const adapter: ChatAdapter = {
   capabilities: {
@@ -83,7 +83,7 @@ const adapter: ChatAdapter = {
 
 `agentReplyEffect` 默认为 `off`，可设为 `typewriter` 按字符呈现流式回复；`agentReplySpeed` 表示每秒字符数，范围为 30–240，默认 120。运行中的空回复气泡会在首个文本片段到达后显示。
 
-组件名称、配置和数据类型均不绑定业务项目。文案可通过组件 props、主题 CSS 变量及 `@eliteforge/agent-ui-chat-theme` 覆盖；侧栏、头部和底部可通过 `sidebarContent`、`headerContent`、`footerAddon` 扩展。
+组件名称、配置和数据类型均不绑定业务项目。文案可通过组件 props、主题 CSS 变量及 `@personai/agent-ui-chat-theme` 覆盖；侧栏、头部和底部可通过 `sidebarContent`、`headerContent`、`footerAddon` 扩展。
 
 ## 目标提示
 

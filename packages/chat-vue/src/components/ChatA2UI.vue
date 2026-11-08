@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import "@eliteforge/agent-ui-a2ui-vue/styles.css";
+import "@personai/agent-ui-a2ui-vue/styles.css";
 import { computed } from "vue";
-import { A2UIClient, type ActionMessage, type ActionMetadata } from "@eliteforge/agent-ui-a2ui-core";
-import { A2UISurface } from "@eliteforge/agent-ui-a2ui-vue";
-import type { ChatMessage, ChatA2uiSession, ChatA2uiActionHandler } from "@eliteforge/agent-ui-chat-core";
+import { A2UIClient, type ActionMessage, type ActionMetadata } from "@personai/agent-ui-a2ui-core";
+import { A2UISurface } from "@personai/agent-ui-a2ui-vue";
+import type { ChatMessage, ChatA2uiSession, ChatA2uiActionHandler } from "@personai/agent-ui-chat-core";
 const props = defineProps<{ message: ChatMessage; runtime?: ChatA2uiSession; disabled?: boolean; onAction?: ChatA2uiActionHandler }>();
 const result = computed(() => {
   const client = (props.message.a2ui?.messages.length === 0 ? props.runtime?.client : undefined) ?? new A2UIClient();

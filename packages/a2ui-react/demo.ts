@@ -1,4 +1,4 @@
-import "@eliteforge/agent-ui-chat-theme/styles.css";
+import "@personai/agent-ui-chat-theme/styles.css";
 import { createElement, type ElementType } from "react";
 const h = (tag: ElementType, props: any, ...children: any[]) => {
   const { class: className, ...rest } = props ?? {};
@@ -17,7 +17,7 @@ import {
   initializeAtomicDemo,
   initializeCommonDemo,
   initializeStatisticsDemo,
-} from "@eliteforge/agent-ui-a2ui-core/demo";
+} from "@personai/agent-ui-a2ui-core/demo";
 const gallery = initializeComponentGallery();
 const demo = createProfileDemo();
 initializeShadcnDemo(demo.client);

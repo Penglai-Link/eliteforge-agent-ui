@@ -2,7 +2,7 @@ import {
   truncateLabel,
   type ChatMessage,
   type TranscriptPresentation,
-} from "@eliteforge/agent-ui-chat-core";
+} from "@personai/agent-ui-chat-core";
 
 export interface ChatHistoryTurn {
   assistantPreview: string;

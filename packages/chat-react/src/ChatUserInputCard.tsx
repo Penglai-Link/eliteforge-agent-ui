@@ -1,6 +1,6 @@
 import { useEffect, useMemo } from "react";
-import { A2UISurface } from "@eliteforge/agent-ui-a2ui-react";
-import { createInteractionClient, type ChatUserInputAnswer, type ChatUserInputLabels, type ChatUserInputRequest } from "@eliteforge/agent-ui-chat-core";
+import { A2UISurface } from "@personai/agent-ui-a2ui-react";
+import { createInteractionClient, type ChatUserInputAnswer, type ChatUserInputLabels, type ChatUserInputRequest } from "@personai/agent-ui-chat-core";
 export function ChatUserInputCard({ disabled = false, labels, onSubmit, request }: { disabled?: boolean; labels?: ChatUserInputLabels; onSubmit: (answers: ChatUserInputAnswer[]) => void; request: ChatUserInputRequest }) {
   const presentationKey = JSON.stringify([request.a2uiInteraction ?? null, request.intro, request.nativeInteraction?.details, request.nativeInteraction?.responseSchema, request.answers, labels ?? null]);
   const client = useMemo(() => createInteractionClient(request, labels), [request.requestId, presentationKey]);

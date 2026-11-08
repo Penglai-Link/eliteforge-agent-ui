@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onMounted, onBeforeUnmount, ref, useId, computed } from "vue";
 import { Check, CircleHelp, FileText, X } from "lucide-vue-next";
-import { formatTime, type ChatMessage } from "@eliteforge/agent-ui-chat-core";
+import { formatTime, type ChatMessage } from "@personai/agent-ui-chat-core";
 
 const props = defineProps<{ message: ChatMessage; actorName: string; hideMessageIdentity?: boolean }>();
 const response = computed(() => props.message.interactionResponse!);

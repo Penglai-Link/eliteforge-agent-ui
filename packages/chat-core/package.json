@@ -1,6 +1,6 @@
 {
-  "name": "@eliteforge/agent-ui-chat-core",
-  "version": "0.1.0",
+  "name": "@personai/agent-ui-chat-core",
+  "version": "1.0.0-preview.2",
   "type": "module",
   "files": [
     "dist"
@@ -21,15 +21,16 @@
     "prepublishOnly": "npm run build"
   },
   "publishConfig": {
-    "registry": "http://nexus.cisdigital.cn/repository/npm-internal/",
-    "access": "restricted"
+    "registry": "https://registry.npmjs.org/",
+    "access": "public"
   },
   "dependencies": {
-    "@eliteforge/agent-ui-a2ui-core": "0.1.0",
-    "@eliteforge/agent-ui-composer-core": "0.1.0",
+    "@personai/agent-ui-a2ui-core": "1.0.0-preview.2",
+    "@personai/agent-ui-composer-core": "1.0.0-preview.2",
     "mermaid": "^12.2.0"
   },
   "sideEffects": [
     "**/*.css"
-  ]
+  ],
+  "license": "Apache-2.0"
 }

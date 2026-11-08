@@ -6,11 +6,11 @@
 
 | 需求 | 使用的包 | 宿主需要提供 |
 |---|---|---|
-| React 聊天界面 | `@eliteforge/agent-ui-chat-react` | `ChatAdapter` |
-| Vue 3 聊天界面 | `@eliteforge/agent-ui-chat-vue` | `ChatAdapter` |
-| 聊天数据类型和协议处理 | `@eliteforge/agent-ui-chat-core` | React/Vue 聊天包会依赖它 |
-| 聊天主题 | `@eliteforge/agent-ui-chat-theme` | 按需覆盖 CSS 变量 |
-| 浏览器终端 | `@eliteforge/agent-ui-terminal` | `TerminalTransport`；AI 功能还需 `AITransport` |
+| React 聊天界面 | `@personai/agent-ui-chat-react` | `ChatAdapter` |
+| Vue 3 聊天界面 | `@personai/agent-ui-chat-vue` | `ChatAdapter` |
+| 聊天数据类型和协议处理 | `@personai/agent-ui-chat-core` | React/Vue 聊天包会依赖它 |
+| 聊天主题 | `@personai/agent-ui-chat-theme` | 按需覆盖 CSS 变量 |
+| 浏览器终端 | `@personai/agent-ui-terminal` | `TerminalTransport`；AI 功能还需 `AITransport` |
 
 组件不会直接调用宿主的会话 API 或 Agent API。`chat-core` 定义公共数据类型和 `ChatAdapter` 接口；宿主实现 adapter，在自己的 API 与这些公共类型之间转换：
 
@@ -43,19 +43,19 @@ Terminal 组件
 然后按需安装。React 聊天示例：
 
 ```sh
-npm install @eliteforge/agent-ui-chat-react @eliteforge/agent-ui-chat-core @eliteforge/agent-ui-chat-theme
+npm install @personai/agent-ui-chat-react @personai/agent-ui-chat-core @personai/agent-ui-chat-theme
 ```
 
 Vue 聊天示例：
 
 ```sh
-npm install @eliteforge/agent-ui-chat-vue @eliteforge/agent-ui-chat-core @eliteforge/agent-ui-chat-theme
+npm install @personai/agent-ui-chat-vue @personai/agent-ui-chat-core @personai/agent-ui-chat-theme
 ```
 
 终端示例：
 
 ```sh
-npm install @eliteforge/agent-ui-terminal
+npm install @personai/agent-ui-terminal
 ```
 
 安装时还要满足对应包声明的 React、Vue 和 xterm peer dependencies。当前仓库尚未发布这些包；发布前可在本仓库运行模拟宿主演示。
@@ -69,10 +69,10 @@ npm install @eliteforge/agent-ui-terminal
 React：
 
 ```tsx
-import { ChatRuntimeWindow } from "@eliteforge/agent-ui-chat-react";
-import { createMockChatAdapter } from "@eliteforge/agent-ui-chat-core";
-import "@eliteforge/agent-ui-chat-theme";
-import "@eliteforge/agent-ui-chat-react/styles.css";
+import { ChatRuntimeWindow } from "@personai/agent-ui-chat-react";
+import { createMockChatAdapter } from "@personai/agent-ui-chat-core";
+import "@personai/agent-ui-chat-theme";
+import "@personai/agent-ui-chat-react/styles.css";
 
 const adapter = createMockChatAdapter();
 
@@ -90,10 +90,10 @@ Vue 3：
 
 ```vue
 <script setup lang="ts">
-import { ChatRuntimeWindow } from "@eliteforge/agent-ui-chat-vue";
-import { createMockChatAdapter } from "@eliteforge/agent-ui-chat-core";
-import "@eliteforge/agent-ui-chat-theme";
-import "@eliteforge/agent-ui-chat-vue/styles.css";
+import { ChatRuntimeWindow } from "@personai/agent-ui-chat-vue";
+import { createMockChatAdapter } from "@personai/agent-ui-chat-core";
+import "@personai/agent-ui-chat-theme";
+import "@personai/agent-ui-chat-vue/styles.css";
 
 const adapter = createMockChatAdapter();
 </script>
@@ -140,7 +140,7 @@ sequenceDiagram
 最小 adapter 骨架：
 
 ```ts
-import type { ChatAdapter } from "@eliteforge/agent-ui-chat-core";
+import type { ChatAdapter } from "@personai/agent-ui-chat-core";
 
 export const adapter: ChatAdapter = {
   capabilities: {
@@ -207,8 +207,8 @@ import {
   createAITransport,
   createTerminalTransport,
   initTerminal,
-} from "@eliteforge/agent-ui-terminal";
-import "@eliteforge/agent-ui-terminal/styles.css";
+} from "@personai/agent-ui-terminal";
+import "@personai/agent-ui-terminal/styles.css";
 
 const terminal = initTerminal({
   el: document.querySelector<HTMLElement>("#terminal")!,
@@ -258,7 +258,7 @@ AG-UI 正文始终显示为独立消息，包括未声明 `phase` 的模型输�
 
 渲染使用 [Mermaid strict 安全配置](https://mermaid.js.org/config/usage.html)，禁用 HTML 标签和图内跳转脚本，消息内容不能覆盖安全配置。
 
-- 聊天主题：先引入 `@eliteforge/agent-ui-chat-theme`，再用 CSS 变量覆盖颜色和边框。
+- 聊天主题：先引入 `@personai/agent-ui-chat-theme`，再用 CSS 变量覆盖颜色和边框。
 - React 聊天组件提供 `headerContent`、`sidebarContent`、`footerAddon` 等扩展点；Vue 组件提供对应插槽。
 - 终端可通过 `terminalOptions`、`themeTokens`、`locale` 和 `messages` 设置终端外观及文案。
 - 聊天历史时间轴在视口宽度不超过 900px 时自动隐藏。
@@ -269,9 +269,9 @@ AG-UI 正文始终显示为独立消息，包括未声明 `phase` 的模型输�
 
 ```sh
 npm install
-npm run dev --workspace @eliteforge/agent-ui-chat-react
-npm run dev --workspace @eliteforge/agent-ui-chat-vue
-npm run dev --workspace @eliteforge/agent-ui-terminal
+npm run dev --workspace @personai/agent-ui-chat-react
+npm run dev --workspace @personai/agent-ui-chat-vue
+npm run dev --workspace @personai/agent-ui-terminal
 ```
 
 这些命令分别启动 React 聊天、Vue 聊天和终端演示。模拟 adapter 只用于界面与交互验证，不会连接产品 API，也不能替代生产环境的宿主 adapter 和服务端。

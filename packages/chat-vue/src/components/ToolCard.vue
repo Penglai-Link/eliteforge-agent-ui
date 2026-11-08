@@ -17,7 +17,7 @@ import {
   detectToolPresentationLocale,
   type ChatWorkRailLabels,
   type ToolWorkCard,
-} from "@eliteforge/agent-ui-chat-core";
+} from "@personai/agent-ui-chat-core";
 import { computed, ref, watch } from "vue";
 import { cx } from "../utils";
 import CopyValueButton from "./CopyValueButton.vue";

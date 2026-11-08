@@ -1,5 +1,5 @@
 <script lang="ts">
-import type { AguiUserWorkCard } from "@eliteforge/agent-ui-chat-core";
+import type { AguiUserWorkCard } from "@personai/agent-ui-chat-core";
 
 export type ReasoningValue = Extract<
   AguiUserWorkCard,
@@ -10,7 +10,7 @@ export type ReasoningValue = Extract<
 <script setup lang="ts">
 import { BrainCircuit, ChevronDown, ChevronRight } from "lucide-vue-next";
 import { computed, ref } from "vue";
-import { summarizeReasoning } from "@eliteforge/agent-ui-chat-core";
+import { summarizeReasoning } from "@personai/agent-ui-chat-core";
 import { cx } from "../utils";
 import MarkdownBlock from "./MarkdownBlock.vue";
 

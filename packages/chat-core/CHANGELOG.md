@@ -1,4 +1,4 @@
-# @eliteforge/agent-ui-chat-core
+# @personai/agent-ui-chat-core
 
 ## 0.1.1
 

@@ -1,4 +1,4 @@
-import { A2UIClient, type ActionMessage, type ActionMetadata, type Surface } from "@eliteforge/agent-ui-a2ui-core";
+import { A2UIClient, type ActionMessage, type ActionMetadata, type Surface } from "@personai/agent-ui-a2ui-core";
 import type { ChatMessage, ChatAguiStreamEvent } from "./types";
 export interface ChatA2uiSurface {
   surfaceId: string; surfaceInstanceId: string; revision: number; mode: "Display" | "SubmitOnce" | "Reusable";

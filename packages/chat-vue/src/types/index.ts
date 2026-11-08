@@ -1,6 +1,6 @@
-import type { ComposerVueProps } from "@eliteforge/agent-ui-composer-vue";
-import type { MessageSender } from "@eliteforge/agent-ui-chat-core";
-import type { ChatA2uiActionHandler as ActionHandler, ChatA2uiSession } from "@eliteforge/agent-ui-chat-core";
+import type { ComposerVueProps } from "@personai/agent-ui-composer-vue";
+import type { MessageSender } from "@personai/agent-ui-chat-core";
+import type { ChatA2uiActionHandler as ActionHandler, ChatA2uiSession } from "@personai/agent-ui-chat-core";
 import type {
   AssistantReplyEffect,
   ChatAdapter,
@@ -25,7 +25,7 @@ import type {
   ChatUserInputLabels,
   ChatUserInputRequest,
   ChatWorkRailLabels,
-} from "@eliteforge/agent-ui-chat-core";
+} from "@personai/agent-ui-chat-core";
 
 export interface ChatPanelProps extends Pick<ComposerVueProps, "pendingAttachments" | "showAttachmentControl" | "attachmentUploadPending" | "onAttachFile" | "onRemoveAttachment" | "attachLabel" | "uploadingLabel" | "removeAttachmentLabel" | "editQueuedLabel" | "removeQueuedLabel" | "reorderQueuedLabel" | "steerQueuedLabel" | "queuedInputPlaceholder" | "steeringInputPlaceholder"> {
   pendingAnnotations?: ChatAnnotation[];
@@ -153,7 +153,7 @@ export interface ChatRuntimeWindowProps {
     session: ChatSession,
     content: string,
     attachments: ChatMessageAttachment[],
-  ) => import("@eliteforge/agent-ui-chat-core").SendChatMessageInput | null;
+  ) => import("@personai/agent-ui-chat-core").SendChatMessageInput | null;
   showAttachmentControl?: boolean;
   showHeader?: boolean;
   showHistoryRail?: boolean;

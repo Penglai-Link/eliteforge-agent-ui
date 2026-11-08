@@ -1,11 +1,11 @@
-import { AgentMotion } from "@eliteforge/agent-ui-motion-react";
+import { AgentMotion } from "@personai/agent-ui-motion-react";
 import { createElement, useSyncExternalStore, type ReactNode } from "react";
 import {
   renderSurface,
   type A2UIClient,
   type ActionHandler,
   type RenderContext,
-} from "@eliteforge/agent-ui-a2ui-core";
+} from "@personai/agent-ui-a2ui-core";
 import "./styles.css";
 export interface A2UISurfaceProps {
   client: A2UIClient;
@@ -47,5 +47,5 @@ export function A2UISurface({
   );
 }
 
-export { MotionProvider, AgentMotion, useMotion } from "@eliteforge/agent-ui-motion-react";
-export type { MotionConfig, MotionEffects, MotionPreset, ResolvedMotion } from "@eliteforge/agent-ui-motion-react";
+export { MotionProvider, AgentMotion, useMotion } from "@personai/agent-ui-motion-react";
+export type { MotionConfig, MotionEffects, MotionPreset, ResolvedMotion } from "@personai/agent-ui-motion-react";

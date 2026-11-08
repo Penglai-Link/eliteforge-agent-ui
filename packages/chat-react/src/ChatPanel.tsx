@@ -1,13 +1,13 @@
 import { InteractionReceipt } from "./InteractionReceipt";
 import { ChatUserInputGroup } from "./ChatUserInputGroup";
 import { ChatGoalIndicator, type ChatGoalIndicatorProps } from "./ChatGoalIndicator";
-import { hasPendingBatchItems } from "@eliteforge/agent-ui-chat-core";
-import { chatAnnotationsByMessage, chatAnnotationForHref, chatAnnotationTooltip, mountChatAnnotationSelection, mountChatAnnotationPreviews, openChatAnnotationEditor, defaultChatAnnotationLabels, type ChatAnnotationLabels, type ChatAnnotation } from "@eliteforge/agent-ui-chat-core";
-import { Composer, type ComposerReactProps } from "@eliteforge/agent-ui-composer-react";
-import { messageActorName, messageSenderIsHuman, messageSenderAvatar } from "@eliteforge/agent-ui-chat-core";
-import { interactionMessages, historyWorkGroups, historyWorkCompleted, historyCoversAguiWork, currentAguiTerminalEvent, interactionToolSummary } from "@eliteforge/agent-ui-chat-core";
+import { hasPendingBatchItems } from "@personai/agent-ui-chat-core";
+import { chatAnnotationsByMessage, chatAnnotationForHref, chatAnnotationTooltip, mountChatAnnotationSelection, mountChatAnnotationPreviews, openChatAnnotationEditor, defaultChatAnnotationLabels, type ChatAnnotationLabels, type ChatAnnotation } from "@personai/agent-ui-chat-core";
+import { Composer, type ComposerReactProps } from "@personai/agent-ui-composer-react";
+import { messageActorName, messageSenderIsHuman, messageSenderAvatar } from "@personai/agent-ui-chat-core";
+import { interactionMessages, historyWorkGroups, historyWorkCompleted, historyCoversAguiWork, currentAguiTerminalEvent, interactionToolSummary } from "@personai/agent-ui-chat-core";
 import { ChatA2UI } from "./ChatA2UI";
-import type { ChatA2uiActionHandler as ActionHandler, ChatA2uiSession } from "@eliteforge/agent-ui-chat-core";
+import type { ChatA2uiActionHandler as ActionHandler, ChatA2uiSession } from "@personai/agent-ui-chat-core";
 import {
   ArrowDown,
   Bot,
@@ -77,7 +77,7 @@ import {
   type ChatSubmitMode,
   type ToolGroupWorkCard,
   type ToolWorkCard,
-} from "@eliteforge/agent-ui-chat-core";
+} from "@personai/agent-ui-chat-core";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import {

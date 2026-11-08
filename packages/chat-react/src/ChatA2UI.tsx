@@ -1,8 +1,8 @@
-import "@eliteforge/agent-ui-a2ui-react/styles.css";
+import "@personai/agent-ui-a2ui-react/styles.css";
 import { useMemo } from "react";
-import { A2UIClient, type ActionHandler } from "@eliteforge/agent-ui-a2ui-core";
-import { A2UISurface } from "@eliteforge/agent-ui-a2ui-react";
-import type { ChatA2uiActionHandler, ChatA2uiSession, ChatMessage } from "@eliteforge/agent-ui-chat-core";
+import { A2UIClient, type ActionHandler } from "@personai/agent-ui-a2ui-core";
+import { A2UISurface } from "@personai/agent-ui-a2ui-react";
+import type { ChatA2uiActionHandler, ChatA2uiSession, ChatMessage } from "@personai/agent-ui-chat-core";
 
 export function ChatA2UI({ message, onAction, runtime, disabled }: { message: ChatMessage; onAction?: ChatA2uiActionHandler; runtime?: ChatA2uiSession; disabled?: boolean }) {
   const result = useMemo(() => {

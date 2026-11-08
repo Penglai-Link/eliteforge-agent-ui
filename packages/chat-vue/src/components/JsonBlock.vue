@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from "vue";
-import { formatJsonBlockValue } from "@eliteforge/agent-ui-chat-core";
+import { formatJsonBlockValue } from "@personai/agent-ui-chat-core";
 
 const props = defineProps<{
   value: unknown;

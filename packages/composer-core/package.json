@@ -1,6 +1,6 @@
 {
-  "name": "@eliteforge/agent-ui-composer-core",
-  "version": "0.1.0",
+  "name": "@personai/agent-ui-composer-core",
+  "version": "1.0.0-preview.2",
   "type": "module",
   "files": [
     "dist",
@@ -22,10 +22,11 @@
     "prepublishOnly": "npm run build"
   },
   "publishConfig": {
-    "registry": "http://nexus.cisdigital.cn/repository/npm-internal/",
-    "access": "restricted"
+    "registry": "https://registry.npmjs.org/",
+    "access": "public"
   },
   "sideEffects": [
     "**/*.css"
-  ]
+  ],
+  "license": "Apache-2.0"
 }

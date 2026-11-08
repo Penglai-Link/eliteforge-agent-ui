@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { chatAnnotationsByMessage, chatAnnotationTooltip, mountChatAnnotationSelection, mountChatAnnotationPreviews, openChatAnnotationEditor, type ChatAnnotation, defaultChatAnnotationLabels } from "@eliteforge/agent-ui-chat-core";
-import { Composer } from "@eliteforge/agent-ui-composer-vue";
+import { chatAnnotationsByMessage, chatAnnotationTooltip, mountChatAnnotationSelection, mountChatAnnotationPreviews, openChatAnnotationEditor, type ChatAnnotation, defaultChatAnnotationLabels } from "@personai/agent-ui-chat-core";
+import { Composer } from "@personai/agent-ui-composer-vue";
 import { ArrowDown, Bot, X } from "lucide-vue-next";
 import {
   waitingInputComposerLabel,
@@ -15,7 +15,7 @@ import {
   type ChatMessage,
   type ChatInputSuggestionLabels,
   type ChatSubmitMode,
-} from "@eliteforge/agent-ui-chat-core";
+} from "@personai/agent-ui-chat-core";
 import { computed, nextTick, onMounted, onBeforeUnmount, ref, watch } from "vue";
 import { cx } from "../utils";
 import ChatBubble from "./ChatBubble.vue";

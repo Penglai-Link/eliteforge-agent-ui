@@ -1,26 +1,26 @@
-# @eliteforge/agent-ui-chat-vue
+# @personai/agent-ui-chat-vue
 
 Vue 3 聊天界面和运行时组件。包负责展示会话、消息、附件、AG-UI 事件和运行状态；宿主通过 `ChatAdapter` 对接自己的服务，组件不绑定具体后端。
 
 ## 安装
 
 ```sh
-npm install @eliteforge/agent-ui-chat-vue @eliteforge/agent-ui-chat-core @eliteforge/agent-ui-chat-theme
+npm install @personai/agent-ui-chat-vue @personai/agent-ui-chat-core @personai/agent-ui-chat-theme
 ```
 
 应用入口引入主题和组件样式：
 
 ```ts
-import "@eliteforge/agent-ui-chat-theme";
-import "@eliteforge/agent-ui-chat-vue/styles.css";
+import "@personai/agent-ui-chat-theme";
+import "@personai/agent-ui-chat-vue/styles.css";
 ```
 
 ## 快速试用
 
 ```vue
 <script setup lang="ts">
-import { ChatRuntimeWindow } from "@eliteforge/agent-ui-chat-vue";
-import { createMockChatAdapter } from "@eliteforge/agent-ui-chat-core";
+import { ChatRuntimeWindow } from "@personai/agent-ui-chat-vue";
+import { createMockChatAdapter } from "@personai/agent-ui-chat-core";
 
 const adapter = createMockChatAdapter();
 </script>
@@ -34,14 +34,14 @@ const adapter = createMockChatAdapter();
 
 ## 接入自己的后端
 
-宿主实现 `ChatAdapter`，把会话、消息和流事件映射为 `@eliteforge/agent-ui-chat-core` 的通用类型。至少需要提供 `createSession`、`deleteSession`、`loadMessages`、`loadAguiEvents` 和 `streamMessage`。流式过程中通过 handlers 报告文本片段和 AG-UI 事件。
+宿主实现 `ChatAdapter`，把会话、消息和流事件映射为 `@personai/agent-ui-chat-core` 的通用类型。至少需要提供 `createSession`、`deleteSession`、`loadMessages`、`loadAguiEvents` 和 `streamMessage`。流式过程中通过 handlers 报告文本片段和 AG-UI 事件。
 
 只有后端确实支持时，才声明 `supportsActiveRun`、`supportsSteer`、`supportsStop` 等能力，并实现 `getActiveRun`、`steerMessage`、`stopRun`。停止后端运行需要 adapter 调用对应控制接口；断开事件流只表示停止接收事件。
 
 ```vue
 <script setup lang="ts">
-import { ChatRuntimeWindow } from "@eliteforge/agent-ui-chat-vue";
-import type { ChatAdapter } from "@eliteforge/agent-ui-chat-core";
+import { ChatRuntimeWindow } from "@personai/agent-ui-chat-vue";
+import type { ChatAdapter } from "@personai/agent-ui-chat-core";
 
 defineProps<{ adapter: ChatAdapter }>();
 </script>
@@ -60,7 +60,7 @@ defineProps<{ adapter: ChatAdapter }>();
 
 `agent-reply-effect` 默认为 `off`，可设为 `typewriter` 按字符呈现流式回复；`agent-reply-speed` 表示每秒字符数，范围为 30–240，默认 120。运行中的空回复气泡会在首个文本片段到达后显示。
 
-组件文案可通过 props、主题 CSS 变量及 `@eliteforge/agent-ui-chat-theme` 覆盖；头部、侧栏和底部可用 `#header`、`#sidebar`、`#footerAddon` slots 扩展。
+组件文案可通过 props、主题 CSS 变量及 `@personai/agent-ui-chat-theme` 覆盖；头部、侧栏和底部可用 `#header`、`#sidebar`、`#footerAddon` slots 扩展。
 
 `ChatPanel`、`ChatWindow` 和 `ChatRuntimeWindow` 支持 `#composerTop`，对应 React 的 `composerTop`：内容位于输入框外部上方，适合放置工作目录、Agent 等会话控件。`#composerHeader` 位于输入框内部，`#footerAddon` 位于输入框底部工具栏。也可通过 `composerTop` prop 传入 Vue 组件；同时提供时优先使用 slot。
 

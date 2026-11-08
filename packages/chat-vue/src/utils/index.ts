@@ -1,4 +1,4 @@
-import type { ChatMessage } from "@eliteforge/agent-ui-chat-core";
+import type { ChatMessage } from "@personai/agent-ui-chat-core";
 
 export function cx(...values: Array<string | false | null | undefined>) {
   return values.filter(Boolean).join(" ");

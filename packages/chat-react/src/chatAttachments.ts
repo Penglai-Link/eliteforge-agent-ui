@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import type { ChatMessageAttachment } from "@eliteforge/agent-ui-chat-core";
+import type { ChatMessageAttachment } from "@personai/agent-ui-chat-core";
 
 export function matchesSupportedImageContentType(contentType: string | undefined) {
   return contentType === "image/png"

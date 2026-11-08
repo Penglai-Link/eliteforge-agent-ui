@@ -31,7 +31,7 @@ export * from "./toolActionSummary";
 
 export * from "./messageProvenance";
 
-export { requestedSkillsFromDraft } from "@eliteforge/agent-ui-composer-core";
+export { requestedSkillsFromDraft } from "@personai/agent-ui-composer-core";
 
 export * from "./annotations";
 

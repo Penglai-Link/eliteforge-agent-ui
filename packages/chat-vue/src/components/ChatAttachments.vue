@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { FileText, MessageSquareText } from "lucide-vue-next";
 import { computed, onBeforeUnmount, ref, useId, watch } from "vue";
-import type { ChatAttachmentLabels, ChatMessageAttachment } from "@eliteforge/agent-ui-chat-core";
+import type { ChatAttachmentLabels, ChatMessageAttachment } from "@personai/agent-ui-chat-core";
 
 const props = defineProps<{
   attachments?: ChatMessageAttachment[];

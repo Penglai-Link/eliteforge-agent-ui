@@ -1,7 +1,7 @@
 import { createApp } from "vue";
 import { ChatPanel } from "../src";
 import { interactionTimelineDemoAnchors, interactionTimelineDemoEvents, interactionTimelineDemoMessages, interactionTimelineDemoRequest, interactionTimelineDemoLabels } from "../../chat-core/src/interactionTimelineDemo";
-import "@eliteforge/agent-ui-chat-theme";
+import "@personai/agent-ui-chat-theme";
 import "../src/styles.css";
 
 createApp(ChatPanel, {

@@ -30,7 +30,7 @@ export default defineConfig({
       rollupOptions: {
         external: [
           "@microsoft/fetch-event-source",
-          "@eliteforge/agent-ui-chat-core",
+          "@personai/agent-ui-chat-core",
           "@xterm/xterm",
           "@xterm/addon-fit",
           "@xterm/addon-web-links",

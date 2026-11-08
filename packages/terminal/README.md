@@ -1,20 +1,20 @@
-# @eliteforge/agent-ui-terminal
+# @personai/agent-ui-terminal
 
 可嵌入 Web 应用的终端组件，包含 xterm.js 渲染、Shell 命令块、交互输入、AI 对话/命令生成和流式活动展示。组件不创建服务端进程，也不绑定任何产品 API；宿主注入终端与 AI 传输实现。
 
 ## 安装
 
 ```sh
-npm install @eliteforge/agent-ui-terminal
+npm install @personai/agent-ui-terminal
 ```
 
-应用入口需导入 `@eliteforge/agent-ui-terminal/styles.css`。包内 `npm run dev` 提供本地模拟宿主演示。
+应用入口需导入 `@personai/agent-ui-terminal/styles.css`。包内 `npm run dev` 提供本地模拟宿主演示。
 
 ## 最小接入
 
 ```ts
-import { initTerminal, createTerminalTransport, createAITransport } from "@eliteforge/agent-ui-terminal";
-import "@eliteforge/agent-ui-terminal/styles.css";
+import { initTerminal, createTerminalTransport, createAITransport } from "@personai/agent-ui-terminal";
+import "@personai/agent-ui-terminal/styles.css";
 
 const terminal = initTerminal({
   el: document.querySelector("#terminal")!,

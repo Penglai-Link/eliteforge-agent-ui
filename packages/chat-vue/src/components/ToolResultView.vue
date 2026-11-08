@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from "vue";
-import { toolResultPreview, batchItemLabel, toolSearchPreviewLabel } from "@eliteforge/agent-ui-chat-core";
+import { toolResultPreview, batchItemLabel, toolSearchPreviewLabel } from "@personai/agent-ui-chat-core";
 import JsonBlock from "./JsonBlock.vue";
 const props = withDefaults(defineProps<{ value: string; locale?: string; showRaw?: boolean }>(), { showRaw: true });
 const preview = computed(() => toolResultPreview(props.value));

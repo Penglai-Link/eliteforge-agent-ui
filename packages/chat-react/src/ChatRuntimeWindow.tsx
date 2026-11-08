@@ -1,9 +1,9 @@
-import { resolveComposerLabels, resolveRuntimeMessage } from "@eliteforge/agent-ui-chat-core";
-import type { ComposerReactProps } from "@eliteforge/agent-ui-composer-react";
+import { resolveComposerLabels, resolveRuntimeMessage } from "@personai/agent-ui-chat-core";
+import type { ComposerReactProps } from "@personai/agent-ui-composer-react";
 import type { ChatGoalIndicatorProps } from "./ChatGoalIndicator";
-import { contextCompactionInProgress, historyCompactionEvents } from "@eliteforge/agent-ui-chat-core";
-import type { ChatAnnotation } from "@eliteforge/agent-ui-chat-core";
-import { ChatA2uiSession, AGENT_CATALOG_ID, type ChatA2uiActionHandler as ActionHandler } from "@eliteforge/agent-ui-chat-core";
+import { contextCompactionInProgress, historyCompactionEvents } from "@personai/agent-ui-chat-core";
+import type { ChatAnnotation } from "@personai/agent-ui-chat-core";
+import { ChatA2uiSession, AGENT_CATALOG_ID, type ChatA2uiActionHandler as ActionHandler } from "@personai/agent-ui-chat-core";
 import {
   chatErrorPresentation,
   requestedSkillsFromDraft,
@@ -58,7 +58,7 @@ import {
   type ChatUserInputAnswer,
   type ChatUserInputRequest,
   type SendChatMessageInput,
-} from "@eliteforge/agent-ui-chat-core";
+} from "@personai/agent-ui-chat-core";
 import {
   useCallback,
   useEffect,

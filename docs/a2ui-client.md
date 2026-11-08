@@ -4,12 +4,12 @@
 
 ## 包与使用
 
-- `@eliteforge/agent-ui-a2ui-core`：消息校验、surface 状态、绑定、action、订阅、快照和共享渲染语义。
-- `@eliteforge/agent-ui-a2ui-react`：React `A2UISurface`。
-- `@eliteforge/agent-ui-a2ui-vue`：Vue `A2UISurface`。
+- `@personai/agent-ui-a2ui-core`：消息校验、surface 状态、绑定、action、订阅、快照和共享渲染语义。
+- `@personai/agent-ui-a2ui-react`：React `A2UISurface`。
+- `@personai/agent-ui-a2ui-vue`：Vue `A2UISurface`。
 
 ```ts
-import { A2UIClient, CATALOG_ID } from '@eliteforge/agent-ui-a2ui-core';
+import { A2UIClient, CATALOG_ID } from '@personai/agent-ui-a2ui-core';
 const client = new A2UIClient();
 client.apply({ version: 'v0.9.1', createSurface: {
   surfaceId: 'profile', catalogId: CATALOG_ID, sendDataModel: true
@@ -20,8 +20,8 @@ client.apply({ version: 'v0.9.1', createSurface: {
 React：
 
 ```tsx
-import { A2UISurface } from '@eliteforge/agent-ui-a2ui-react';
-import '@eliteforge/agent-ui-a2ui-react/styles.css';
+import { A2UISurface } from '@personai/agent-ui-a2ui-react';
+import '@personai/agent-ui-a2ui-react/styles.css';
 <A2UISurface client={client} surfaceId="profile"
   onAction={(message, metadata) => host.handle(message, metadata)} />
 ```
@@ -30,8 +30,8 @@ Vue：
 
 ```vue
 <script setup lang="ts">
-import { A2UISurface } from '@eliteforge/agent-ui-a2ui-vue';
-import '@eliteforge/agent-ui-a2ui-vue/styles.css';
+import { A2UISurface } from '@personai/agent-ui-a2ui-vue';
+import '@personai/agent-ui-a2ui-vue/styles.css';
 </script>
 <template>
   <A2UISurface :client="client" surface-id="profile" :on-action="host.handle" />
@@ -133,12 +133,12 @@ React / Vue 宿主可以在共同祖先上覆盖下列共享令牌，Chat 与 A2
 审批卡片与批量审批共用紧凑按钮样式，默认最小高度 `1.75rem`、字号 `0.8125rem`、圆角 `4px`，可用上述 `--agent-ui-control-*` 令牌覆盖；颜色沿用 A2UI / Chat 的公开颜色令牌和 `--color-*` 回退。只有一条待决定的审批时不显示批量按钮；批次中逐项决定到只剩一条时同样隐藏，仍在所有审批决定后统一提交。
 
 React 演示服务的 `/style-preview.html` 提供 Chat / A2UI 并排预览，支持独立默认、浅色、深色和宿主令牌覆盖。React / Vue A2UI 默认样式共用 `a2ui-core/components.css`。
-宿主可导入 `@eliteforge/agent-ui-chat-theme/styles.css` 应用完整现有主题。
+宿主可导入 `@personai/agent-ui-chat-theme/styles.css` 应用完整现有主题。
 
 ```sh
 npm run build
-npm run dev --workspace=@eliteforge/agent-ui-a2ui-react -- --port 5191
-npm run dev --workspace=@eliteforge/agent-ui-a2ui-vue -- --port 5192
+npm run dev --workspace=@personai/agent-ui-a2ui-react -- --port 5191
+npm run dev --workspace=@personai/agent-ui-a2ui-vue -- --port 5192
 ```
 
 打开对应地址，连续点击四次“接收下一条消息”，观察 surface → 标题/占位 → 数据 → 表单补齐。

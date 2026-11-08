@@ -17,11 +17,11 @@ export default defineConfig({
     },
     rollupOptions: {
       external: [
-          "@eliteforge/agent-ui-motion-react",
+          "@personai/agent-ui-motion-react",
         "react",
         "react/jsx-runtime",
         "vue",
-        "@eliteforge/agent-ui-a2ui-core",
+        "@personai/agent-ui-a2ui-core",
       ],
     },
   },

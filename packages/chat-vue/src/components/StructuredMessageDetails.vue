@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from "vue";
-import { chatErrorPresentation, defaultHistoryLabels, historyToolResult, historyBlockUrl, type ChatHistoryLabels, type ChatMessage, type ToolWorkCard } from "@eliteforge/agent-ui-chat-core";
+import { chatErrorPresentation, defaultHistoryLabels, historyToolResult, historyBlockUrl, type ChatHistoryLabels, type ChatMessage, type ToolWorkCard } from "@personai/agent-ui-chat-core";
 import ReasoningCard from "./ReasoningCard.vue";
 import ToolCard from "./ToolCard.vue";
 const props = defineProps<{ message: ChatMessage; workOnly?: boolean; showReasoningCards?: boolean; labels?: ChatHistoryLabels; hideRunError?: boolean; locale?: string }>();

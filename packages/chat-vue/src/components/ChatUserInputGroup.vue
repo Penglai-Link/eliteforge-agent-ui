@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from "vue";
-import { batchApprovalDecisions, pendingApprovalRequests, type ChatUserInputAnswer, type ChatUserInputLabels, type ChatUserInputRequest } from "@eliteforge/agent-ui-chat-core";
+import { batchApprovalDecisions, pendingApprovalRequests, type ChatUserInputAnswer, type ChatUserInputLabels, type ChatUserInputRequest } from "@personai/agent-ui-chat-core";
 import ChatUserInputCard from "./ChatUserInputCard.vue";
 const props = defineProps<{ request: ChatUserInputRequest; requests: ChatUserInputRequest[]; labels?: ChatUserInputLabels; disabled?: boolean; submitFailed?: boolean }>();
 const emit = defineEmits<{ submit: [answers: ChatUserInputAnswer[]] }>();

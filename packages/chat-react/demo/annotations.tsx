@@ -1,8 +1,8 @@
 import { createRoot } from "react-dom/client";
 import { useState } from "react";
 import { ChatPanel } from "../src";
-import { zhChatAnnotationLabels, type ChatMessage, type ChatAnnotation } from "@eliteforge/agent-ui-chat-core";
-import "@eliteforge/agent-ui-chat-theme";
+import { zhChatAnnotationLabels, type ChatMessage, type ChatAnnotation } from "@personai/agent-ui-chat-core";
+import "@personai/agent-ui-chat-theme";
 import "../src/styles.css";
 const session = {id: "annotations", sessionId: "annotations", title: "对话选区评论", status: "ACTIVE" as const, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString()};
 const message = (role: ChatMessage['role'], content: string): ChatMessage => ({id: crypto.randomUUID(), messageId: crypto.randomUUID(), role, content, actor: role === 'USER' ? 'User' : 'Agent', channel: 'conversation', sessionId: session.sessionId, createdAt: new Date().toISOString()});

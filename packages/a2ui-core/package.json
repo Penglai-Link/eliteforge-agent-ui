@@ -1,6 +1,6 @@
 {
-  "name": "@eliteforge/agent-ui-a2ui-core",
-  "version": "0.1.0",
+  "name": "@personai/agent-ui-a2ui-core",
+  "version": "1.0.0-preview.2",
   "type": "module",
   "files": [
     "dist",
@@ -26,11 +26,12 @@
     "build": "tsc -p tsconfig.build.json && vite build"
   },
   "publishConfig": {
-    "registry": "http://nexus.cisdigital.cn/repository/npm-internal/",
-    "access": "restricted"
+    "registry": "https://registry.npmjs.org/",
+    "access": "public"
   },
   "dependencies": {
     "ajv": "^8.17.1",
     "ajv-formats": "^3.0.1"
-  }
+  },
+  "license": "Apache-2.0"
 }

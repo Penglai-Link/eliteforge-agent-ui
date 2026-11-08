@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from "vue";
 import { ChevronDown, ChevronRight, CircleAlert, CircleX } from "lucide-vue-next";
-import { defaultHistoryLabels, historyWorkCompleted, type ChatMessage, type ChatWorkRailLabels, type ChatHistoryLabels } from "@eliteforge/agent-ui-chat-core";
+import { defaultHistoryLabels, historyWorkCompleted, type ChatMessage, type ChatWorkRailLabels, type ChatHistoryLabels } from "@personai/agent-ui-chat-core";
 import StructuredMessageDetails from "./StructuredMessageDetails.vue";
 const props = defineProps<{ messages: ChatMessage[]; labels?: ChatWorkRailLabels; historyLabels?: ChatHistoryLabels; showReasoningCards?: boolean; locale?: string }>();
 const completed = computed(() => historyWorkCompleted(props.messages));

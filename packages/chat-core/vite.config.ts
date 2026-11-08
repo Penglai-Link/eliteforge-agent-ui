@@ -15,7 +15,7 @@ export default defineConfig({
     }),
   ],
   build: {
-    rollupOptions: { external: ["mermaid", "@eliteforge/agent-ui-composer-core", "@eliteforge/agent-ui-a2ui-core"] },
+    rollupOptions: { external: ["mermaid", "@personai/agent-ui-composer-core", "@personai/agent-ui-a2ui-core"] },
     lib: {
       entry: fileURLToPath(new URL("./src/index.ts", import.meta.url)),
       fileName: "index",

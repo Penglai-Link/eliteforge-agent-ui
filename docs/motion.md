@@ -12,15 +12,15 @@ Chat、A2UI 的 React / Vue 客户端共用配置、效果名称和主题变量�
 ## React
 
 ```tsx
-import { MotionProvider, ChatPanel } from "@eliteforge/agent-ui-chat-react";
-import "@eliteforge/agent-ui-chat-react/styles.css";
+import { MotionProvider, ChatPanel } from "@personai/agent-ui-chat-react";
+import "@personai/agent-ui-chat-react/styles.css";
 
 <MotionProvider config={{ mode: "system", duration: 180, distance: 8, transitionDuration: 120 }}>
   <ChatPanel {...chatProps} />
 </MotionProvider>
 ```
 
-`@eliteforge/agent-ui-a2ui-react` 也导出 Provider。单独使用基础动效时，从 `@eliteforge/agent-ui-motion-react` 导入。
+`@personai/agent-ui-a2ui-react` 也导出 Provider。单独使用基础动效时，从 `@personai/agent-ui-motion-react` 导入。
 
 ```tsx
 <AgentMotion preset="fade" replayKey={activeTab}>
@@ -32,8 +32,8 @@ import "@eliteforge/agent-ui-chat-react/styles.css";
 
 ```vue
 <script setup lang="ts">
-import { MotionProvider, ChatPanel } from "@eliteforge/agent-ui-chat-vue";
-import "@eliteforge/agent-ui-chat-vue/styles.css";
+import { MotionProvider, ChatPanel } from "@personai/agent-ui-chat-vue";
+import "@personai/agent-ui-chat-vue/styles.css";
 const motion = { mode: "system", duration: 180, distance: 8 } as const;
 </script>
 
@@ -44,7 +44,7 @@ const motion = { mode: "system", duration: 180, distance: 8 } as const;
 </template>
 ```
 
-`@eliteforge/agent-ui-a2ui-vue` 同样导出 Provider；基础接口位于 `@eliteforge/agent-ui-motion-vue`。
+`@personai/agent-ui-a2ui-vue` 同样导出 Provider；基础接口位于 `@personai/agent-ui-motion-vue`。
 
 ## 配置和生命周期
 
@@ -111,8 +111,8 @@ const effects = { enter: ControlledBitsContent, fade: ControlledBitsFade };
 分别启动 React / Vue A2UI 演示后，访问 `/motion.html`：
 
 ```sh
-npm run dev --workspace @eliteforge/agent-ui-a2ui-react -- --port 5187
-npm run dev --workspace @eliteforge/agent-ui-a2ui-vue -- --port 5188
+npm run dev --workspace @personai/agent-ui-a2ui-react -- --port 5187
+npm run dev --workspace @personai/agent-ui-a2ui-vue -- --port 5188
 ```
 
 

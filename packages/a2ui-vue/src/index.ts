@@ -1,4 +1,4 @@
-import { AgentMotion } from "@eliteforge/agent-ui-motion-vue";
+import { AgentMotion } from "@personai/agent-ui-motion-vue";
 import {
   defineComponent,
   h,
@@ -13,7 +13,7 @@ import {
   type A2UIClient,
   type ActionHandler,
   type RenderContext,
-} from "@eliteforge/agent-ui-a2ui-core";
+} from "@personai/agent-ui-a2ui-core";
 import "./styles.css";
 export const A2UISurface = defineComponent({
   name: "A2UISurface",
@@ -89,5 +89,5 @@ export const A2UISurface = defineComponent({
   },
 });
 
-export { MotionProvider, AgentMotion, useMotion } from "@eliteforge/agent-ui-motion-vue";
-export type { MotionConfig, MotionEffects, MotionPreset, ResolvedMotion } from "@eliteforge/agent-ui-motion-vue";
+export { MotionProvider, AgentMotion, useMotion } from "@personai/agent-ui-motion-vue";
+export type { MotionConfig, MotionEffects, MotionPreset, ResolvedMotion } from "@personai/agent-ui-motion-vue";

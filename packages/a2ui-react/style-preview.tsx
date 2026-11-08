@@ -3,7 +3,7 @@ import { createRoot } from "react-dom/client";
 import { ChatPanel } from "../chat-react/src/ChatPanel";
 import "../chat-react/src/styles.css";
 import { A2UISurface } from "./src";
-import { createProfileDemo } from "@eliteforge/agent-ui-a2ui-core/demo";
+import { createProfileDemo } from "@personai/agent-ui-a2ui-core/demo";
 import "./style-preview.css";
 const demo = createProfileDemo();
 while (!demo.done) demo.next();
@@ -14,8 +14,8 @@ function Preview() {
     h("p", {}, "共享默认样式；切换主题或覆盖令牌，检查两边同步变化。"),
     h("nav", {},
       h("button", { onClick: () => { window.location.reload(); } }, "独立默认"),
-      h("button", { onClick: async () => { await import("@eliteforge/agent-ui-chat-theme/styles.css"); document.documentElement.dataset.theme = "light"; } }, "浅色主题"),
-      h("button", { onClick: async () => { await import("@eliteforge/agent-ui-chat-theme/styles.css"); document.documentElement.dataset.theme = "matrix-dark"; } }, "深色主题"),
+      h("button", { onClick: async () => { await import("@personai/agent-ui-chat-theme/styles.css"); document.documentElement.dataset.theme = "light"; } }, "浅色主题"),
+      h("button", { onClick: async () => { await import("@personai/agent-ui-chat-theme/styles.css"); document.documentElement.dataset.theme = "matrix-dark"; } }, "深色主题"),
       h("button", { onClick: () => document.documentElement.classList.toggle("custom") }, "宿主覆盖")),
     h("div", { className: "comparison" },
       h("section", {}, h("h2", {}, "chat-react"), h(ChatPanel, {

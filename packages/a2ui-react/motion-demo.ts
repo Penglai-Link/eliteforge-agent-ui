@@ -1,8 +1,8 @@
-import "@eliteforge/agent-ui-chat-theme/styles.css";
+import "@personai/agent-ui-chat-theme/styles.css";
 import { createElement as h, useState } from "react";
 import { createRoot } from "react-dom/client";
-import { A2UIClient } from "@eliteforge/agent-ui-a2ui-core";
-import { initializeCommonDemo } from "@eliteforge/agent-ui-a2ui-core/demo";
+import { A2UIClient } from "@personai/agent-ui-a2ui-core";
+import { initializeCommonDemo } from "@personai/agent-ui-a2ui-core/demo";
 import {
   AgentMotion,
   A2UISurface,

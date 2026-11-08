@@ -1,7 +1,7 @@
 import type {
   ChatActiveRun,
   ChatAguiStreamEvent,
-} from "@eliteforge/agent-ui-chat-core";
+} from "@personai/agent-ui-chat-core";
 
 export interface RuntimeActiveRunTrackingState {
   activeRun: ChatActiveRun | null;

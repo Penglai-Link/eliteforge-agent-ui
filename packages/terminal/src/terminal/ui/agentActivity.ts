@@ -6,7 +6,7 @@ import {
   formatJsonBlockValue,
   presentToolCall,
   type TranscriptAguiEvent,
-} from "@eliteforge/agent-ui-chat-core";
+} from "@personai/agent-ui-chat-core";
 
 import type { AIStreamEvent } from "../../transport/types";
 import type { ChatTerminalI18n } from "../i18n";

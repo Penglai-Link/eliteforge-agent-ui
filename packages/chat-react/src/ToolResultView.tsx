@@ -1,5 +1,5 @@
-import { toolResultPreview, batchItemLabel, toolSearchPreviewLabel } from "@eliteforge/agent-ui-chat-core";
-import { formatJsonBlockValue } from "@eliteforge/agent-ui-chat-core";
+import { toolResultPreview, batchItemLabel, toolSearchPreviewLabel } from "@personai/agent-ui-chat-core";
+import { formatJsonBlockValue } from "@personai/agent-ui-chat-core";
 function JsonBlock({ value }: { value: string }) { return <pre className="ef-chat__result-block">{formatJsonBlockValue(value)}</pre>; }
 export function ToolResultView({ value, locale, showRaw = true }: { value: string; locale?: string; showRaw?: boolean }) {
   const preview = toolResultPreview(value);

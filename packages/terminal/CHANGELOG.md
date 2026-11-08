@@ -1,4 +1,4 @@
-# @eliteforge/agent-ui-terminal
+# @personai/agent-ui-terminal
 
 ## 0.1.2
 
@@ -21,4 +21,4 @@
 
 - Build chat workspace packages into publishable JavaScript, type declaration, and stylesheet artifacts.
 - Updated dependencies
-  - @eliteforge/agent-ui-chat-core@0.1.1
+  - @personai/agent-ui-chat-core@0.1.1

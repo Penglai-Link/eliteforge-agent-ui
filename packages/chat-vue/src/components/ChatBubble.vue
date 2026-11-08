@@ -1,12 +1,12 @@
 <script setup lang="ts">
 import InteractionReceipt from "./InteractionReceipt.vue";
-import { chatAnnotationTooltip, defaultChatAnnotationLabels, type ChatAnnotationLabels, type ChatAnnotation } from "@eliteforge/agent-ui-chat-core";
+import { chatAnnotationTooltip, defaultChatAnnotationLabels, type ChatAnnotationLabels, type ChatAnnotation } from "@personai/agent-ui-chat-core";
 import ChatA2UI from "./ChatA2UI.vue";
-import type { ChatA2uiActionHandler as ActionHandler, ChatA2uiSession } from "@eliteforge/agent-ui-chat-core";
+import type { ChatA2uiActionHandler as ActionHandler, ChatA2uiSession } from "@personai/agent-ui-chat-core";
 import { Bot, Pencil, Trash2, UserRound } from "lucide-vue-next";
 import { computed } from "vue";
-import { formatTime, messageActorName, messageSenderIsHuman, messageSenderAvatar } from "@eliteforge/agent-ui-chat-core";
-import type { ChatMessage } from "@eliteforge/agent-ui-chat-core";
+import { formatTime, messageActorName, messageSenderIsHuman, messageSenderAvatar } from "@personai/agent-ui-chat-core";
+import type { ChatMessage } from "@personai/agent-ui-chat-core";
 import { cx } from "../utils";
 import MarkdownBlock from "./MarkdownBlock.vue";
 import CopyValueButton from "./CopyValueButton.vue";

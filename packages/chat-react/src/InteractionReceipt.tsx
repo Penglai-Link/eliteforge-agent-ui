@@ -1,6 +1,6 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { Check, CircleHelp, FileText, X } from "lucide-react";
-import { formatTime, type ChatMessage } from "@eliteforge/agent-ui-chat-core";
+import { formatTime, type ChatMessage } from "@personai/agent-ui-chat-core";
 
 /** A display-only receipt. The original interaction and timeline stay unchanged. */
 export function InteractionReceipt({ message, actorName, hideMessageIdentity = false }: { message: ChatMessage; actorName: string; hideMessageIdentity?: boolean }) {

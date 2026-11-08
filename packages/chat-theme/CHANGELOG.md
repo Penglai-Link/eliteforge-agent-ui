@@ -1,4 +1,4 @@
-# @eliteforge/agent-ui-chat-theme
+# @personai/agent-ui-chat-theme
 
 ## 0.1.1
 

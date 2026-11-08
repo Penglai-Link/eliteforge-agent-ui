@@ -8,7 +8,7 @@ import {
   resolveFloatingViewportBounds,
   writeFloatingState,
   type ChatFloatingState,
-} from "@eliteforge/agent-ui-chat-core";
+} from "@personai/agent-ui-chat-core";
 import {
   useEffect,
   useCallback,

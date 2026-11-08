@@ -1,4 +1,4 @@
-import type { TranscriptPresentation, ChatMessage } from "@eliteforge/agent-ui-chat-core";
+import type { TranscriptPresentation, ChatMessage } from "@personai/agent-ui-chat-core";
 import {
   useEffect,
   useLayoutEffect,

@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { chatAnnotationForHref, chatAnnotationTooltip, type ChatAnnotationLabels, type ChatAnnotation } from "@eliteforge/agent-ui-chat-core";
+import { chatAnnotationForHref, chatAnnotationTooltip, type ChatAnnotationLabels, type ChatAnnotation } from "@personai/agent-ui-chat-core";
 import { computed, nextTick, onBeforeUnmount, ref, watch } from "vue";
-import { MermaidDiagram, mermaidFenceClosed } from "@eliteforge/agent-ui-chat-core";
+import { MermaidDiagram, mermaidFenceClosed } from "@personai/agent-ui-chat-core";
 import "github-markdown-css/github-markdown.css";
 import MarkdownIt from "markdown-it";
 
