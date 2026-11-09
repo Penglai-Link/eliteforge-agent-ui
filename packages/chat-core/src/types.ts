@@ -258,6 +258,9 @@ export interface ChatUserInputLabels {
 }
 
 export interface ChatRunNoticeLabels {
+  compactionBlock?: (block: import("./compaction").ChatCompactionBlock) => string;
+  compactionNoChanges?: string;
+  compactionDetailsUnavailable?: string;
   mcpUnavailable?: string;
   presentationIncomplete?: string;
   presentationIncompleteDetail?: string;

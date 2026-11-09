@@ -1,3 +1,4 @@
+import { compactionBlockLabel } from "@personai/agent-ui-chat-core";
 import { InteractionReceipt } from "./InteractionReceipt";
 import { ChatUserInputGroup } from "./ChatUserInputGroup";
 import { ChatGoalIndicator, type ChatGoalIndicatorProps } from "./ChatGoalIndicator";
@@ -993,7 +994,14 @@ function AguiRunStatus({ notices, labels }: { notices: AguiRunNotice[]; labels: 
       >
         <Icon size={16} aria-hidden="true" className={pending ? "animate-spin" : undefined} />
         <div className="ef-chat__run-notice-content">
-          <div className="ef-chat__run-notice-title">{title}</div>
+          {notice.kind === "compaction" && !pending ? <details className="ef-chat__compaction-details">
+            <summary className="ef-chat__run-notice-title">{title}</summary>
+            {notice.blocks?.length ? <ul className="ef-chat__compaction-blocks">
+              {notice.blocks.map(block => <li key={block.id}>{copy.compactionBlock?.(block) ?? compactionBlockLabel(block)}</li>)}
+            </ul> : <div className="ef-chat__run-notice-detail">{notice.blocks
+              ? copy.compactionNoChanges ?? "No memory blocks needed compaction."
+              : copy.compactionDetailsUnavailable ?? "Block details were not recorded for this compaction."}</div>}
+          </details> : <div className="ef-chat__run-notice-title">{title}</div>}
           {detail ? <RunErrorDetails raw={detail} fallback={labels.failed ?? "Run failed"} code={notice.kind === "runError" || notice.kind === "runStopped" ? notice.code : undefined} /> : null}
           {hint ? <div className="ef-chat__run-notice-detail">{hint}</div> : null}
         </div>

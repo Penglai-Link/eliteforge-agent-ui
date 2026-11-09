@@ -108,3 +108,5 @@ done
 ```sh
 npm view @personai/agent-ui-chat-react version --registry=https://registry.npmjs.org/
 ```
+
+Finished context-compaction notices can expand block details supplied through `HistoryStep.compaction` or the live `agent.memory.compaction.details` event. Translate them with `workRailLabels.notices.compactionBlock`, `compactionNoChanges` and `compactionDetailsUnavailable`. This addition is available from `1.0.0-preview.5`; see `docs/integration-guide.md`.

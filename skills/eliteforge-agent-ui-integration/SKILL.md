@@ -2,7 +2,7 @@
 name: eliteforge-agent-ui-integration
 description: "指导其他 agent 将 @personai/agent-ui-* npm 包接入 React/Vue 或浏览器应用，包括包选择、统一版本、样式、ChatAdapter、A2UI action、Composer 回调和终端 transport；也用于从本地链接迁移到 npm。"
 metadata:
-  version: 1.0.2
+  version: 1.0.3
 ---
 
 # EliteForge Agent UI 对接
@@ -18,7 +18,7 @@ metadata:
 ## 工作流程
 
 1. 检查宿主框架、构建工具、已有 UI/设计系统、所需功能及已安装包。按[包与安装](references/packages.md)选择所需包，核对目标版本的 `exports`、`peerDependencies` 和类型声明。源码分支中的新 API 不代表已在 npm 发布。
-2. 通过公共 npm 安装同一个明确版本的全部 Agent UI 依赖，并更新锁文件。当前仓库版本是 `1.0.0-preview.4`，示例以此为基线；用户另定版本时先核对该版本元数据，不能盲信 `latest` / `next`。
+2. 通过公共 npm 安装同一个明确版本的全部 Agent UI 依赖，并更新锁文件。当前仓库版本是 `1.0.0-preview.5`，示例以此为基线；用户另定版本时先核对该版本元数据，不能盲信 `latest` / `next`。
 3. 显式导入对应样式；评估全局主题对宿主的影响。只通过公开导出、属性、插槽、CSS 变量和主题挂点扩展。
 4. 按所需模块读取[宿主运行契约](references/host-contracts.md)，实现 adapter/transport/回调。先用 mock 验证 UI 可以，但交付时必须区分 mock 与真实后端的验证结果。
 5. 运行宿主已有类型检查、构建及相关检查，检查浏览器真实交互和资源释放。仅在用户要求时新增测试代码。

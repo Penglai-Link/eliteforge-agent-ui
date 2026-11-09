@@ -69,3 +69,12 @@ Composer 两端共用 core 样式，保留 `composer` 与 `chat-input` 的 part/
 `setThemeTokens()` 合并覆盖并刷新；`resetTheme()` 清除显式语义/ANSI 覆盖、恢复 CSS 解析；`refreshTheme()` 将当前容器解析后的颜色同步到 xterm。宿主切换样式后按需要调用刷新，不能只检查 DOM 卡片而遗漏画布。参数颜色必须是浏览器可解析的 CSS 颜色值。
 
 终端 `1.0.0-preview.3` 的实例控制方法 `clear()`、`getSelection()`、`focus()` 不重建终端，也不改变主题或语言；调整相关实现时保留这一行为。主题验收可在清屏和重新聚焦后继续检查 DOM 与 xterm 配色。
+
+## Compaction disclosure (since 1.0.0-preview.5)
+
+React and Vue share `.ef-chat__compaction-details` and `.ef-chat__compaction-blocks`
+from `chat-theme/src/primitives.css`. Native `details/summary` provides keyboard
+activation and expanded state. Contents are a plain list without another card.
+Text inherits `--agent-ui-chat-text`, focus uses `--agent-ui-chat-focus`, both
+resolved from existing public color tokens. Spacing uses `--agent-ui-space-1`,
+`--agent-ui-space-2`, `--agent-ui-space-4` with 4/8/16px fallbacks. No motion added.

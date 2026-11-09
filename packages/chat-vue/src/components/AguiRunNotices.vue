@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from "vue";
-import { buildAguiRunNotices, chatErrorPresentation, type ChatMessage, type ChatWorkRailLabels, type TranscriptAguiEvent } from "@personai/agent-ui-chat-core";
+import { buildAguiRunNotices, chatErrorPresentation, compactionBlockLabel, type ChatMessage, type ChatWorkRailLabels, type TranscriptAguiEvent } from "@personai/agent-ui-chat-core";
 const props = defineProps<{ events: TranscriptAguiEvent[]; messages?: ChatMessage[]; labels: ChatWorkRailLabels }>();
 const notices = computed(() => {
   const notices = buildAguiRunNotices(props.events);
@@ -31,14 +31,23 @@ const notices = computed(() => {
         detail = budget && copy?.toolSchemaBudget ? copy.toolSchemaBudget(budget.estimatedTokens, budget.limitTokens, budget.toolCount) : "";
       }
     }
-    return { title, failed, error: detail ? chatErrorPresentation(detail, props.labels.failed ?? "Run failed", notice.kind === "runError" || notice.kind === "runStopped" ? notice.code : undefined) : { summary: "", details: "" } };
+    return { title, failed, compaction: notice.kind === "compaction" && !["started", "requested"].includes(notice.status) ? notice : undefined, error: detail ? chatErrorPresentation(detail, props.labels.failed ?? "Run failed", notice.kind === "runError" || notice.kind === "runStopped" ? notice.code : undefined) : { summary: "", details: "" } };
   });
 });
 </script>
 <template>
   <div v-for="(notice, index) in notices" :key="index" class="ef-chat__run-notice" :class="{ 'ef-chat__run-notice--error': notice.failed }" :role="notice.failed ? 'alert' : 'status'">
     <div class="ef-chat__run-notice-content">
-      <div class="ef-chat__run-notice-title">{{ notice.title }}</div>
+      <details v-if="notice.compaction" class="ef-chat__compaction-details">
+        <summary class="ef-chat__run-notice-title">{{ notice.title }}</summary>
+        <ul v-if="notice.compaction.blocks?.length" class="ef-chat__compaction-blocks">
+          <li v-for="block in notice.compaction.blocks" :key="block.id">{{ labels.notices?.compactionBlock?.(block) ?? compactionBlockLabel(block) }}</li>
+        </ul>
+        <div v-else class="ef-chat__run-notice-detail">{{ notice.compaction.blocks
+          ? labels.notices?.compactionNoChanges ?? 'No memory blocks needed compaction.'
+          : labels.notices?.compactionDetailsUnavailable ?? 'Block details were not recorded for this compaction.' }}</div>
+      </details>
+      <div v-else class="ef-chat__run-notice-title">{{ notice.title }}</div>
       <template v-if="notice.error.summary">
         <div class="ef-chat__run-notice-detail">{{ notice.error.summary }}</div>
         <details v-if="notice.error.details" class="ef-chat__error-details"><summary>{{ /[\u3400-\u9fff]/.test(labels.thinking) ? '错误详情' : 'Error details' }}</summary><pre>{{ notice.error.details }}</pre></details>

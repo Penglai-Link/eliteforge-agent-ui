@@ -4,6 +4,7 @@ import type { ChatAnnotation } from "./annotations";
 import type { ChatMessage, MessageProvenance, ChatUserInputLabels, ChatUserInputRequest } from "./types";
 import { interactionMessages } from "./interactionMessages";
 import { metadataRecordWith } from "./eventMetadata";
+import type { ChatCompactionBlock } from "./compaction";
 
 export type HistoryStatus = "Running" | "Waiting" | "Completed" | "Interrupted" | "Failed" | "Unknown" | "Planned" | "Approved";
 /** A protocol-neutral maintenance step, with ordinary HistoryStep status. */
@@ -22,6 +23,7 @@ export interface HistoryMessage {
   content: HistoryContentBlock[]; structured: unknown; status: HistoryStatus; createdAtMs: number;
 }
 export interface HistoryStep {
+  compaction?: { blocks: ChatCompactionBlock[] };
   id: string; runId: string; nodeInvocationId: string | null; sequence: number; attempt: number; name: string;
   model: { connection: string; model: string } | null; status: HistoryStatus;
   usage: { inputTokens: number; outputTokens: number } | null; startedAtMs: number; finishedAtMs: number | null;

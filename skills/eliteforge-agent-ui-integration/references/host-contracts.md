@@ -105,3 +105,27 @@ const terminal = initTerminal({
 从 `1.0.0-preview.3` 开始，`initTerminal()` 返回实例还提供 `clear(): void`、`getSelection(): string`、`focus(): void`；旧的 `1.0.0-preview.2` 没有这三个方法。升级后直接调用返回实例，不导入未导出的内部 Terminal 类，也不用类型强转伪造接口。
 
 `clear()` 委托 xterm 清空缓冲区并保留当前提示行，不向 shell 发送命令，不停止 PTY 或删除宿主历史；`getSelection()` 未选中文本时返回空字符串；`focus()` 聚焦现有输入。三者保留主题和语言，销毁后不再调用。为宿主提供清屏/复制/聚焦按钮时，分别使用这些接口，并验证焦点、选择文本和终端连接仍正常。
+
+### Compaction block details (since 1.0.0-preview.5)
+
+`ChatCompactionBlock` contains `id`, `beforeTokens`, `afterTokens` and `kind`
+(`compressed` or `summary`). A reduction must lower its token count; generated
+summaries are reported separately. Do not infer reductions from budgets or list
+unchanged blocks as compressed.
+
+Live hosts send `CUSTOM agent.memory.compaction.details` with `{ blocks }` after
+assembly, associated with the same run as the compaction lifecycle. Completion
+may also carry `{ blocks }`. Detail events do not finish a run or create a notice
+without a compaction lifecycle. For durable history, provide
+`HistoryStep.compaction = { blocks }` on the corresponding compaction step.
+Match the run and step interval; never attach the session's latest snapshot to
+older steps. Omitted details mean unavailable; `[]` means no confirmed changes.
+
+React and Vue use a keyboard-accessible native disclosure for finished notices.
+Use `labels.notices.compactionBlock(block)` to translate block names/results;
+`compactionNoChanges` and `compactionDetailsUnavailable` translate empty states.
+
+```text
+assembler facts → live detail + lifecycle → disclosure
+saved step + matching report → history step.compaction → same disclosure
+```

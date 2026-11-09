@@ -15,6 +15,7 @@ export * from "./window-state";
 
 export * from "./nativeInteractions";
 export * from "./history";
+export * from "./compaction";
 
 export * from "./a2uiInteractions";
 export * from "./a2ui";

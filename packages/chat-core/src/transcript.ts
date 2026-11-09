@@ -7,6 +7,7 @@ import {
 } from "./display";
 import { CONTEXT_COMPACTION_STEP, historyEventRunId, type SessionHistory } from "./history";
 import { metadataRecordWith } from "./eventMetadata";
+import { parseCompactionBlocks, type ChatCompactionBlock } from "./compaction";
 import { parseToolPayload, presentToolCall, unwrapGatewayToolCall } from "./toolPresentation";
 import type {
   ChatAguiStreamEvent,
@@ -25,7 +26,7 @@ export interface ToolSchemaBudgetNotice {
 }
 
 export type AguiRunNotice =
-  | { kind: "compaction"; status: ChatCompactionStatus; code: string }
+  | { kind: "compaction"; status: ChatCompactionStatus; code: string; blocks?: ChatCompactionBlock[] }
   | { kind: "integrationWarning"; id: string; code: string; message: string }
   | { kind: "runStopped"; code: string; message: string }
   | { kind: "runError"; code: string; message: string; toolSchemaBudget?: ToolSchemaBudgetNotice };
@@ -92,11 +93,21 @@ export function buildAguiRunNotices(events: TranscriptAguiEvent[]): AguiRunNotic
         warnings.set(id,{kind:"integrationWarning",id,code:"MCP_RUNTIME_UNAVAILABLE",message});
       }
       const status = compactionEventStatuses.get(event.name);
+      const value = "value" in event && event.value && typeof event.value === "object"
+        ? event.value as Record<string, unknown> : {};
       if (status) {
-        const value = "value" in event && event.value && typeof event.value === "object"
-          ? event.value as Record<string, unknown>
-          : {};
-        compaction = { kind: "compaction", status, code: typeof value.errorCode === "string" ? value.errorCode : "" };
+        compaction = { ...compaction, kind: "compaction", status, code: typeof value.errorCode === "string" ? value.errorCode : "" };
+      }
+      if (compaction && (status || event.name === "agent.memory.compaction.details")) {
+        const blocks = parseCompactionBlocks(value.blocks);
+        if (blocks) {
+          const merged = new Map((compaction.blocks ?? []).map(block => [block.id, block]));
+          for (const block of blocks) {
+            const previous = merged.get(block.id);
+            merged.set(block.id, { ...block, beforeTokens: previous?.beforeTokens ?? block.beforeTokens });
+          }
+          compaction.blocks = [...merged.values()];
+        }
       }
     }
     const presentationFailure = isAguiPresentationFailureEvent(event);
@@ -1188,7 +1199,7 @@ export function historyCompactionEvents(history: SessionHistory): ChatAguiStream
       started.add(step.runId);
     }
     output.push({ ...base, id: `history-compaction:${step.id}:started`, type: "CUSTOM", name: "agent.memory.compaction.started", value: {}, timestamp: step.startedAtMs });
-    if (step.status !== "Running") output.push({ ...base, id: `history-compaction:${step.id}:finished`, type: "CUSTOM", name: step.status === "Completed" ? "agent.memory.compaction.completed" : "agent.memory.compaction.failed", value: {}, timestamp: step.finishedAtMs ?? step.startedAtMs });
+    if (step.status !== "Running") output.push({ ...base, id: `history-compaction:${step.id}:finished`, type: "CUSTOM", name: step.status === "Completed" ? "agent.memory.compaction.completed" : "agent.memory.compaction.failed", value: step.compaction ?? {}, timestamp: step.finishedAtMs ?? step.startedAtMs });
     lastStepTime.set(step.runId, Math.max(lastStepTime.get(step.runId) ?? 0, step.finishedAtMs ?? step.startedAtMs));
   }
   for (const run of history.runs) {

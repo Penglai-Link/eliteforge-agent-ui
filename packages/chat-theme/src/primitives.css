@@ -22,3 +22,18 @@
 @media (prefers-reduced-motion: reduce) {
   :where(.ef-composer, .ef-chat, .ef-chat-window, .a2ui-surface) * { transition-duration: 0s !important; }
 }
+
+/* Shared with Vue; details add no nested card surface. */
+.ef-chat__compaction-details > summary { cursor: pointer; }
+.ef-chat__compaction-details > summary:focus-visible {
+  outline: 2px solid var(--agent-ui-chat-focus);
+  outline-offset: 2px;
+}
+.ef-chat__compaction-blocks {
+  margin: var(--agent-ui-space-2, 8px) 0 0;
+  padding-inline-start: var(--agent-ui-space-4, 16px);
+  color: var(--agent-ui-chat-text);
+  font-weight: normal;
+  font-variant-numeric: tabular-nums;
+}
+.ef-chat__compaction-blocks > li + li { margin-top: var(--agent-ui-space-1, 4px); }

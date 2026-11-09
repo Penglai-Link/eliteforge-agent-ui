@@ -40,22 +40,22 @@ Terminal 组件
 @personai:registry=https://registry.npmjs.org/
 ```
 
-按需安装并固定同一版本。以下以当前仓库版本 `1.0.0-preview.4` 为例；升级时同时更新所有使用的 Agent UI 包和锁文件。React 聊天示例：
+按需安装并固定同一版本。以下以当前仓库版本 `1.0.0-preview.5` 为例；升级时同时更新所有使用的 Agent UI 包和锁文件。React 聊天示例：
 
 ```sh
-npm install --save-exact @personai/agent-ui-chat-react@1.0.0-preview.4 @personai/agent-ui-chat-core@1.0.0-preview.4 @personai/agent-ui-chat-theme@1.0.0-preview.4
+npm install --save-exact @personai/agent-ui-chat-react@1.0.0-preview.5 @personai/agent-ui-chat-core@1.0.0-preview.5 @personai/agent-ui-chat-theme@1.0.0-preview.5
 ```
 
 Vue 聊天示例：
 
 ```sh
-npm install --save-exact @personai/agent-ui-chat-vue@1.0.0-preview.4 @personai/agent-ui-chat-core@1.0.0-preview.4 @personai/agent-ui-chat-theme@1.0.0-preview.4
+npm install --save-exact @personai/agent-ui-chat-vue@1.0.0-preview.5 @personai/agent-ui-chat-core@1.0.0-preview.5 @personai/agent-ui-chat-theme@1.0.0-preview.5
 ```
 
 终端示例：
 
 ```sh
-npm install --save-exact @personai/agent-ui-terminal@1.0.0-preview.4
+npm install --save-exact @personai/agent-ui-terminal@1.0.0-preview.5
 ```
 
 安装时还要满足对应包声明的 React、Vue 和 xterm peer dependencies。chat-theme 包含全局根色板与页面样式；已有设计系统可省略该包及其 import，改为提供公开 CSS 变量。终端安装脚本会修补 xterm 输入法行为，使用受限安装脚本策略时应核查并允许该包所需脚本。
@@ -310,3 +310,27 @@ React/Vue 聊天组件提供 `data-theme-anchor="chat"`、`chat-input`、`chat-m
 
 Tron 的初始接入使用公共 chat 与 terminal 渲染器，Tron 自己维护 `@tron/chat-agent-ui-adapter`、认证、业务 API 和服务端 PTY。
 公共项目修复需要在这里验证后由宿主更新依赖；不能让宿主复制渲染器。宿主通过 npm 安装统一的明确版本，不依赖本地 Agent UI 源码目录或 `.agent-deps/agent-ui` 软链接。
+
+### Compaction block details (since 1.0.0-preview.5)
+
+`ChatCompactionBlock` contains `id`, `beforeTokens`, `afterTokens` and `kind`
+(`compressed` or `summary`). A reduction must lower its token count; generated
+summaries are reported separately. Do not infer reductions from budgets or list
+unchanged blocks as compressed.
+
+Live hosts send `CUSTOM agent.memory.compaction.details` with `{ blocks }` after
+assembly, associated with the same run as the compaction lifecycle. Completion
+may also carry `{ blocks }`. Detail events do not finish a run or create a notice
+without a compaction lifecycle. For durable history, provide
+`HistoryStep.compaction = { blocks }` on the corresponding compaction step.
+Match the run and step interval; never attach the session's latest snapshot to
+older steps. Omitted details mean unavailable; `[]` means no confirmed changes.
+
+React and Vue use a keyboard-accessible native disclosure for finished notices.
+Use `labels.notices.compactionBlock(block)` to translate block names/results;
+`compactionNoChanges` and `compactionDetailsUnavailable` translate empty states.
+
+```text
+assembler facts → live detail + lifecycle → disclosure
+saved step + matching report → history step.compaction → same disclosure
+```
