@@ -52,7 +52,7 @@ React/Vue 聊天演示使用 `chat-core` 的模拟 adapter，可创建会话、�
 
 ## 构建与发布
 
-所有包使用 `@personai/agent-ui-*` 命名空间，采用 Apache-2.0 许可证，发布到公共 npm。A2UI 包同时保留第三方许可证 `LICENSE.a2ui`。以下命令均在仓库根目录执行。
+所有包使用 `@personai/agent-ui-*` 命名空间，发布到公共 npm。当前仓库源码及包清单采用 [GNU Affero General Public License v3.0](LICENSE)（`AGPL-3.0-only`）；已发布 npm 版本以对应版本随包分发的许可证为准。A2UI 包同时保留第三方许可证 `LICENSE.a2ui`。以下命令均在仓库根目录执行。
 
 ### 1. 安装依赖并构建
 
