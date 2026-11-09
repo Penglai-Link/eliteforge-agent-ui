@@ -66,6 +66,9 @@ import '@personai/agent-ui-a2ui-vue/styles.css';
 | Video / AudioPlayer | 动态 URL、浏览器原生播放控制；不自动播放 |
 
 支持字面量和 `{path}` 绑定、JSON Pointer 转义、集合模板中的相对路径、双向写入。
+当前源码的两套 Catalog 均支持 `TextField.placeholder`，可传字符串或 `{path}` 绑定；React/Vue 在输入为空时显示提示，保留 `label`，不会将提示写入 `value` 或提交数据。此能力从 `1.0.0-preview.4` 开始提供，宿主升级时需同时更新服务端 Catalog，不能只修改一端。
+
+每条消息必须包含 `version` 和一个操作，例如 `{"version":"v0.9.1","updateComponents":{"surfaceId":"profile","components":[...]}}`。不要将 `surfaceId`、`components` 平铺到消息根部；`mode`、`responseSchema` 属于宿主工具的外层参数。客户端会拒绝错误信封，不自动猜测或补齐操作。
 只有绑定了 path 的输入才可编辑。缺失引用先渲染空占位，后续消息补齐。
 不支持完整官方 Basic Catalog；函数调用、checks、validationRegexp、ChoicePicker filterable / displayStyle 和 surface theme 均不在首版 Catalog 范围内，校验时拒绝。
 协议信封支持与组件/表达式能力需分别判断，不应把本客户端声明为完整 Basic Catalog 实现。

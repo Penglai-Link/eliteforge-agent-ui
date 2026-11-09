@@ -258,6 +258,10 @@
                 "obscured"
               ],
               "default": "shortText"
+            },
+            "placeholder": {
+              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicString",
+              "description": "A hint shown while the field is empty. Does not replace the label or set a value."
             }
           },
           "required": [

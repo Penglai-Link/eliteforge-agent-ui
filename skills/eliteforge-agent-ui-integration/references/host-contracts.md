@@ -60,10 +60,12 @@ client.apply({ version: 'v0.9.1', createSurface: {
 这里的 `v0.9.1` 是 schema 要求的协议版本，不能改成 `1.0.0-preview.3`。展示完整内容还需后续组件与数据消息。以同版本 core 导出的 Catalog/schema 为准，不宣称支持整个官方 Basic Catalog。
 
 - 宿主解析 JSONL/SSE 字节流后，每次把一个完整消息交给 `apply`；捕获校验错误，不直接传入网络 chunk。
+- 完整消息形如 `{"version":"v0.9.1","updateComponents":{"surfaceId":"profile","components":[...]}}`；不要平铺操作字段。当前源码的 `TextField.placeholder` 支持字符串/路径绑定，不影响标签和提交值；此能力从 `1.0.0-preview.4` 开始提供，需前后端使用匹配的 Catalog。
 - React/Vue 使用 `A2UISurface`，提供 client 和 surfaceId，并处理 `onAction(message, metadata)`（Vue 属性 `on-action`）。宿主路由业务、Agent 和审批；组件不自行请求服务。
 - `sendDataModel` 的内容位于 `metadata.a2uiClientDataModel.surfaces`。订阅返回的取消函数要释放；快照恢复使用 `exportSnapshot` / `importSnapshot`。
 - 自定义组件要同时注册 Catalog schema 与渲染器；仅加渲染函数不会绕过校验。QuestionCard / ApprovalCard 收集用户选择，审批授权仍在后端。
 - Chat 集成通过 adapter 的 A2UI 状态与 action 方法承接，避免重新实现第二套聊天渲染链。
+- `ChatA2uiSession.messages()` 生成的 `channel: "a2ui"` 消息只负责展示 Surface，通常没有 `history`。运行状态由同一 `runId` 的权威历史与当前执行事件决定；不能因这些展示消息缺少历史记录而重开已完成的运行，也不能仅凭 Surface 存在判定完成。该修复目前仅在源码中。
 
 源码导航：`packages/a2ui-core/src/index.ts` 及 schemas、两端 A2UI 导出、`docs/a2ui-client.md`、`docs/chat-a2ui.md`。
 

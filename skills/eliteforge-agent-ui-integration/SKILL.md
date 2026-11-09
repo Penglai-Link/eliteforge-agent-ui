@@ -2,7 +2,7 @@
 name: eliteforge-agent-ui-integration
 description: "指导其他 agent 将 @personai/agent-ui-* npm 包接入 React/Vue 或浏览器应用，包括包选择、统一版本、样式、ChatAdapter、A2UI action、Composer 回调和终端 transport；也用于从本地链接迁移到 npm。"
 metadata:
-  version: 1.0.0
+  version: 1.0.2
 ---
 
 # EliteForge Agent UI 对接
@@ -18,7 +18,7 @@ metadata:
 ## 工作流程
 
 1. 检查宿主框架、构建工具、已有 UI/设计系统、所需功能及已安装包。按[包与安装](references/packages.md)选择所需包，核对目标版本的 `exports`、`peerDependencies` 和类型声明。源码分支中的新 API 不代表已在 npm 发布。
-2. 通过公共 npm 安装同一个明确版本的全部 Agent UI 依赖，并更新锁文件。当前仓库版本是 `1.0.0-preview.3`，示例以此为基线；用户另定版本时先核对该版本元数据，不能盲信 `latest` / `next`。
+2. 通过公共 npm 安装同一个明确版本的全部 Agent UI 依赖，并更新锁文件。当前仓库版本是 `1.0.0-preview.4`，示例以此为基线；用户另定版本时先核对该版本元数据，不能盲信 `latest` / `next`。
 3. 显式导入对应样式；评估全局主题对宿主的影响。只通过公开导出、属性、插槽、CSS 变量和主题挂点扩展。
 4. 按所需模块读取[宿主运行契约](references/host-contracts.md)，实现 adapter/transport/回调。先用 mock 验证 UI 可以，但交付时必须区分 mock 与真实后端的验证结果。
 5. 运行宿主已有类型检查、构建及相关检查，检查浏览器真实交互和资源释放。仅在用户要求时新增测试代码。
@@ -29,6 +29,8 @@ metadata:
 - `ChatRuntimeWindow` 管理会话与运行状态；宿主完全控制状态时使用 `ChatPanel`，浮窗使用 `ChatWindow`。只需输入区时选择独立 `Composer`，无需引入聊天运行时。
 - 不把宿主实体直接强转成公共类型；保留稳定 ID、错误代码、AbortSignal 和运行身份。断开流观察不等于停止 Agent，停止必须走后端 `stopRun`。
 - A2UI 的协议 `version` / Catalog ID 与 npm 包版本不同；协议字段必须符合包内 schema，不得替换成 npm 版本号。A2UI 不自动发送网络请求或恢复审批。
+- A2UI 每条消息包含 `version` 和一个操作，`surfaceId`、`components` 放在操作对象内。`1.0.0-preview.4` 支持 `TextField.placeholder` 字符串/路径绑定；启用时必须核对前后端 Catalog 和渲染版本，不将提示作为字段值。
+- A2UI Surface 展示消息沿用所属运行的状态，不独立代表执行中。`1.0.0-preview.4` 修复 Surface 缺少历史记录导致已完成运行持续显示“工作中”的问题；验收时同时检查历史恢复与真实执行中的状态。
 - 浏览器终端通过宿主 PTY 服务工作，不在前端创建 shell。服务端凭据、模型密钥和权限判断留在服务端。
 
 ## 验收

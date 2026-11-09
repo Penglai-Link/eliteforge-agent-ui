@@ -266,10 +266,13 @@ export class A2UIClient {
   apply(input: unknown): void {
     const message = copy(input) as any;
     safe(message);
+    if (object(message) && ("surfaceId" in message || "components" in message))
+      throw new Error('Expected a complete A2UI envelope: {"version":"v0.9.1","updateComponents":{"surfaceId":"form","components":[...]}}. Keep surfaceId and operation fields inside the operation.');
     if (!object(message) || message.version !== VERSION)
       throw new Error("Expected A2UI v0.9.1");
     const keys = Object.keys(message).filter((k) => k !== "version");
-    if (keys.length !== 1) throw new Error("Expected one operation");
+    if (keys.length !== 1 || !["createSurface", "updateComponents", "updateDataModel", "deleteSurface"].includes(keys[0]))
+      throw new Error("Expected exactly one of createSurface, updateComponents, updateDataModel, deleteSurface alongside version; keep mode and responseSchema outside messages");
     const operation = keys[0],
       payload = message[operation];
     if (!object(payload)) throw new Error("Invalid payload");
@@ -982,6 +985,7 @@ export function renderSurface<T>(
             c.variant === "longText" ? "textarea" : "input",
             {
               value: value ?? "",
+              placeholder: c.placeholder === undefined ? undefined : String(resolve(c.placeholder) ?? ""),
               type:
                 c.variant === "obscured"
                   ? "password"

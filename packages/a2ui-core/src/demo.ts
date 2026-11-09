@@ -32,6 +32,7 @@ export const profileMessages = [
       surfaceId: "profile",
       value: {
         name: "Alice",
+        nameHint: "请输入姓名",
         newsletter: false,
         role: ["developer"],
         status: "请修改资料后提交",
@@ -47,6 +48,7 @@ export const profileMessages = [
           id: "name",
           component: "TextField",
           label: "姓名",
+          placeholder: { path: "/nameHint" },
           value: { path: "/name" },
         },
         {

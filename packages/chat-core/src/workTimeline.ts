@@ -302,9 +302,12 @@ export function buildTranscriptWorkTimeline(messages: ChatMessage[], presentatio
   for (const group of [...groups.values()].sort((a, b) => firstMillis(a) - firstMillis(b))) {
     if (!group.events.length && !group.messages.some(message => message.history)) continue;
     const terminal = currentAguiTerminalEvent(group.events);
-    const historyComplete = group.messages.length > 0 && group.messages.every(message => message.history)
-      && historyWorkCompleted(group.messages)
-      && (!group.events.length || historyCoversAguiWork(group.messages, group.events));
+    // Surface snapshots add presentation-only messages without history records.
+    // They share this run's lifecycle; their presence cannot reopen a finished run.
+    const historyMessages = group.messages.filter(message => message.history || message.channel !== "a2ui" || !message.a2ui);
+    const historyComplete = historyMessages.length > 0 && historyMessages.every(message => message.history)
+      && historyWorkCompleted(historyMessages)
+      && (!group.events.length || historyCoversAguiWork(historyMessages, group.events));
     const lastMessageIndex = Math.max(-1, ...group.messages.map(message => messages.indexOf(message)));
     const nextUser = messages.slice(lastMessageIndex + 1).find(message => message.role === "USER" && messageSenderIsHuman(message));
     const answeredBoundary = Boolean(nextUser?.interactionResponse

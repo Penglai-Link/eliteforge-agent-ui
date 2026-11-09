@@ -40,22 +40,22 @@ Terminal 组件
 @personai:registry=https://registry.npmjs.org/
 ```
 
-按需安装并固定同一版本。以下以当前仓库版本 `1.0.0-preview.3` 为例；升级时同时更新所有使用的 Agent UI 包和锁文件。React 聊天示例：
+按需安装并固定同一版本。以下以当前仓库版本 `1.0.0-preview.4` 为例；升级时同时更新所有使用的 Agent UI 包和锁文件。React 聊天示例：
 
 ```sh
-npm install --save-exact @personai/agent-ui-chat-react@1.0.0-preview.3 @personai/agent-ui-chat-core@1.0.0-preview.3 @personai/agent-ui-chat-theme@1.0.0-preview.3
+npm install --save-exact @personai/agent-ui-chat-react@1.0.0-preview.4 @personai/agent-ui-chat-core@1.0.0-preview.4 @personai/agent-ui-chat-theme@1.0.0-preview.4
 ```
 
 Vue 聊天示例：
 
 ```sh
-npm install --save-exact @personai/agent-ui-chat-vue@1.0.0-preview.3 @personai/agent-ui-chat-core@1.0.0-preview.3 @personai/agent-ui-chat-theme@1.0.0-preview.3
+npm install --save-exact @personai/agent-ui-chat-vue@1.0.0-preview.4 @personai/agent-ui-chat-core@1.0.0-preview.4 @personai/agent-ui-chat-theme@1.0.0-preview.4
 ```
 
 终端示例：
 
 ```sh
-npm install --save-exact @personai/agent-ui-terminal@1.0.0-preview.3
+npm install --save-exact @personai/agent-ui-terminal@1.0.0-preview.4
 ```
 
 安装时还要满足对应包声明的 React、Vue 和 xterm peer dependencies。chat-theme 包含全局根色板与页面样式；已有设计系统可省略该包及其 import，改为提供公开 CSS 变量。终端安装脚本会修补 xterm 输入法行为，使用受限安装脚本策略时应核查并允许该包所需脚本。
@@ -240,6 +240,8 @@ AI 是可选的：省略 `ai` 后，普通终端仍可使用。`createTerminalTr
 
 ## 5. 主题、文案和布局
 
+当前源码中，用户消息和正文答复下方的操作按钮、时间在桌面端悬停到对应消息或键盘聚焦时显示，隐藏时保留占位。触屏等不支持 hover 的设备保持可见。React/Vue 使用一致规则；过程区和系统通知不受影响。此行为从 `1.0.0-preview.4` 开始提供。
+
 React 和 Vue 聊天消息都支持 fenced `mermaid` 代码块，按需加载 Mermaid，并使用当前聊天主题的字体和颜色。流式消息在代码块闭合后渲染图表；未闭合或语法错误时保留源码。普通代码块保持原样。
 
 AG-UI 正文始终显示为独立消息，包括未声明 `phase` 的模型输出。思考与工具按相邻正文分段；正文出现时结束前面的过程段，后续过程接在正文后面，不会把先前回复重新收进折叠区。运行中的尾部过程展开，已结束的过程可展开查看。正文中的 `Reasoning` 块仍进入过程区，不会作为正文展示。直播、回放与结构化历史使用相同的规则。
@@ -253,6 +255,14 @@ AG-UI 正文始终显示为独立消息，包括未声明 `phase` 的模型输�
 “准备请求”只用于本次发送或交互回答尚未收到执行事件的阶段；收到运行开始、思考、正文、工具或终止事件即结束准备状态，不需要等待正文或整个运行完成。旧的回放事件不会确认一个新请求。
 
 合并直播和回放时按稳定事件 ID 去重。带 `metadata.framework.executionId` 与 `sourceSequence` 的帧在各自执行内优先按源序号排列；没有序号的帧沿用时间戳和输入顺序。续跑可以有新的执行 ID，序号允许重新开始。工具按调用 ID 关联，避免历史记录和直播结果重复。
+
+A2UI Surface 恢复产生的展示消息通常没有 `history`，应沿用同一运行的状态。`1.0.0-preview.4` 已修复这类消息导致“工作中”残留的问题。没有权威历史或结束事件时，不能仅凭图表已渲染就视为完成；等待输入与新的执行事件仍按原生命周期处理。
+
+```text
+SessionHistory ── 同一 runId 的结束状态 ──┐
+                                         ├─ 工作过程状态 → 停止计时、显示最终答复
+A2UI Surface ─── 只补充展示消息 ──────────┘
+```
 
 子代理派发卡片使用 `workRailLabels.tool.subagentDispatched(name)` 生成标题；`name` 从 `agent_spawn` 的参数或子代理事件字段中读取。未提供回调时，界面根据已有 `workRailLabels` 文案判断中英文并生成标题。`agent_spawn` 工具行不再重复显示运行状态文字。
 

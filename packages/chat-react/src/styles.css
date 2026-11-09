@@ -537,6 +537,15 @@
   gap: 4px;
 }
 
+/* Keep per-message controls quiet without moving the transcript on reveal. */
+@media (hover: hover) and (pointer: fine) {
+  .ef-chat__turn > .ef-chat__message-entry:not(:hover):not(:focus-within):has(> [data-theme-part="chat-message-user"], > [data-theme-part="chat-message-assistant"]) > .ef-chat__message-actions--outside,
+  .ef-chat__user-message-group:not(:hover):not(:focus-within) > .ef-chat__message-entry > .ef-chat__message-actions--outside {
+    opacity: 0;
+    pointer-events: none;
+  }
+}
+
 .ef-chat__message-time {
   color: var(--agent-ui-chat-text-muted);
   font-size: 12px;
@@ -1107,6 +1116,14 @@
   align-items: center;
   flex-shrink: 0;
   color: var(--agent-ui-chat-text-muted);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .ef-chat__rail-summary:not(:hover):not(:focus-visible) > svg,
+  .ef-chat__rail-entry-toggle:not(:hover):not(:focus-visible) > .ef-chat__rail-entry-chevron,
+  .ef-chat__tool-toggle:not(:hover):not(:focus-visible) > .ef-chat__tool-chevron {
+    opacity: 0;
+  }
 }
 
 .ef-chat__rail-entry-body {

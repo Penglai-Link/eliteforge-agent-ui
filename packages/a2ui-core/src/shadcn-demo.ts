@@ -225,6 +225,7 @@ export function initializeShadcnDemo(client: A2UIClient) {
       id: "sample-input",
       component: "TextField",
       label: "账户",
+      placeholder: "请输入账户名称",
       value: { path: "/account" },
     },
     {
