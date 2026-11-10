@@ -78,3 +78,17 @@ activation and expanded state. Contents are a plain list without another card.
 Text inherits `--agent-ui-chat-text`, focus uses `--agent-ui-chat-focus`, both
 resolved from existing public color tokens. Spacing uses `--agent-ui-space-1`,
 `--agent-ui-space-2`, `--agent-ui-space-4` with 4/8/16px fallbacks. No motion added.
+
+### 图片附件与历史回放
+
+图片附件和结构化历史中的 `Media` 图片默认使用紧凑缩略图，点击后通过 ChatPanel 的图片预览层查看原图，可用关闭按钮或 Escape 退出。批注图片保留原始 URL、内容和元数据，不把缩略图尺寸传给模型，也不修改历史记录。实时附件与重新加载的历史使用相同的尺寸变量。
+
+- `--agent-ui-chat-image-thumbnail-width`：默认 `112px`。
+- `--agent-ui-chat-image-thumbnail-height`：默认 `80px`。
+- `--agent-ui-chat-image-thumbnail-radius`：默认 `10px`。
+
+这些变量可以从宿主容器继承；历史图片入口提供 `data-theme-part="chat-image-thumbnail"`。普通媒体图片采用同样的紧凑展示。此行为属于当前源码，消费方需安装包含该修复的发布版本后生效。
+
+用户历史图片与实时附件归入对应用户消息组，缩略图位于消息正文上方并沿右边缘对齐；多张图片自动换行，点击仍打开原图预览。助手和系统消息不使用用户消息的右对齐分组。
+
+批注弹层挂到 body 时复制来源聊天的主题颜色；保存按钮使用 `--agent-ui-chat-primary` / `--agent-ui-chat-on-primary`（回退到宿主 `--color-primary` / `--color-on-primary`），悬停混合主题色，禁用态不触发悬停变化。

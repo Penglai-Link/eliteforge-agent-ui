@@ -129,3 +129,11 @@ Use `labels.notices.compactionBlock(block)` to translate block names/results;
 assembler facts → live detail + lifecycle → disclosure
 saved step + matching report → history step.compaction → same disclosure
 ```
+
+## 图片历史展示
+
+ChatPanel 将实时图片附件和历史 `Media` 图片显示为缩略图，点击打开原图预览；宿主不必重写消息或丢弃批注元数据。缩略图大小只影响展示，不改变发送给模型的图片。消费方应安装包含此修复的 npm 版本；源码修改不代表已经发布。尺寸变量见主题 skill 的 Chat 主题契约。
+
+用户历史图片与实时附件归入对应用户消息组，缩略图位于消息正文上方并沿右边缘对齐；多张图片自动换行，点击仍打开原图预览。助手和系统消息不使用用户消息的右对齐分组。
+
+批注弹层挂到 body 时复制来源聊天的主题颜色；保存按钮使用 `--agent-ui-chat-primary` / `--agent-ui-chat-on-primary`（回退到宿主 `--color-primary` / `--color-on-primary`），悬停混合主题色，禁用态不触发悬停变化。

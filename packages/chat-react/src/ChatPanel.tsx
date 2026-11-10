@@ -1010,7 +1010,7 @@ function AguiRunStatus({ notices, labels }: { notices: AguiRunNotice[]; labels: 
   });
 }
 
-function StructuredMessageDetails({ message, workOnly = false, showReasoningCards = true, labels, hasRunError = false, historyLabels = defaultHistoryLabels, locale }: { workOnly?: boolean; showReasoningCards?: boolean; hasRunError?: boolean; message: ChatMessage; labels?: ChatWorkRailLabels; historyLabels?: ChatHistoryLabels; locale?: string }) {
+function StructuredMessageDetails({ message, workOnly = false, showReasoningCards = true, labels, hasRunError = false, historyLabels = defaultHistoryLabels, locale, onPreviewImage }: { onPreviewImage?: (source: string, alt: string) => void; workOnly?: boolean; showReasoningCards?: boolean; hasRunError?: boolean; message: ChatMessage; labels?: ChatWorkRailLabels; historyLabels?: ChatHistoryLabels; locale?: string }) {
   const view = message.history;
   if (!view) return null;
   const reasoning = view.message.content.filter((b) => b.type === "Reasoning").map((b) => "text" in b ? b.text : "").join("");
@@ -1023,7 +1023,7 @@ function StructuredMessageDetails({ message, workOnly = false, showReasoningCard
     {workOnly && showReasoningCards && reasoning ? <ReasoningCard labels={labels} card={{ id: `${message.messageId}:reasoning`, runId: message.runId ?? "", content: reasoning, summary: reasoning,
       ended: view.message.status !== "Running", firstMillis: view.message.createdAtMs, endMillis: view.step?.finishedAtMs ?? null, toolCards: [] }} /> : null}
     {!workOnly && blocks.map((block, index) => <div key={index}>
-      {block.type === "Json" ? <pre>{JSON.stringify(block.value, null, 2)}</pre> : block.type === "Media" && block.mimeType.startsWith("image/") && historyBlockUrl(block) ? <img src={historyBlockUrl(block)!} alt={block.name ?? block.mimeType} loading="lazy" /> : block.type === "Media" || block.type === "Resource" ? historyBlockUrl(block) ? <a href={historyBlockUrl(block)!} target="_blank" rel="noreferrer">{block.name ?? (block.type === "Resource" ? block.uri : block.mimeType)}</a> : <code>{block.name ?? (block.type === "Resource" ? block.uri : block.mimeType)}</code> : null}
+      {block.type === "Json" ? <pre>{JSON.stringify(block.value, null, 2)}</pre> : block.type === "Media" && block.mimeType.startsWith("image/") && historyBlockUrl(block) ? <button type="button" className="ef-chat__history-image-thumbnail" data-theme-part="chat-image-thumbnail" aria-label={block.name ?? block.mimeType} aria-haspopup="dialog" onClick={() => onPreviewImage?.(historyBlockUrl(block)!, block.name ?? block.mimeType)}><img src={historyBlockUrl(block)!} alt={block.name ?? block.mimeType} loading="lazy" /></button> : block.type === "Media" || block.type === "Resource" ? historyBlockUrl(block) ? <a href={historyBlockUrl(block)!} target="_blank" rel="noreferrer">{block.name ?? (block.type === "Resource" ? block.uri : block.mimeType)}</a> : <code>{block.name ?? (block.type === "Resource" ? block.uri : block.mimeType)}</code> : null}
     </div>)}
     {!workOnly && view.message.structured != null ? <pre>{JSON.stringify(view.message.structured, null, 2)}</pre> : null}
     {workOnly && view.tools.map((tool) => <div key={tool.id} data-tool-invocation-id={tool.id}>
@@ -1557,7 +1557,7 @@ export function ChatPanel({
 
   function renderProcessMessage(message: ChatMessage) {
     return <>
-      <StructuredMessageDetails message={message} labels={workRailLabels} historyLabels={historyLabels} locale={locale} hasRunError={workTimeline.managedMessageIds.has(message.messageId) || displayedErrorRuns.has(message.runId ?? "") || lastHistoryErrorByRun.get(message.runId) !== message.messageId} />
+      <StructuredMessageDetails onPreviewImage={(source, alt) => setPreviewImage({ source, alt })} message={message} labels={workRailLabels} historyLabels={historyLabels} locale={locale} hasRunError={workTimeline.managedMessageIds.has(message.messageId) || displayedErrorRuns.has(message.runId ?? "") || lastHistoryErrorByRun.get(message.runId) !== message.messageId} />
       {message.content.trim() || message.a2ui || message.interactionResponse ? <ChatBubble currentUserDisplayName={currentUserDisplayName} hideMessageIdentity={hideMessageIdentity} processMessage
         isStreaming={message.messageId === streamingAssistantMessageCode} message={message} a2uiSession={a2uiSession}
         a2uiDisabled={a2uiDisabled} onA2UIAction={onA2UIAction} onEditMessage={onEditMessage} onDeleteTurn={onDeleteTurn} deleteTurnLabel={deleteTurnLabel} /> : null}
@@ -1666,9 +1666,10 @@ export function ChatPanel({
                           {showAgui ? workTimeline.before.get(message.messageId)?.map(renderWorkRun) : null}
                           {!showAgui || !workTimeline.processMessageIds.has(message.messageId) ? <>
                           {!workTimeline.managedMessageIds.has(message.messageId) && historyWork.has(message.messageId) ? <HistoryWorkRail messages={historyWork.get(message.messageId)!} labels={workRailLabels} historyLabels={historyLabels} showReasoningCards={showReasoningCards} locale={locale} /> : null}
-                          <StructuredMessageDetails message={message} labels={workRailLabels} historyLabels={historyLabels} locale={locale} hasRunError={workTimeline.managedMessageIds.has(message.messageId) || displayedErrorRuns.has(message.runId ?? "") || lastHistoryErrorByRun.get(message.runId) !== message.messageId} />
+                          {message.role !== "USER" || message.provenance?.sender.kind.toUpperCase() === "SYSTEM" ? <StructuredMessageDetails onPreviewImage={(source, alt) => setPreviewImage({ source, alt })} message={message} labels={workRailLabels} historyLabels={historyLabels} locale={locale} hasRunError={workTimeline.managedMessageIds.has(message.messageId) || displayedErrorRuns.has(message.runId ?? "") || lastHistoryErrorByRun.get(message.runId) !== message.messageId} /> : null}
                           {message.role === "USER" && message.provenance?.sender.kind.toUpperCase() !== "SYSTEM" ? (
                             <div className="ef-chat__user-message-group">
+                              <StructuredMessageDetails onPreviewImage={(source, alt) => setPreviewImage({ source, alt })} message={message} labels={workRailLabels} historyLabels={historyLabels} locale={locale} hasRunError={workTimeline.managedMessageIds.has(message.messageId) || displayedErrorRuns.has(message.runId ?? "") || lastHistoryErrorByRun.get(message.runId) !== message.messageId} />
                               <AnnotationBadges annotations={message.annotations ?? []} formatCount={formatAnnotationCount} />
                               <ChatAttachments
                                 attachments={message.attachments}

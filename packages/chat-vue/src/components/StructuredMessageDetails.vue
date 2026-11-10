@@ -4,6 +4,7 @@ import { chatErrorPresentation, defaultHistoryLabels, historyToolResult, history
 import ReasoningCard from "./ReasoningCard.vue";
 import ToolCard from "./ToolCard.vue";
 const props = defineProps<{ message: ChatMessage; workOnly?: boolean; showReasoningCards?: boolean; labels?: ChatHistoryLabels; hideRunError?: boolean; locale?: string }>();
+const emit = defineEmits<{ previewImage: [source: string, alt: string] }>();
 const labels = computed(() => props.labels ?? defaultHistoryLabels);
 const view = computed(() => props.message.history);
 const error = computed(() => chatErrorPresentation(view.value?.run?.error ?? "", labels.value.statuses.Failed));
@@ -19,7 +20,7 @@ const tools = computed(() => view.value?.tools.map((tool) => ({ tool, card: {
     <ReasoningCard v-if="workOnly && showReasoningCards !== false && reasoning" :card="{ id: `${message.messageId}:reasoning`, runId: message.runId ?? '', content: reasoning, summary: reasoning, ended: view.message.status !== 'Running', firstMillis: view.message.createdAtMs, endMillis: view.step?.finishedAtMs ?? null, toolCards: [] }" />
     <template v-for="(block, index) in workOnly ? [] : view.message.content" :key="index">
       <pre v-if="block.type === 'Json'">{{ JSON.stringify(block.value, null, 2) }}</pre>
-      <img v-else-if="block.type === 'Media' && block.mimeType.startsWith('image/') && historyBlockUrl(block)" :src="historyBlockUrl(block)!" :alt="block.name ?? block.mimeType" loading="lazy" />
+      <button v-else-if="block.type === 'Media' && block.mimeType.startsWith('image/') && historyBlockUrl(block)" type="button" class="ef-chat__history-image-thumbnail" data-theme-part="chat-image-thumbnail" :aria-label="block.name ?? block.mimeType" aria-haspopup="dialog" @click="emit('previewImage', historyBlockUrl(block)!, block.name ?? block.mimeType)"><img :src="historyBlockUrl(block)!" :alt="block.name ?? block.mimeType" loading="lazy" /></button>
       <template v-else-if="block.type === 'Resource' || block.type === 'Media'">
         <a v-if="historyBlockUrl(block)" :href="historyBlockUrl(block)!" target="_blank" rel="noreferrer">{{ block.name ?? (block.type === 'Resource' ? block.uri : block.mimeType) }}</a>
         <code v-else>{{ block.name ?? (block.type === 'Resource' ? block.uri : block.mimeType) }}</code>

@@ -503,7 +503,7 @@
 
 .ef-chat__user-message-group {
   display: flex;
-  max-width: 920px;
+  max-width: min(100%, 920px);
   align-self: flex-end;
   align-items: flex-end;
   flex-direction: column;
@@ -576,22 +576,22 @@
 
 .ef-chat__inspection-preview {
   display: flex;
-  max-width: min(224px, 100%);
-  max-height: 160px;
+  max-width: min(var(--agent-ui-chat-image-thumbnail-width, 112px), 100%);
+  max-height: var(--agent-ui-chat-image-thumbnail-height, 80px);
   align-items: center;
   justify-content: center;
   overflow: hidden;
   margin: 0;
   border: 1px solid var(--agent-ui-chat-border);
-  border-radius: 12px;
+  border-radius: var(--agent-ui-chat-image-thumbnail-radius, 10px);
   background: var(--agent-ui-chat-surface-muted);
-  box-shadow: 0 6px 18px rgba(15, 23, 42, 0.08);
+  box-shadow: none;
 }
 
 .ef-chat__inspection-preview img {
   display: block;
   max-width: 100%;
-  max-height: 160px;
+  max-height: var(--agent-ui-chat-image-thumbnail-height, 80px);
   object-fit: contain;
 }
 
@@ -1868,3 +1868,38 @@
 .ef-chat__interaction-meta { display: flex; justify-content: space-between; gap: 16px; opacity: .65; font-size: 12px; }
 .ef-chat__interaction-popover .ef-chat__interaction-summary { margin: 10px 0 0; gap: 12px; }
 .ef-chat__interaction-popover .ef-chat__interaction-summary dd { user-select: text; }
+
+/* The same compact image entry is used for persisted Media blocks. */
+.ef-chat__history-image-thumbnail {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--agent-ui-chat-image-thumbnail-width, 112px);
+  height: var(--agent-ui-chat-image-thumbnail-height, 80px);
+  max-width: 100%;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--agent-ui-chat-border);
+  border-radius: var(--agent-ui-chat-image-thumbnail-radius, 10px);
+  background: var(--agent-ui-chat-surface-muted);
+  cursor: zoom-in;
+}
+.ef-chat__history-image-thumbnail img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+.ef-chat__history-image-thumbnail:focus-visible {
+  outline: 2px solid var(--agent-ui-chat-focus);
+  outline-offset: 2px;
+}
+
+/* Keep persisted media attached to its user message, including narrow layouts. */
+.ef-chat__user-message-group > .ef-chat__history-details {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--agent-ui-chat-attachment-gap, 8px);
+  max-width: 100%;
+}

@@ -102,3 +102,7 @@ defineProps<{ adapter: ChatAdapter }>();
 只读会话可设置 `showComposer={false}`（Vue 使用 `:show-composer="false"`），复用相同的消息、工作过程和工具卡片，不渲染输入框。
 
 Finished context-compaction notices can expand block details supplied through `HistoryStep.compaction` or the live `agent.memory.compaction.details` event. Translate them with `workRailLabels.notices.compactionBlock`, `compactionNoChanges` and `compactionDetailsUnavailable`. This addition is available from `1.0.0-preview.5`; see `docs/integration-guide.md`.
+
+图片附件及结构化历史的图片以紧凑缩略图显示，点击查看原图。可通过 `--agent-ui-chat-image-thumbnail-width`、`--agent-ui-chat-image-thumbnail-height` 和 `--agent-ui-chat-image-thumbnail-radius` 调整，默认分别为 `112px`、`80px`、`10px`；此行为适用于当前源码，发布状态以 npm 版本为准。
+
+用户历史图片与实时附件归入对应用户消息组，缩略图位于消息正文上方并沿右边缘对齐；多张图片自动换行，点击仍打开原图预览。助手和系统消息不使用用户消息的右对齐分组。

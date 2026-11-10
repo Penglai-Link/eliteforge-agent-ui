@@ -68,6 +68,17 @@ export function selectedChatText(root: HTMLElement): { messageId: string; select
   return messageId ? { messageId, selectedText, rect: range.getBoundingClientRect() } : null;
 }
 
+/** Body portals retain the originating chat's scoped theme. */
+function inheritAnnotationTheme(source: HTMLElement, overlay: HTMLElement) {
+  const style = source.ownerDocument.defaultView?.getComputedStyle(source);
+  if (!style) return;
+  for (const name of ["--agent-ui-chat-primary", "--agent-ui-chat-on-primary", "--color-primary", "--color-on-primary", "--color-on-surface", "--color-on-surface-variant", "--color-surface-container-lowest", "--color-outline-variant", "--font-sans"]) {
+    const value = style.getPropertyValue(name).trim();
+    if (value) overlay.style.setProperty(name, value);
+    else overlay.style.removeProperty(name);
+  }
+}
+
 /** Shared selection popover for React/Vue; no framework-owned DOM is modified. */
 export function mountChatAnnotationSelection(root: HTMLElement, onAdd: (annotation: ChatAnnotation) => void, labels: ChatAnnotationLabels = defaultChatAnnotationLabels): () => void {
   const doc = root.ownerDocument;
@@ -123,6 +134,7 @@ export function mountChatAnnotationSelection(root: HTMLElement, onAdd: (annotati
     if (!selected) { close(); return; }
     panel.dataset.mode = "toolbar";
     panel.replaceChildren(trigger);
+    inheritAnnotationTheme(root, panel);
     doc.body.append(panel);
     position(selected.rect);
   };
@@ -213,6 +225,7 @@ export function mountChatAnnotationPreviews(root: HTMLElement): () => void {
     active = target;
     tooltip.textContent = target.dataset.annotationTooltip ?? "";
     target.setAttribute("aria-describedby", tooltip.id);
+    inheritAnnotationTheme(target, tooltip);
     doc.body.append(tooltip);
     const rect = target.getBoundingClientRect();
     tooltip.style.left = `${Math.max(8, Math.min(rect.left, doc.documentElement.clientWidth - tooltip.offsetWidth - 8))}px`;
@@ -277,6 +290,7 @@ export function openChatAnnotationEditor(anchor: HTMLElement, annotation: ChatAn
   save.textContent = labels.saveChanges ?? labels.addToMessage;
   actions.append(cancel, save);
   panel.append(quote, input, actions);
+  inheritAnnotationTheme(anchor, panel);
   doc.body.append(panel);
   const rect = anchor.getBoundingClientRect();
   const width = panel.offsetWidth || 320;

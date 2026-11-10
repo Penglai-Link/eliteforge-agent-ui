@@ -31,8 +31,8 @@
   cursor: pointer;
   transition: background 120ms ease, opacity 120ms ease;
 }
-.ef-chat__selection-comment button:hover { background: color-mix(in srgb, currentColor 6%, transparent); }
-.ef-chat__selection-comment button:focus-visible { outline: 2px solid var(--color-primary, #45574d); outline-offset: 2px; }
+.ef-chat__selection-comment button:not(.ef-chat__selection-save):not(:disabled):hover { background: color-mix(in srgb, currentColor 6%, transparent); }
+.ef-chat__selection-comment button:focus-visible { outline: 2px solid var(--agent-ui-chat-primary, var(--color-primary, #45574d)); outline-offset: 2px; }
 .ef-chat__selection-trigger { white-space: nowrap; }
 .ef-chat__selection-comment blockquote {
   margin: 0 0 10px;
@@ -64,8 +64,8 @@
 .ef-chat__selection-comment textarea::placeholder { color: var(--color-on-surface-variant, #727972); opacity: .7; }
 .ef-chat__selection-actions { display: flex; justify-content: flex-end; align-items: center; gap: 5px; padding-top: 8px; }
 .ef-chat__selection-comment .ef-chat__selection-cancel { color: var(--color-on-surface-variant, #727972); }
-.ef-chat__selection-comment .ef-chat__selection-save { background: var(--color-on-surface, #202522); color: var(--color-surface-container-lowest, #fff); }
-.ef-chat__selection-comment .ef-chat__selection-save:hover { opacity: .85; }
+.ef-chat__selection-comment .ef-chat__selection-save { background: var(--agent-ui-chat-primary, var(--color-primary, #202522)); color: var(--agent-ui-chat-on-primary, var(--color-on-primary, #fff)); }
+.ef-chat__selection-comment .ef-chat__selection-save:not(:disabled):hover { background: color-mix(in srgb, var(--agent-ui-chat-primary, var(--color-primary, #202522)) 88%, var(--agent-ui-chat-on-primary, var(--color-on-primary, #fff))); }
 .ef-chat__selection-comment button:disabled { opacity: .3; cursor: default; }
 .ef-chat__annotation-tooltip {
   width: 320px;

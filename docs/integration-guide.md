@@ -40,22 +40,22 @@ Terminal 组件
 @personai:registry=https://registry.npmjs.org/
 ```
 
-按需安装并固定同一版本。以下以当前仓库版本 `1.0.0-preview.5` 为例；升级时同时更新所有使用的 Agent UI 包和锁文件。React 聊天示例：
+按需安装并固定同一版本。以下以当前仓库版本 `1.0.0-preview.6` 为例；升级时同时更新所有使用的 Agent UI 包和锁文件。React 聊天示例：
 
 ```sh
-npm install --save-exact @personai/agent-ui-chat-react@1.0.0-preview.5 @personai/agent-ui-chat-core@1.0.0-preview.5 @personai/agent-ui-chat-theme@1.0.0-preview.5
+npm install --save-exact @personai/agent-ui-chat-react@1.0.0-preview.6 @personai/agent-ui-chat-core@1.0.0-preview.6 @personai/agent-ui-chat-theme@1.0.0-preview.6
 ```
 
 Vue 聊天示例：
 
 ```sh
-npm install --save-exact @personai/agent-ui-chat-vue@1.0.0-preview.5 @personai/agent-ui-chat-core@1.0.0-preview.5 @personai/agent-ui-chat-theme@1.0.0-preview.5
+npm install --save-exact @personai/agent-ui-chat-vue@1.0.0-preview.6 @personai/agent-ui-chat-core@1.0.0-preview.6 @personai/agent-ui-chat-theme@1.0.0-preview.6
 ```
 
 终端示例：
 
 ```sh
-npm install --save-exact @personai/agent-ui-terminal@1.0.0-preview.5
+npm install --save-exact @personai/agent-ui-terminal@1.0.0-preview.6
 ```
 
 安装时还要满足对应包声明的 React、Vue 和 xterm peer dependencies。chat-theme 包含全局根色板与页面样式；已有设计系统可省略该包及其 import，改为提供公开 CSS 变量。终端安装脚本会修补 xterm 输入法行为，使用受限安装脚本策略时应核查并允许该包所需脚本。
@@ -334,3 +334,17 @@ Use `labels.notices.compactionBlock(block)` to translate block names/results;
 assembler facts → live detail + lifecycle → disclosure
 saved step + matching report → history step.compaction → same disclosure
 ```
+
+### 图片附件与历史回放
+
+图片附件和结构化历史中的 `Media` 图片默认使用紧凑缩略图，点击后通过 ChatPanel 的图片预览层查看原图，可用关闭按钮或 Escape 退出。批注图片保留原始 URL、内容和元数据，不把缩略图尺寸传给模型，也不修改历史记录。实时附件与重新加载的历史使用相同的尺寸变量。
+
+- `--agent-ui-chat-image-thumbnail-width`：默认 `112px`。
+- `--agent-ui-chat-image-thumbnail-height`：默认 `80px`。
+- `--agent-ui-chat-image-thumbnail-radius`：默认 `10px`。
+
+这些变量可以从宿主容器继承；历史图片入口提供 `data-theme-part="chat-image-thumbnail"`。普通媒体图片采用同样的紧凑展示。此行为属于当前源码，消费方需安装包含该修复的发布版本后生效。
+
+用户历史图片与实时附件归入对应用户消息组，缩略图位于消息正文上方并沿右边缘对齐；多张图片自动换行，点击仍打开原图预览。助手和系统消息不使用用户消息的右对齐分组。
+
+批注弹层挂到 body 时复制来源聊天的主题颜色；保存按钮使用 `--agent-ui-chat-primary` / `--agent-ui-chat-on-primary`（回退到宿主 `--color-primary` / `--color-on-primary`），悬停混合主题色，禁用态不触发悬停变化。
