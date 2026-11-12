@@ -327,12 +327,20 @@ export function buildTranscriptWorkTimeline(messages: ChatMessage[], presentatio
     const knownTimes = [...eventTimes, ...group.messages.flatMap(message => [Date.parse(message.createdAt), ...(message.history?.tools ?? []).flatMap(tool => [tool.startedAtMs, tool.finishedAtMs])])]
       .filter((value): value is number => typeof value === "number" && Number.isFinite(value));
     const outcome = terminal && "outcome" in terminal ? terminal.outcome as { type?: string } | undefined : undefined;
-    const interrupted = outcome?.type === "interrupt"
-      || !terminal && group.messages.some(message => message.history?.run?.status === "Waiting");
+    const matchesRun = (request: ChatUserInputRequest) => request.runId === group.nativeId
+      || group.wireIds.has(request.runId)
+      || group.messages.some(message => message.messageId === request.assistantMessageId);
+    const interruptedAt = terminal ? aguiEventMillis(terminal) : null;
+    const acceptedAnswer = requests.some(request => matchesRun(request) && request.status !== "Pending"
+      && request.answeredAt != null && (interruptedAt === null || request.answeredAt >= interruptedAt));
+    const boundaryResolvesPause = answeredBoundary && (interruptedAt === null
+      || Date.parse(nextUser!.createdAt) >= interruptedAt);
+    const interrupted = !boundaryResolvesPause && !acceptedAnswer && (outcome?.type === "interrupt"
+      || !terminal && group.messages.some(message => message.history?.run?.status === "Waiting"));
     const waitingAtMs = pending || interrupted ? (terminal ? aguiEventMillis(terminal) : null)
       ?? (typeof requestedAt === "number" && Number.isFinite(requestedAt) && requestedAt > start ? requestedAt : null)
       ?? (knownTimes.length ? Math.max(...knownTimes) : Number.isFinite(start) ? start : 0) : undefined;
-    const completed = segmentEndedBySteer || !pending && !interrupted && (Boolean(terminal) || historyComplete);
+    const completed = segmentEndedBySteer || !pending && !interrupted && ((Boolean(terminal) && outcome?.type !== "interrupt") || historyComplete);
     const successful = completed && !segmentEndedBySteer && !interrupted && (terminal ? aguiEventType(terminal).toUpperCase() === "RUN_FINISHED"
       : group.messages.some(message => message.history?.run?.status === "Completed"));
     const candidate = (message: ChatMessage) => Boolean(message.content.trim() || message.a2ui || message.history?.message.structured != null);

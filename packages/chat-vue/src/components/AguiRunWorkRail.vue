@@ -14,6 +14,8 @@ import {
   type ChatHistoryLabels,
   defaultHistoryLabels,
   workTimelineElapsedMilliseconds,
+  WorkElapsedClock,
+  aguiEventRunId,
 } from "@personai/agent-ui-chat-core";
 import ReasoningCard from "./ReasoningCard.vue";
 import ToolGroupCard from "./ToolGroupCard.vue";
@@ -83,10 +85,10 @@ const reasoningEffort = computed(() => aguiReasoningEffort(props.events));
 const terminalEvent = computed(() => props.timeline?.completed ?? (props.historyCovered || isAguiRunTerminal(props.events) && !pendingUserInputRequest.value));
 const expanded = ref(!terminalEvent.value);
 const hasDetails = computed(() => (props.timeline ? visibleTimelineItems.value.length > 0 : visibleUserCards.value.length > 0) || props.debugEvents.length > 0);
-const now = ref(Date.now());
+const elapsed = ref(0);
 const labels = computed(() => props.labels ?? defaultLabels);
 const waiting = computed(() => props.timeline?.waitingAtMs !== undefined || Boolean(pendingUserInputRequest.value));
-const duration = computed(() => formatAguiDuration(props.timeline ? workTimelineElapsedMilliseconds(props.timeline, now.value) : aguiWorkElapsedMilliseconds(props.events, now.value, pendingUserInputRequest.value?.requestedAt || undefined)));
+const duration = computed(() => formatAguiDuration(elapsed.value));
 const summary = computed(() => terminalEvent.value ? labels.value.workedFor(duration.value) : waiting.value ? `${labels.value.waitingForAnswer ?? "Waiting for your answer"} · ${duration.value}` : labels.value.workingFor(duration.value));
 const historyStatusNotice = computed(() => {
   if (props.timeline?.events.length) return null;
@@ -106,18 +108,22 @@ function historyGroupFailedStatuses(item: WorkTimelineItem) {
   return Object.fromEntries(Object.entries(item.historyStatuses).map(([id, status]) => [id, status === "Failed"]));
 }
 let timer: ReturnType<typeof setInterval> | undefined;
-
-watch([terminalEvent, waiting], ([completed, isWaiting]) => {
+let clock: WorkElapsedClock | undefined;
+let clockId: string | undefined;
+const workIdentity = computed(() => props.timeline?.id ?? (props.messageId || aguiEventRunId(props.events[0] ?? {})));
+watch([workIdentity, terminalEvent, waiting], ([identity, completed, isWaiting]) => {
   if (timer) clearInterval(timer);
-  expanded.value = !completed;
-  if (completed || isWaiting) {
-    return;
+  if (!clock || clockId !== identity) {
+    clockId = identity;
+    clock = new WorkElapsedClock(props.timeline ? workTimelineElapsedMilliseconds(props.timeline)
+      : aguiWorkElapsedMilliseconds(props.events, Date.now(), pendingUserInputRequest.value?.requestedAt || undefined));
   }
-  now.value = Date.now();
-  timer = setInterval(() => {
-    now.value = Date.now();
-  }, 1_000);
+  clock.setRunning(!completed && !isWaiting);
+  elapsed.value = clock.elapsed();
+  if (completed || isWaiting) return;
+  timer = setInterval(() => { elapsed.value = clock!.elapsed(); }, 1_000);
 }, { immediate: true });
+watch(terminalEvent, completed => { expanded.value = !completed; });
 
 onBeforeUnmount(() => {
   if (timer) clearInterval(timer);

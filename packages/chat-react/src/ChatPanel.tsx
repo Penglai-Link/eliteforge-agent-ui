@@ -42,6 +42,7 @@ import {
   buildTranscriptPresentation,
   buildTranscriptWorkTimeline,
   workTimelineElapsedMilliseconds,
+  WorkElapsedClock,
   type TranscriptWorkRun,
   historyToolResult, historyBlockUrl,
   defaultHistoryLabels,
@@ -1128,16 +1129,23 @@ function AguiRunWorkRail({
   const completed = timeline?.completed ?? (historyCovered || Boolean(displayedTerminalSummary) && !pendingUserInputRequest);
   const waiting = timeline?.waitingAtMs !== undefined || Boolean(pendingUserInputRequest);
   const [expanded, setExpanded] = useState(!completed);
-  const [now, setNow] = useState(() => Date.now());
-  const duration = timeline ? formatAguiDuration(workTimelineElapsedMilliseconds(timeline, now)) : completed
-    ? displayedTerminalSummary?.duration ?? "<1s"
-    : formatAguiDuration(aguiWorkElapsedMilliseconds(events, now, pendingUserInputRequest?.requestedAt || undefined));
+  const clockId = timeline?.id ?? messageId ?? aguiEventRunId(events[0] ?? {});
+  // The identity, not a new event array, owns the clock's lifetime and history seed.
+  const clock = useMemo(() => new WorkElapsedClock(timeline
+    ? workTimelineElapsedMilliseconds(timeline)
+    : aguiWorkElapsedMilliseconds(events, Date.now(), pendingUserInputRequest?.requestedAt || undefined)), [clockId]);
+  const [elapsed, setElapsed] = useState(() => clock.elapsed());
+  const duration = formatAguiDuration(elapsed);
   useEffect(() => {
+    clock.setRunning(!completed && !waiting);
+    setElapsed(clock.elapsed());
     if (completed || waiting) return;
-    setNow(Date.now());
-    const timer = window.setInterval(() => setNow(Date.now()), 1_000);
-    return () => window.clearInterval(timer);
-  }, [completed, waiting]);
+    const timer = window.setInterval(() => setElapsed(clock.elapsed()), 1_000);
+    return () => {
+      window.clearInterval(timer);
+      clock.setRunning(false);
+    };
+  }, [clock, completed, waiting]);
 
   useEffect(() => {
     setExpanded(!completed);

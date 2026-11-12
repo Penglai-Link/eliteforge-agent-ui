@@ -137,3 +137,16 @@ ChatPanel 将实时图片附件和历史 `Media` 图片显示为缩略图，点�
 用户历史图片与实时附件归入对应用户消息组，缩略图位于消息正文上方并沿右边缘对齐；多张图片自动换行，点击仍打开原图预览。助手和系统消息不使用用户消息的右对齐分组。
 
 批注弹层挂到 body 时复制来源聊天的主题颜色；保存按钮使用 `--agent-ui-chat-primary` / `--agent-ui-chat-on-primary`（回退到宿主 `--color-primary` / `--color-on-primary`），悬停混合主题色，禁用态不触发悬停变化。
+
+## 工作状态与前端计时（1.0.0-preview.7）
+
+React/Vue 工作栏按稳定的轮次 ID 持有 `WorkElapsedClock`，首次装载时从历史计算初值，运行期间通过 `performance.now()` 累加、每秒刷新。事件到达不会重置初值或驱动时间跳变；等待输入、完成、失败、停止时暂停，回答确认后继续累计。卸载时释放定时器，重新装载时从历史恢复。`WorkElapsedClock(initialElapsedMs)`、`setRunning(running, now?)` 和 `elapsed(now?)` 也由 chat-core 导出。
+
+`Answered` / `Skipped` 请求的 `answeredAt` 和交互回答消息可消除较早的暂停标记，但不能消除之后的新提问。宿主保留问题身份、运行别名及时间；提交失败且未得到后端确认时仍可显示原待答问题。一次中断终止不代表后续回答恢复已经完成。
+
+```mermaid
+stateDiagram-v2
+    运行中 --> 等待回答: 新提问，暂停本地时钟
+    等待回答 --> 运行中: 回答确认，恢复本地时钟
+    运行中 --> 已结束: 完成、失败或停止
+```

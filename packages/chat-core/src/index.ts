@@ -41,3 +41,5 @@ export { contextBlockPlacements, type ContextBlockPlacement } from "./contextLay
 
 export * from "./composerLabels";
 export * from "./runtimeMessages";
+
+export * from "./workClock";
