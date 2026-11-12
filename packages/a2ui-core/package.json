@@ -1,6 +1,6 @@
 {
   "name": "@personai/agent-ui-a2ui-core",
-  "version": "1.0.0-preview.8",
+  "version": "1.0.0-preview.10",
   "type": "module",
   "files": [
     "dist",

@@ -114,3 +114,7 @@ Finished context-compaction notices can expand block details supplied through `H
 `1.0.0-preview.8` groups historical user image thumbnails above their message, aligned to the right, in React and Vue. Annotation controls inherit the host theme, including hover colors.
 
 `1.0.0-preview.8` fixes stale waiting-for-answer states after accepted responses and uses a local monotonic work clock in React and Vue. Live elapsed time continues without new protocol events, pauses while awaiting input, and freezes when execution ends.
+
+`1.0.0-preview.9` 为 React 和 Vue 工具组中执行中的圆点添加呼吸动画，并遵循系统减少动态效果设置。
+
+`1.0.0-preview.10` 在 React 和 Vue 工作过程的每条消息悬停或聚焦时显示复制按钮和时间，触屏设备始终显示。

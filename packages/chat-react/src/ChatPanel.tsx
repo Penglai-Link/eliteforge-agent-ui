@@ -737,7 +737,7 @@ function ToolCard({
             )}
           >
             {nested && !complete ? (
-              <span className="ef-chat__tool-timeline-dot" aria-hidden="true" />
+              <span className={cx("ef-chat__tool-timeline-dot", running && "ef-chat__tool-timeline-dot--running")} aria-hidden="true" />
             ) : failed ? (
               <CircleX size={14} />
             ) : complete ? (

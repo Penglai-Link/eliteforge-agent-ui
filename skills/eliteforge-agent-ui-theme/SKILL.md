@@ -2,7 +2,7 @@
 name: eliteforge-agent-ui-theme
 description: "维护 Agent UI 的 Chat、Composer、A2UI、Motion 和终端主题；用于调整公开样式变量、主题挂点、动效策略及 React/Vue 外观一致性。"
 metadata:
-  version: 1.2.4
+  version: 1.2.6
 ---
 
 # EliteForge Agent UI 主题
@@ -28,6 +28,8 @@ metadata:
 - 同一语义使用同一变量。组件使用点的回退不能通过新增根节点默认值遮蔽祖先覆盖；完整全局主题 `chat-theme` 的根色板与局部组件回退应区分处理。
 - React / Vue 共用主题契约和公共挂点。不要依赖内部 DOM 层级、私有 class 或内联固定颜色绕过变量；SVG 的 stroke、fill、图例和阈值色也属于检查范围。
 - 新增、删除或改名变量/挂点前检查调用方；同步相应文档与 JSON 索引，写明兼容变化。A2UI、Composer、Motion 各有独立索引，不能只更新 A2UI 清单。
+- 工作过程中的每条消息与普通消息一致：精确指针设备上悬停或键盘聚焦时显示复制和时间，触屏设备始终显示；隐藏时保留布局空间。
+- 工具组中执行中的圆点使用呼吸动画，复用 `--agent-ui-motion-pulse-duration` 和 `--agent-ui-motion-pulse-easing`；系统减少动态效果时停用。
 - 保留 reduced-motion、隐藏页面及 Provider 关闭策略；不可通过组件 key 重建表单来重播动画。终端 CSS 变化后也要核对 xterm 画布颜色同步。
 
 ## 验证与交付

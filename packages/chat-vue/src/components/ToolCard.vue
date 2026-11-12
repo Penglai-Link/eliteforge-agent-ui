@@ -137,8 +137,8 @@ function subagentDispatchedLabel(name: string) {
             <CircleX :size="14" />
           </template>
           <CheckCircle2 v-else-if="complete" :size="14" />
+          <span v-else-if="props.nested" :class="cx('ef-chat__tool-timeline-dot', running && 'ef-chat__tool-timeline-dot--running')" aria-hidden="true" />
           <LoaderCircle v-else-if="running" class="animate-spin" :size="14" />
-          <span v-else-if="props.nested" class="ef-chat__tool-timeline-dot" aria-hidden="true" />
           <Terminal v-else :size="14" />
         </span>
         <span class="ef-chat__tool-toggle-text">
