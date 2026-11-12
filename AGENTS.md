@@ -2,10 +2,12 @@
 
 ## 代码与 skills 必须同步
 
+两份 skill 已迁入 Framework 的 `eliteforge.agent-development` 能力包统一维护，本仓库不保留副本。下方路径按同级 checkout 布局定位；目录不同则定位 Framework checkout 中的同名能力包。
+
 **每次修改代码后，必须核对主题 skill 和对接 skill，并在同一批改动中同步所有受影响的说明、示例与 references。不能先交付代码，再把 skill 更新留待以后。**
 
-- [主题 skill](skills/eliteforge-agent-ui-theme/SKILL.md)：主题变量、默认值、CSS 导出与作用域、公开挂点、React/Vue 外观、动效及终端主题同步。
-- [对接 skill](skills/eliteforge-agent-ui-integration/SKILL.md)：包选择、npm 安装与统一版本、公开 API、peer dependencies、样式入口、adapter/transport、事件、历史、运行控制及释放流程。
+- [主题 skill](../eliteforge-agent-framework/crates/capability/eliteforge-agent-capability-development/skills/eliteforge-agent-ui-theme/SKILL.md)：主题变量、默认值、CSS 导出与作用域、公开挂点、React/Vue 外观、动效及终端主题同步。
+- [对接 skill](../eliteforge-agent-framework/crates/capability/eliteforge-agent-capability-development/skills/eliteforge-agent-ui-integration/SKILL.md)：包选择、npm 安装与统一版本、公开 API、peer dependencies、样式入口、adapter/transport、事件、历史、运行控制及释放流程。
 
 修改 `packages/`、构建/版本脚本或包清单时，两份 skill 都要核对；若某份无需修改，在交付说明中写明核对结果与原因，不为制造差异而改无关文字。涉及 A2UI、Composer、Motion 的主题接口，还需更新相应 `docs/*-theme*.md/json` 或 `docs/motion*.md/json`；API 变化同步对应包 README 和接入文档。skill 的 `agents/openai.yaml` 与实际范围保持一致，按变化更新 skill 自身的 `metadata.version`。
 

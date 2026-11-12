@@ -1,7 +1,0 @@
-interface:
-  display_name: "EliteForge Agent UI 主题"
-  short_description: "维护 Chat、Composer、A2UI、Motion 与终端主题及双端一致性"
-  default_prompt: "使用 $eliteforge-agent-ui-theme 核对或修改 Agent UI 的主题变量、挂点、动效和终端外观，并同步主题契约。"
-
-policy:
-  allow_implicit_invocation: true

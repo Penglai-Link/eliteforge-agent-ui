@@ -45,8 +45,10 @@ React/Vue 聊天演示使用 `chat-core` 的模拟 adapter，可创建会话、�
 
 ## 开发技能
 
-- [eliteforge-agent-ui-theme](skills/eliteforge-agent-ui-theme/SKILL.md)：维护 Chat、Composer、A2UI、Motion 与终端主题、公开挂点和 React/Vue 样式一致性。
-- [eliteforge-agent-ui-integration](skills/eliteforge-agent-ui-integration/SKILL.md)：指引其他 agent 通过 npm 接入组件，实现宿主 adapter/transport，并验证统一版本和交互流程。
+以下技能由 Framework 的 `eliteforge.agent-development` 能力包统一维护，并随 Tron 默认安装：
+
+- [eliteforge-agent-ui-theme](https://gitee.com/person-ai/eliteforge-agent-framework/blob/main/crates/capability/eliteforge-agent-capability-development/skills/eliteforge-agent-ui-theme/SKILL.md)：维护 Chat、Composer、A2UI、Motion 与终端主题、公开挂点和 React/Vue 样式一致性。
+- [eliteforge-agent-ui-integration](https://gitee.com/person-ai/eliteforge-agent-framework/blob/main/crates/capability/eliteforge-agent-capability-development/skills/eliteforge-agent-ui-integration/SKILL.md)：指引其他 agent 通过 npm 接入组件，实现宿主 adapter/transport，并验证统一版本和交互流程。
 
 代码修改后须同步核对两份 skill，具体要求见 [AGENTS.md](AGENTS.md)。
 
