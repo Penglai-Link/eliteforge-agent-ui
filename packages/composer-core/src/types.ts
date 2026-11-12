@@ -16,7 +16,7 @@ export interface ComposerAttachment {
 export interface ComposerSuggestion {
   kind: "command" | "skill";
   name: string;
-  /** Human-readable name shown for a selected skill token. */
+  /** Reserved for host metadata; selected tokens display their $name. */
   displayName?: string;
   description?: string;
   /** Optional grouping label, such as a command category. */

@@ -2,7 +2,7 @@
 name: eliteforge-agent-ui-theme
 description: "维护 Agent UI 的 Chat、Composer、A2UI、Motion 和终端主题；用于调整公开样式变量、主题挂点、动效策略及 React/Vue 外观一致性。"
 metadata:
-  version: 1.2.6
+  version: 1.2.7
 ---
 
 # EliteForge Agent UI 主题

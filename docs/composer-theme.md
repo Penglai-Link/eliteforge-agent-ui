@@ -75,8 +75,6 @@
 | `--agent-ui-composer-row-gap` | `12px` |
 | `--agent-ui-composer-send-font-size` | `20px` |
 | `--agent-ui-composer-shadow` | `inset 0 0 0 1px rgba(15, 23, 42, 0.055)` |
-| `--agent-ui-composer-skill-font-size` | `0.94em` |
-| `--agent-ui-composer-skill-max-width` | `240px` |
 | `--agent-ui-composer-skill-outline-width` | `2px` |
 | `--agent-ui-composer-small-font-size` | `11px` |
 | `--agent-ui-composer-small-gap` | `4px` |
@@ -104,3 +102,5 @@
 | `--color-surface-container` | `#f1edec` |
 | `--color-surface-container-low` | `#f7f3f2` |
 | `--color-surface-container-lowest` | `#ffffff` |
+
+技能标签沿用输入框的字体与尺寸，以保持光标位置一致；`--agent-ui-composer-skill-font-size` 和 `--agent-ui-composer-skill-max-width` 不再生效。

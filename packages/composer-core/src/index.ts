@@ -52,7 +52,7 @@ export function composerOverlayParts(
     return {
       text,
       displayName: skill
-        ? skill.displayName ?? skill.description ?? skill.name
+        ? text
         : null,
     };
   });

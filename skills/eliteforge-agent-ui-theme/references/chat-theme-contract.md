@@ -54,7 +54,7 @@ React/Vue 对应节点保持一致；更细的 A2UI 挂点见主题文档。`dat
 
 A2UI 的 `components.css` 汇入 shadcn、defaults、statistics 和共享 primitives，两端使用同一入口。图表、迷你趋势图的 stroke/fill/图例必须使用同一系列变量；阈值条保留成功、警告、错误色。SVG 数据坐标是结构，线宽、点半径、轴字号是主题。
 
-Composer 两端共用 core 样式，保留 `composer` 与 `chat-input` 的 part/anchor。调整尺寸或聚焦样式时，同时检查独立输入区和 Chat 内嵌输入区，不能只在 Chat 祖先存在时生效。
+技能标签必须沿用输入框的字体与尺寸，保证覆盖层和光标对齐；旧的 `--agent-ui-composer-skill-font-size`、`--agent-ui-composer-skill-max-width` 不再生效。Composer 两端共用 core 样式，保留 `composer` 与 `chat-input` 的 part/anchor。调整尺寸或聚焦样式时，同时检查独立输入区和 Chat 内嵌输入区，不能只在 Chat 祖先存在时生效。
 
 ## 动效
 

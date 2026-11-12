@@ -7,3 +7,5 @@
 `ComposerProps` 描述受控草稿、运行模式、队列、建议、待发送附件、禁用状态与文案。`ComposerQueuedMessage` 只要求 `id` 和 `input.content`，允许宿主保留其他队列字段。附件类型保留文件、图片和 inspection 的元数据。
 
 样式入口：`@personai/agent-ui-composer-core/styles.css`。
+
+技能标签显示草稿中的 `$name`；`displayName` 和 `description` 不替代技能标识。

@@ -420,18 +420,6 @@
       ]
     },
     {
-      "name": "--agent-ui-composer-skill-font-size",
-      "fallbacks": [
-        "0.94em"
-      ]
-    },
-    {
-      "name": "--agent-ui-composer-skill-max-width",
-      "fallbacks": [
-        "240px"
-      ]
-    },
-    {
       "name": "--agent-ui-composer-skill-outline-width",
       "fallbacks": [
         "2px"

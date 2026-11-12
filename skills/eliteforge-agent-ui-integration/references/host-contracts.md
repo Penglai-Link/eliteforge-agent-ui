@@ -43,7 +43,7 @@ flowchart LR
 
 使用 `composer-react` / `composer-vue` 导出的 `Composer`。`draft` 由宿主控制；React 使用 `onDraftChange`，Vue 使用 `draft-change`。发送回调区分 `send`、`queue`、`steer`；运行中可用模式通过 `runningSubmitModes` 配置，不能把界面显示的 steer 当成后端能力。
 
-宿主实现上传、发送、停止、队列存储与排序等回调。输入法确认不应发送，Shift+Enter 换行；`/` 查询命令/技能，`$` 仅查询技能。不要只改可见文本而破坏草稿中的技能标识。React/Vue 的参数细节以各自 Props 与事件声明为准。
+宿主实现上传、发送、停止、队列存储与排序等回调。输入法确认不应发送，Shift+Enter 换行；`/` 查询命令/技能，`$` 仅查询技能。选中后标签显示草稿中的 `$name`，`displayName` 和描述不替代技能标识。React/Vue 的参数细节以各自 Props 与事件声明为准。
 
 源码导航：`packages/composer-core/src/types.ts`、两端 Composer、`docs/composer.md`、各包 README。
 

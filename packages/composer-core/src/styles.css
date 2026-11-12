@@ -313,17 +313,6 @@
   vertical-align: baseline;
 }
 
-:where(.ef-composer) .ef-chat__skill-token-label {
-  display: inline-block;
-  max-width: var(--agent-ui-composer-skill-max-width, 240px);
-  overflow: hidden;
-  font-size: var(--agent-ui-composer-skill-font-size, 0.94em);
-  font-weight: var(--agent-ui-composer-emphasis-weight, 600);
-  text-overflow: ellipsis;
-  vertical-align: bottom;
-  white-space: nowrap;
-}
-
 :where(.ef-composer) .ef-chat__textarea {
   z-index: 1;
   min-height: var(--agent-ui-composer-editor-min-height, 72px);
