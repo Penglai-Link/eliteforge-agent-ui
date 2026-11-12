@@ -278,7 +278,9 @@ export interface ChatToolWorkLabels {
   ariaLabel: string;
   completed: (name: string) => string;
   running: (name: string) => string;
+  /** Labels a group by its number of started tool invocations, including failures. */
   group: (count: number) => string;
+  /** @deprecated Group headings use group(count); this callback is no longer called. */
   groupSummary?: (summary: ToolActionSummary) => string;
   statusDone: string;
   statusRunning: string;

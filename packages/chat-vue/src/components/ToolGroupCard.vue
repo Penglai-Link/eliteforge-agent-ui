@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ChevronDown, ChevronRight, Terminal } from "lucide-vue-next";
 import { computed, ref, watch } from "vue";
-import { defaultToolActionSummaryLabel, summarizeToolActions, type ChatWorkRailLabels, type ToolGroupWorkCard } from "@personai/agent-ui-chat-core";
+import { type ChatWorkRailLabels, type ToolGroupWorkCard } from "@personai/agent-ui-chat-core";
 import ToolCard from "./ToolCard.vue";
 
 const props = defineProps<{
@@ -19,8 +19,8 @@ const toolCards = computed(() =>
 const hasRunningTool = computed(() =>
   toolCards.value.some((tc) => tc.started && !tc.ended && !tc.result),
 );
-const summary = computed(() => props.labels?.tool?.groupSummary?.(summarizeToolActions(toolCards.value))
-  ?? defaultToolActionSummaryLabel(summarizeToolActions(toolCards.value)));
+const summary = computed(() => props.labels?.tool?.group?.(toolCards.value.length)
+  ?? `${toolCards.value.length} tool calls`);
 const expanded = ref(props.autoExpanded ?? false);
 
 watch(

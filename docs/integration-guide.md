@@ -350,3 +350,7 @@ saved step + matching report → history step.compaction → same disclosure
 批注弹层挂到 body 时复制来源聊天的主题颜色；保存按钮使用 `--agent-ui-chat-primary` / `--agent-ui-chat-on-primary`（回退到宿主 `--color-primary` / `--color-on-primary`），悬停混合主题色，禁用态不触发悬停变化。
 
 工作栏从 `1.0.0-preview.7` 起使用前端单调时钟持续计时，事件只提供装载时的历史基线；等待回答时暂停，确认回答后恢复，完成或停止后固定。宿主保留已回答请求的 `answeredAt` 与运行身份，使旧暂停状态能被正确清除。
+
+## 工具分组总数
+
+当前源码中，React/Vue 工具分组标题只显示已开始的工具调用总数，使用 `workRailLabels.tool.group(count)`，例如“13 个工具调用”；失败的调用也计入总数，一次批量调用计为一次。分组不再按命令、搜索、读写或其他操作分类统计，旧 `groupSummary` 回调保留类型兼容但不再调用。展开后的工具明细保持原有展示。消费方需安装包含此变更的 npm 版本后生效。

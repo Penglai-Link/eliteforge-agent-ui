@@ -56,8 +56,6 @@ import {
   detectToolPresentationLocale,
   toolDisplayName,
   toolCompactLabel,
-  defaultToolActionSummaryLabel,
-  summarizeToolActions,
   summarizeReasoning,
   type AguiUserWorkCard,
   type AguiRunNotice,
@@ -606,7 +604,6 @@ const defaultToolWorkLabels = {
   completed: (name: string) => name,
   running: (name: string) => name,
   group: (count: number) => `${count} ${count === 1 ? "tool call" : "tool calls"}`,
-  groupSummary: defaultToolActionSummaryLabel,
   statusDone: "done",
   statusRunning: "running",
   parameters: "Parameters",
@@ -828,8 +825,7 @@ function ToolGroupCard({ card, labels = defaultWorkRailLabels, statusLabels, fai
   const hasRunningTool = toolCards.some(
     (toolCard) => toolCard.started && !toolCard.ended && !toolCard.result,
   );
-  const summary = toolCopy.groupSummary?.(summarizeToolActions(toolCards))
-    ?? defaultToolActionSummaryLabel(summarizeToolActions(toolCards));
+  const summary = toolCopy.group(toolCards.length);
 
   return (
     <section className="ef-chat__rail-entry" aria-label={toolCopy.ariaLabel}>
