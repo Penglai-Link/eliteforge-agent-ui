@@ -18,10 +18,14 @@ function messagePreview(content: string, maxLength = 96) {
   return truncateLabel(content.replace(/\s+/g, " ").trim(), maxLength);
 }
 
+// A lightweight text excerpt: previews never render links, images or diagrams.
 function markdownPreview(content: string, maxLength = 240) {
-  const normalized = content.replace(/\r\n?/g, "\n").trim();
-  if (normalized.length <= maxLength) return normalized;
-  return `${normalized.slice(0, Math.max(0, maxLength - 3)).trimEnd()}...`;
+  const plain = content
+    .replace(/^ {0,3}(?:`{3,}|~{3,}).*$/gm, "")
+    .replace(/!?\[([^\]]*)\]\([^)]*\)/g, "$1")
+    .replace(/^ {0,3}(?:#{1,6}\s+|>\s?|[-+*]\s+|\d+[.)]\s+)/gm, "")
+    .replace(/(\*\*|__|~~|`)(.*?)\1/g, "$2");
+  return messagePreview(plain, maxLength);
 }
 
 export function buildChatHistoryTurns(

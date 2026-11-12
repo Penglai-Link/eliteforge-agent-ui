@@ -77,7 +77,7 @@ defineProps<{ adapter: ChatAdapter }>();
 
 上例的 `DirectorySelector`、`AgentSelector` 由宿主提供。设置 `:show-composer="false"` 的面板或窗口不渲染 `composerTop`。运行时压缩上下文期间，插槽中的原生表单控件会与 React 一样通过 `fieldset disabled` 禁用。
 
-历史定位栏默认显示，可通过 `:show-history-rail="false"` 关闭。滚动到底部时选中最新消息，向上滚动时跟随当前视口；点击标记可跳转，悬停或聚焦可预览消息。
+历史定位栏默认显示，可通过 `:show-history-rail="false"` 关闭。`1.0.0-preview.12` 以 3px 微点显示轮次，当前轮次为 9px 短竖线。索引绝对定位在聊天左侧原有留白内，默认透明点击区域宽 16px，不占用正文或输入框宽度。悬停或键盘聚焦显示问题与最多两行纯文本回复摘要；点击、Enter 或空格只滚动聊天正文。方向键、Home / End 可选择轮次，Escape 关闭预览。长对话的索引在自身范围内滚动，跳转遵循 MotionProvider 与系统减少动效设置。主题通过 `data-theme-part="chat-history"` 和 `--agent-ui-chat-history-*` 变量调整；升级到 `1.0.0-preview.12` 后生效。
 
 ## 工具展示
 

@@ -1,3 +1,4 @@
+@import "../../chat-core/src/history-rail.css";
 @import "../../chat-core/src/annotations.css";
 @import "../../composer-react/dist/styles.css";
 @import "../../chat-core/dist/mermaid.css";
@@ -182,133 +183,6 @@
   margin: 0 auto;
   flex-direction: column;
   gap: 20px;
-}
-
-.ef-chat-history-rail {
-  position: absolute;
-  left: 10px;
-  top: 50%;
-  z-index: 5;
-  transform: translateY(-50%);
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  pointer-events: auto;
-  width: 24px;
-}
-
-.ef-chat-history-rail__sr-only {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  padding: 0;
-  margin: -1px;
-  overflow: hidden;
-  clip: rect(0, 0, 0, 0);
-  white-space: nowrap;
-  border: 0;
-}
-
-.ef-chat-history-rail__line {
-  width: 1px;
-  align-self: stretch;
-  background: color-mix(in srgb, var(--agent-ui-chat-border) 70%, transparent);
-}
-
-.ef-chat-history-rail__markers {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  pointer-events: auto;
-}
-
-.ef-chat-history-rail__marker {
-  position: relative;
-  display: block;
-  height: 2px;
-  border: 0;
-  background: color-mix(in srgb, var(--color-on-surface) 30%, white 12%);
-  transition: width 0.2s;
-}
-
-.ef-chat-history-rail__marker--active {
-  background: var(--color-on-surface);
-  opacity: 1;
-}
-
-.ef-chat-history-rail__marker[data-hovered="true"] {
-  background: var(--color-on-surface);
-  box-shadow: inset 0 0 0 1px rgba(15, 23, 42, 0.06),
-    0 0 0 1px rgba(15, 23, 42, 0.05);
-}
-
-.ef-chat-history-rail__marker:focus-visible {
-  outline: 2px solid var(--agent-ui-chat-focus);
-  outline-offset: 3px;
-}
-
-.ef-chat-history-rail__preview {
-  position: absolute;
-  left: calc(100% + 16px);
-  transform: translateY(-50%);
-  display: flex;
-  width: clamp(200px, 32vw, 340px);
-  flex-direction: column;
-  gap: 8px;
-  border-radius: 8px;
-  background: color-mix(in srgb, var(--agent-ui-chat-surface-strong) 96%, white 4%);
-  box-shadow: 0 20px 48px rgba(15, 23, 42, 0.14);
-  padding: 12px;
-  text-align: left;
-  white-space: normal;
-  overflow-wrap: anywhere;
-  pointer-events: none;
-  z-index: 8;
-  border: 1px solid var(--color-card-border);
-}
-
-.ef-chat-history-rail__preview--compact {
-  gap: 0;
-  padding-block: 16px;
-}
-
-.ef-chat-history-rail__preview-user {
-  color: var(--agent-ui-chat-text);
-  font-size: 14px;
-  font-weight: 700;
-  line-height: 1.35;
-}
-
-.ef-chat-history-rail__preview-assistant {
-  color: var(--agent-ui-chat-text-muted);
-  font-size: 12px;
-  line-height: 1.5;
-}
-
-.ef-chat-history-rail__preview-assistant.markdown-body {
-  font-size: 12px;
-  line-height: 1.45;
-}
-
-.ef-chat-history-rail__preview-assistant.markdown-body p,
-.ef-chat-history-rail__preview-assistant.markdown-body table,
-.ef-chat-history-rail__preview-assistant.markdown-body pre,
-.ef-chat-history-rail__preview-assistant.markdown-body ul,
-.ef-chat-history-rail__preview-assistant.markdown-body ol {
-  margin-bottom: 6px;
-}
-
-.ef-chat-history-rail__preview-assistant.markdown-body p:last-child,
-.ef-chat-history-rail__preview-assistant.markdown-body table:last-child,
-.ef-chat-history-rail__preview-assistant.markdown-body pre:last-child,
-.ef-chat-history-rail__preview-assistant.markdown-body ul:last-child,
-.ef-chat-history-rail__preview-assistant.markdown-body ol:last-child {
-  margin-bottom: 0;
-}
-
-.ef-chat-history-rail__preview-assistant.markdown-body code,
-.ef-chat-history-rail__preview-assistant.markdown-body tt {
-  font-size: 0.92em;
 }
 
 .ef-chat__transcript-empty {
@@ -1632,12 +1506,6 @@
   .ef-chat-window__panel {
     width: auto !important;
     min-width: 0;
-  }
-}
-
-@container chat-content (max-width: 900px) {
-  .ef-chat-history-rail {
-    display: none;
   }
 }
 

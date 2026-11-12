@@ -1,16 +1,15 @@
 import type { TranscriptPresentation, ChatMessage } from "@personai/agent-ui-chat-core";
+import { useMotion } from "@personai/agent-ui-motion-react";
 import {
   useEffect,
+  useId,
   useLayoutEffect,
   useMemo,
   useRef,
   useState,
+  type KeyboardEvent,
   type RefObject,
 } from "react";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
-
-
 import { buildChatHistoryTurns } from "./chatHistory";
 
 interface ChatHistoryRailProps {
@@ -19,236 +18,142 @@ interface ChatHistoryRailProps {
   presentation: TranscriptPresentation;
 }
 
-function cx(...values: Array<string | false | null | undefined>) {
-  return values.filter(Boolean).join(" ");
-}
-
-function closestTurnToViewportTop(
-  container: HTMLElement,
-  turnIds: string[],
-) {
-  const scrollableDistance = container.scrollHeight - container.clientHeight;
-  if (scrollableDistance > 0 && container.scrollTop >= scrollableDistance - 1) {
-    return turnIds.at(-1) ?? "";
-  }
-  const containerTop = container.getBoundingClientRect().top;
-  let activeTurnId = turnIds[0] ?? "";
-  let bestDistance = Number.POSITIVE_INFINITY;
-
-  turnIds.forEach((turnId) => {
-    const node = container.querySelector<HTMLElement>(`[data-chat-turn-id="${turnId}"]`);
-    if (!node) return;
-    const rect = node.getBoundingClientRect();
-    const distance = Math.abs(rect.top - containerTop - 24);
-    if (distance < bestDistance) {
-      bestDistance = distance;
-      activeTurnId = turnId;
-    }
-  });
-
-  return activeTurnId;
-}
-
-function markerInfluence(distance: number) {
-  const radius = 60;
-  const normalized = Math.max(0, 1 - distance / radius);
-  return normalized * normalized;
-}
-
-function closestMarkerIndex(offsets: number[], pointerOffset: number) {
-  let matchedIndex = 0;
-  let bestDistance = Number.POSITIVE_INFINITY;
-  offsets.forEach((offset, index) => {
-    const distance = Math.abs(offset - pointerOffset);
-    if (distance < bestDistance) {
-      bestDistance = distance;
-      matchedIndex = index;
-    }
-  });
-  return matchedIndex;
-}
-
-export function ChatHistoryRail({
-  messages,
-  transcriptRef,
-  presentation,
-}: ChatHistoryRailProps) {
-  const turns = useMemo(
-    () => buildChatHistoryTurns(messages, presentation),
-    [messages, presentation],
-  );
-  const [activeTurnId, setActiveTurnId] = useState("");
-  const [hoveredTurnId, setHoveredTurnId] = useState("");
-  const [hoveredMarkerIndex, setHoveredMarkerIndex] = useState<number | null>(null);
-  const [markerOffsets, setMarkerOffsets] = useState<number[]>([]);
-  const railRef = useRef<HTMLDivElement | null>(null);
+export function ChatHistoryRail({ messages, transcriptRef, presentation }: ChatHistoryRailProps) {
+  const turns = useMemo(() => buildChatHistoryTurns(messages, presentation), [messages, presentation]);
+  const { policy } = useMotion();
+  const previewId = useId();
+  const [activeId, setActiveId] = useState("");
+  const [previewIndex, setPreviewIndex] = useState<number | null>(null);
+  const [previewTop, setPreviewTop] = useState(0);
+  const railRef = useRef<HTMLDivElement>(null);
+  const markersRef = useRef<HTMLDivElement>(null);
+  const previewRef = useRef<HTMLDivElement>(null);
   const markerRefs = useRef<Array<HTMLButtonElement | null>>([]);
+  const previewTurn = previewIndex === null ? null : turns[previewIndex];
+  const activeIndex = Math.max(0, turns.findIndex(turn => turn.id === activeId));
 
   useEffect(() => {
     const transcript = transcriptRef.current;
-    if (!transcript || !turns.length) {
-      setActiveTurnId("");
-      return;
+    if (!transcript || !turns.length) return;
+    const nodes = new Map(Array.from(transcript.querySelectorAll<HTMLElement>("[data-chat-turn-id]"))
+      .map(node => [node.dataset.chatTurnId, node]));
+    function syncActive() {
+      if (!transcript) return;
+      const distance = transcript.scrollHeight - transcript.clientHeight;
+      if (distance > 0 && transcript.scrollTop >= distance - 1) {
+        setActiveId(turns.at(-1)?.id ?? "");
+        return;
+      }
+      const top = transcript.getBoundingClientRect().top + 24;
+      let bestDistance = Infinity;
+      let closest = turns[0]?.id ?? "";
+      for (const turn of turns) {
+        const node = nodes.get(turn.id);
+        if (!node) continue;
+        const distance = Math.abs(node.getBoundingClientRect().top - top);
+        if (distance < bestDistance) { bestDistance = distance; closest = turn.id; }
+      }
+      setActiveId(closest);
     }
-
-    const turnIds = turns.map((turn) => turn.id);
-
-    function syncActiveTurn() {
-      const container = transcriptRef.current;
-      if (!container) return;
-      setActiveTurnId(closestTurnToViewportTop(container, turnIds));
-    }
-
-    syncActiveTurn();
-    transcript.addEventListener("scroll", syncActiveTurn, { passive: true });
-    window.addEventListener("resize", syncActiveTurn);
-
-    return () => {
-      transcript.removeEventListener("scroll", syncActiveTurn);
-      window.removeEventListener("resize", syncActiveTurn);
-    };
+    syncActive();
+    transcript.addEventListener("scroll", syncActive, { passive: true });
+    const observer = new ResizeObserver(syncActive);
+    observer.observe(transcript);
+    if (transcript.firstElementChild) observer.observe(transcript.firstElementChild);
+    return () => { transcript.removeEventListener("scroll", syncActive); observer.disconnect(); };
   }, [transcriptRef, turns]);
 
-  useEffect(() => {
-    if (!turns.some((turn) => turn.id === hoveredTurnId)) {
-      setHoveredTurnId("");
+  // Scroll only the index, never its chat/host ancestors.
+  useLayoutEffect(() => {
+    if (previewIndex !== null) return;
+    const strip = markersRef.current;
+    const marker = markerRefs.current[activeIndex];
+    if (!strip || !marker) return;
+    function reveal() {
+      if (!strip || !marker) return;
+      const top = marker.offsetTop;
+      if (top < strip.scrollTop) strip.scrollTop = top;
+      else if (top + marker.offsetHeight > strip.scrollTop + strip.clientHeight) {
+        strip.scrollTop = top + marker.offsetHeight - strip.clientHeight;
+      }
     }
-  }, [hoveredTurnId, turns]);
+    reveal();
+    const observer = new ResizeObserver(reveal);
+    observer.observe(strip);
+    return () => observer.disconnect();
+  }, [activeIndex, turns.length]);
 
   useLayoutEffect(() => {
     const rail = railRef.current;
-    if (!rail) {
-      setMarkerOffsets([]);
-      return;
+    const strip = markersRef.current;
+    const preview = previewRef.current;
+    const marker = previewIndex === null ? null : markerRefs.current[previewIndex];
+    if (!rail || !strip || !preview || !marker) return;
+    function measure() {
+      const rect = marker!.getBoundingClientRect();
+      const bounds = strip!.getBoundingClientRect();
+      if (rect.bottom <= bounds.top || rect.top >= bounds.bottom) { setPreviewIndex(null); return; }
+      const center = rect.top + rect.height / 2 - rail!.getBoundingClientRect().top;
+      setPreviewTop(Math.max(0, Math.min(center - preview!.offsetHeight / 2, rail!.clientHeight - preview!.offsetHeight)));
     }
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(rail);
+    observer.observe(preview);
+    strip.addEventListener("scroll", measure, { passive: true });
+    return () => { observer.disconnect(); strip.removeEventListener("scroll", measure); };
+  }, [previewIndex, previewTurn]);
 
-    function measureMarkers() {
-      const railRect = rail!.getBoundingClientRect();
-      setMarkerOffsets(
-        markerRefs.current.map((node) => {
-          if (!node) return 0;
-          const rect = node.getBoundingClientRect();
-          return rect.top - railRect.top + rect.height / 2;
-        }),
-      );
-    }
-
-    measureMarkers();
-    window.addEventListener("resize", measureMarkers);
-    return () => window.removeEventListener("resize", measureMarkers);
-  }, [turns]);
-
-  useEffect(() => {
-    if (hoveredMarkerIndex === null) {
-      setHoveredTurnId("");
-      return;
-    }
-    const hoveredTurn = turns[hoveredMarkerIndex];
-    setHoveredTurnId(hoveredTurn?.id ?? "");
-  }, [hoveredMarkerIndex, turns]);
-
-  const handleRailClick = () => {
-    if (hoveredMarkerIndex === null) return;
-    const turn = turns[hoveredMarkerIndex];
-    if (!turn) return;
+  function navigate(index: number) {
+    const turn = turns[index];
     const transcript = transcriptRef.current;
-    const target = transcript?.querySelector<HTMLElement>(
-      `[data-chat-turn-id="${turn.id}"]`,
-    );
-    target?.scrollIntoView({ behavior: "smooth", block: "start" });
-  };
+    if (!turn || !transcript) return;
+    const node = Array.from(transcript.querySelectorAll<HTMLElement>("[data-chat-turn-id]"))
+      .find(element => element.dataset.chatTurnId === turn.id);
+    if (!node) return;
+    const top = transcript.scrollTop + node.getBoundingClientRect().top - transcript.getBoundingClientRect().top;
+    transcript.scrollTo({ top, behavior: policy === "full" ? "smooth" : "instant" });
+    setPreviewIndex(null);
+  }
 
-  const hoveredTurn = turns.find((turn) => turn.id === hoveredTurnId) ?? null;
-  const hoveredMarkerOffset = hoveredMarkerIndex !== null ? markerOffsets[hoveredMarkerIndex] : null;
+  function handleKey(event: KeyboardEvent<HTMLButtonElement>, index: number) {
+    const next = event.key === "ArrowDown" ? Math.min(index + 1, turns.length - 1)
+      : event.key === "ArrowUp" ? Math.max(index - 1, 0)
+      : event.key === "Home" ? 0 : event.key === "End" ? turns.length - 1 : null;
+    if (next === null) return;
+    event.preventDefault();
+    const marker = markerRefs.current[next];
+    const strip = markersRef.current;
+    if (!marker || !strip) return;
+    if (marker.offsetTop < strip.scrollTop) strip.scrollTop = marker.offsetTop;
+    else if (marker.offsetTop + marker.offsetHeight > strip.scrollTop + strip.clientHeight) {
+      strip.scrollTop = marker.offsetTop + marker.offsetHeight - strip.clientHeight;
+    }
+    marker.focus({ preventScroll: true });
+  }
 
   if (!turns.length) return null;
 
   return (
-    <div
-      className="ef-chat-history-rail"
-      ref={railRef}
-      onMouseLeave={() => setHoveredMarkerIndex(null)}
-      onMouseMove={(event) => {
-        const rail = railRef.current;
-        if (!rail || markerOffsets.length === 0) return;
-        const rect = rail.getBoundingClientRect();
-        const pointerOffset = event.clientY - rect.top;
-        setHoveredMarkerIndex(closestMarkerIndex(markerOffsets, pointerOffset));
-      }}
-      onClick={handleRailClick}
-    >
-      <div className="ef-chat-history-rail__markers" aria-label="Chat history">
-        {turns.map((turn, index) => {
-          const active = hoveredMarkerIndex === null && turn.id === activeTurnId;
-          const hovered = hoveredMarkerIndex === index;
-          const anchorOffset = hoveredMarkerIndex === null ? null : (markerOffsets[hoveredMarkerIndex] ?? null);
-          const distance = anchorOffset === null
-            ? Number.POSITIVE_INFINITY
-            : Math.abs((markerOffsets[index] ?? 0) - anchorOffset);
-          const influence = markerInfluence(distance);
-
-          const width = hovered
-            ? 24
-            : 6 + influence * 14 + (active ? 8 : 0);
-          return (
-            <button
-              key={turn.id}
-              className={cx(
-                "ef-chat-history-rail__marker",
-                active && "ef-chat-history-rail__marker--active",
-              )}
-              type="button"
-              aria-label={turn.userPreview}
-              data-active={active ? "true" : "false"}
-              data-hovered={hovered ? "true" : "false"}
-              ref={(node) => {
-                markerRefs.current[index] = node;
-              }}
-              style={{
-                width: hoveredMarkerIndex !== null ? `${width}px` : `${active ? 14 : 6}px`,
-              }}
-              onClick={() => {
-                const transcript = transcriptRef.current;
-                const target = transcript?.querySelector<HTMLElement>(
-                  `[data-chat-turn-id="${turn.id}"]`,
-                );
-                target?.scrollIntoView({ behavior: "smooth", block: "start" });
-              }}
-              onMouseEnter={() => setHoveredMarkerIndex(index)}
-              onFocus={() => {
-                setHoveredMarkerIndex(index);
-              }}
-              onBlur={() => setHoveredMarkerIndex((current) => (current === index ? null : current))}
-            >
-              <span className="ef-chat-history-rail__sr-only">{turn.userPreview}</span>
-            </button>
-          );
-        })}
+    <div ref={railRef} className="ef-chat-history-rail" data-theme-part="chat-history" data-agent-motion-policy={policy}
+      onMouseLeave={() => setPreviewIndex(null)}
+      onBlur={event => { if (!event.currentTarget.contains(event.relatedTarget)) setPreviewIndex(null); }}
+      onKeyDown={event => { if (event.key === "Escape") { setPreviewIndex(null); event.stopPropagation(); } }}>
+      <div ref={markersRef} className="ef-chat-history-rail__markers" role="navigation" aria-label="Chat history">
+        {turns.map((turn, index) => (
+          <button key={turn.id} ref={node => { markerRefs.current[index] = node; }} type="button"
+            className="ef-chat-history-rail__marker" data-active={index === activeIndex} data-hovered={index === previewIndex}
+            aria-label={turn.userPreview} aria-current={index === activeIndex ? "location" : undefined}
+            aria-describedby={index === previewIndex ? previewId : undefined} tabIndex={index === activeIndex ? 0 : -1}
+            onClick={() => navigate(index)} onMouseEnter={() => setPreviewIndex(index)} onFocus={() => setPreviewIndex(index)}
+            onKeyDown={event => handleKey(event, index)} />
+        ))}
       </div>
-      {hoveredTurn && hoveredMarkerOffset !== null ? (
-        <span
-          className={cx(
-            "ef-chat-history-rail__preview",
-            !hoveredTurn.hasAssistantReply &&
-            hoveredTurn.hasWorkActivity &&
-            "ef-chat-history-rail__preview--compact",
-          )}
-          role="tooltip"
-          style={{
-            top: `${hoveredMarkerOffset}px`,
-          }}
-        >
-          <span className="ef-chat-history-rail__preview-user">
-            {hoveredTurn.userPreview}
-          </span>
-          {hoveredTurn.hasAssistantReply ? (
-            <span className="ef-chat-history-rail__preview-assistant markdown-body">
-              <ReactMarkdown remarkPlugins={[remarkGfm]} >
-                {hoveredTurn.assistantPreview}
-              </ReactMarkdown>
-            </span>
-          ) : null}
-        </span>
+      {previewTurn ? (
+        <div ref={previewRef} id={previewId} role="tooltip" className="ef-chat-history-rail__preview" style={{ top: previewTop }}>
+          <span className="ef-chat-history-rail__preview-user">{previewTurn.userPreview}</span>
+          {previewTurn.assistantPreview ? <span className="ef-chat-history-rail__preview-assistant">{previewTurn.assistantPreview}</span> : null}
+        </div>
       ) : null}
     </div>
   );
