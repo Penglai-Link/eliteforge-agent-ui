@@ -99,17 +99,19 @@ for package in \
   motion-react motion-vue composer-react composer-vue \
   a2ui-react a2ui-vue chat-core chat-react chat-vue terminal
 do
-  npm publish --workspace "@personai/agent-ui-$package" || break
+  npm publish --workspace "@personai/agent-ui-$package" --tag latest || break
 done
 ```
 
-上述命令发布正式版本并使用 npm 默认的 `latest` 标签。发布预发布版本时，在 `npm publish` 命令末尾添加 `--tag next`；安装预发布版本可使用 `npm install @personai/agent-ui-chat-react@next`。
+上述命令将正式版本和预发布版本都发布到 `latest`，预发布版本发布后即为默认安装版本。安装最新版本时直接使用包名，例如 `npm install @personai/agent-ui-chat-react`。不要为预发布版本改用 `--tag next`，否则 `latest` 会停留在旧版本；需要额外渠道标签时可另行添加，但不能替代 `latest`。
 
-发布后可以查询版本，例如：
+发布后查询版本和标签：
 
 ```sh
-npm view @personai/agent-ui-chat-react version --registry=https://registry.npmjs.org/
+npm view @personai/agent-ui-chat-react version dist-tags --registry=https://registry.npmjs.org/
 ```
+
+确认 `version` 和 `dist-tags.latest` 都是目标版本。如果某次发布误用了其他标签，可使用 `npm dist-tag add @personai/agent-ui-chat-react@<版本> latest` 修正。
 
 Finished context-compaction notices can expand block details supplied through `HistoryStep.compaction` or the live `agent.memory.compaction.details` event. Translate them with `workRailLabels.notices.compactionBlock`, `compactionNoChanges` and `compactionDetailsUnavailable`. This addition is available from `1.0.0-preview.5`; see `docs/integration-guide.md`.
 
