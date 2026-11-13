@@ -1,6 +1,6 @@
 {
   "name": "@personai/agent-ui-chat-theme",
-  "version": "1.0.0-preview.12",
+  "version": "1.0.0-preview.13",
   "type": "module",
   "files": [
     "dist"

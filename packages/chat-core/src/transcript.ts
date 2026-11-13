@@ -71,6 +71,7 @@ export function isAguiRequestProgressEvent(event: TranscriptAguiEvent): boolean 
 
 // Lifecycle notices and presentation health are independent; replay retains their details.
 export function buildAguiRunNotices(events: TranscriptAguiEvent[]): AguiRunNotice[] {
+  const cancelledRuns = new Set(events.filter(isAguiCancellationEvent).flatMap(event => [aguiEventRunId(event), historyEventRunId(event)]));
   let compaction: Extract<AguiRunNotice, { kind: "compaction" }> | undefined;
   let error: Extract<AguiRunNotice, { kind: "runError" }> | undefined;
   let stopped: Extract<AguiRunNotice, { kind: "runStopped" }> | undefined;
@@ -116,6 +117,8 @@ export function buildAguiRunNotices(events: TranscriptAguiEvent[]): AguiRunNotic
     if (type === "RUN_ERROR" && !presentationFailure) {
       const code = "code" in event && typeof event.code === "string" ? event.code : "";
       const message = "message" in event && typeof event.message === "string" ? event.message : "";
+      // History may project the same cancelled run as a generic failure.
+      if (code === "HISTORY_RUN_ERROR" && cancelledRuns.has(historyEventRunId(event))) continue;
       if (isAguiCancellationEvent(event)) {
         stopped = { kind: "runStopped", code, message };
       } else {

@@ -1,10 +1,11 @@
 <script setup lang="ts">
 import { computed } from "vue";
-import { buildAguiRunNotices, chatErrorPresentation, compactionBlockLabel, type ChatMessage, type ChatWorkRailLabels, type TranscriptAguiEvent } from "@personai/agent-ui-chat-core";
+import { buildAguiRunNotices, chatErrorPresentation, compactionBlockLabel, historyEventRunId, isAguiCancellationEvent, type ChatMessage, type ChatWorkRailLabels, type TranscriptAguiEvent } from "@personai/agent-ui-chat-core";
 const props = defineProps<{ events: TranscriptAguiEvent[]; messages?: ChatMessage[]; labels: ChatWorkRailLabels }>();
 const notices = computed(() => {
   const notices = buildAguiRunNotices(props.events);
-  const error = props.messages?.find(message => message.history?.run?.error)?.history?.run?.error;
+  const error = props.messages?.find(message => message.history?.run?.error && !props.events.some(event =>
+    isAguiCancellationEvent(event) && historyEventRunId(event) === message.runId))?.history?.run?.error;
   if (error && !notices.some(notice => notice.kind === "runError" && notice.code !== "AGENT_AGUI_REPLAY_INCOMPLETE"))
     notices.push({ kind: "runError", code: "HISTORY_RUN_ERROR", message: error });
   const copy = props.labels.notices;

@@ -1081,7 +1081,8 @@ function AguiRunWorkRail({
 }) {
   const notices = useMemo(() => {
     const notices = buildAguiRunNotices(events);
-    const error = timeline?.messages.find(message => message.history?.run?.error)?.history?.run?.error;
+    const error = timeline?.messages.find(message => message.history?.run?.error && !events.some(event =>
+      isAguiCancellationEvent(event) && historyEventRunId(event) === message.runId))?.history?.run?.error;
     if (error && !notices.some(notice => notice.kind === "runError" && notice.code !== "AGENT_AGUI_REPLAY_INCOMPLETE"))
       notices.push({ kind: "runError", code: "HISTORY_RUN_ERROR", message: error });
     return notices;
