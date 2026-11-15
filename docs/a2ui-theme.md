@@ -29,6 +29,24 @@ React / Vue 共用同一套变量。将变量设置在 `.a2ui-surface` 或其祖
 }
 ```
 
+## React Native token 映射
+
+React Native 不消费 CSS 变量。`@personai/agent-ui-a2ui-react-native` 把基础色板、圆角和间距映射为 JS token（`A2UIReactNativeTheme`），宿主通过 `theme` prop 覆盖：
+
+| RN token | 对应 CSS 变量 | 说明 |
+| --- | --- | --- |
+| `textColor` | `--color-on-surface` | 正文颜色 |
+| `mutedTextColor` | `--color-on-surface-variant` | 次要文案、时间、占位 |
+| `surfaceColor` | `--color-card` / `--color-elevated-surface` | 卡片、输入区、面板底色 |
+| `borderColor` | `--color-outline-variant` / `--color-card-border` | 卡片和输入框描边 |
+| `primaryColor` | `--color-primary` | 主按钮、选中态、进度 |
+| `primaryTextColor` | `--color-on-primary` | 主色底上的文字 |
+| `dangerColor` | `--color-error` | 拒绝按钮、失败状态 |
+| `borderRadius` | `--agent-ui-control-radius` / `--agent-ui-panel-radius` | 控件和卡片圆角 |
+| `spacing` | `--agent-ui-gap` | 组件间距 |
+
+`ChatReactNativeTheme` 在以上字段基础上增加 `panelColor`、`userBubbleColor`、`userBubbleTextColor`、`assistantBubbleColor`。RN 包不导出 `styles.css`，也不读取 CSS 变量；对照表只用于让两端的视觉语义保持一致。完整接入见 [React Native 聊天与 A2UI](react-native.md)。
+
 ## 完整变量清单
 
 | 变量 | 默认回退 | 作用 |

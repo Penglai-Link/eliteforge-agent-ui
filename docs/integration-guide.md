@@ -1,12 +1,15 @@
 # EliteForge Agent UI 接入指南
 
-本文说明如何在 Web 应用中接入公共聊天组件和终端组件。组件负责界面和交互；宿主应用负责业务 API、认证，以及服务端运行环境。
+本文说明如何在 Web 与 React Native 应用中接入公共聊天组件和终端组件。组件负责界面和交互；宿主应用负责业务 API、认证，以及服务端运行环境。
 
 ## 1. 选择要接入的包
 
 | 需求 | 使用的包 | 宿主需要提供 |
 |---|---|---|
 | React 聊天界面 | `@personai/agent-ui-chat-react` | `ChatAdapter` |
+| React Native 聊天界面 | `@personai/agent-ui-chat-react-native` | RPC/AG-UI 客户端，产出 `ChatMessage` |
+| React Native A2UI 渲染 | `@personai/agent-ui-a2ui-react-native` | `A2UIClient` |
+| React Native 平台无关逻辑 | `@personai/agent-ui-chat-core/headless` | 事件与消息映射 |
 | Vue 3 聊天界面 | `@personai/agent-ui-chat-vue` | `ChatAdapter` |
 | 聊天数据类型和协议处理 | `@personai/agent-ui-chat-core` | React/Vue 聊天包会依赖它 |
 | 聊天主题 | `@personai/agent-ui-chat-theme` | 按需覆盖 CSS 变量 |
@@ -198,6 +201,27 @@ export const adapter: ChatAdapter = {
 
 设置 `config.hideMessageIdentity: true` 可隐藏消息和交互回执中的发送者名称及头像；默认值为 `false`。时间、消息操作和消息数据不受影响。直接使用 `ChatPanel` 或 `ChatWindow` 时，通过同名 `hideMessageIdentity` 属性控制。
 
+### 3.4 React Native
+
+React Native 宿主不实现 `ChatAdapter`（它绑定 Web 流式请求），改用 RPC/Noise 隧道拿 AG-UI 事件，再把事件转换为 `chat-core/headless` 的 `ChatMessage`、`ChatUserInputRequest` 和 `ChatA2uiSession`：
+
+```tsx
+import { ChatPanel } from "@personai/agent-ui-chat-react-native";
+import type { ChatMessage } from "@personai/agent-ui-chat-core/headless";
+
+<ChatPanel
+  draft={draft}
+  messages={messages}
+  onAnswerUserInput={(answers) => tunnel.call("session.answer", answers)}
+  onDraftChange={setDraft}
+  onSend={() => sendDraft()}
+  sending={running}
+  userInputRequests={requests}
+/>;
+```
+
+`@personai/agent-ui-chat-core/headless` 只导出平台无关模块（消息、转录、AG-UI、工具展示、历史、A2UI 交互），不会引入 `mermaid`、DOM 或 CSS。完整 API、Catalog 映射和主题 token 见 [React Native 聊天与 A2UI](react-native.md)。
+
 ## 4. 接入终端
 
 终端包渲染终端、Shell 命令块和可选的 AI 交互。传输由宿主提供，组件初始化时会连接终端服务：
@@ -292,6 +316,9 @@ npm run dev --workspace @personai/agent-ui-terminal
 
 - [React 聊天包说明](../packages/chat-react/README.md)
 - [Vue 聊天包说明](../packages/chat-vue/README.md)
+- [React Native 聊天包说明](../packages/chat-react-native/README.md)
+- [React Native A2UI 渲染器](../packages/a2ui-react-native/README.md)
+- [React Native 聊天与 A2UI](react-native.md)
 - [终端包说明](../packages/terminal/README.md)
 - [仓库包结构与开发命令](../README.md)
 

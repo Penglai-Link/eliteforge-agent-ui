@@ -1,4 +1,4 @@
-import type { ChatAnnotation, ChatAnnotationLabels } from "./annotations";
+import type { ChatAnnotation, ChatAnnotationLabels } from "./annotationTypes";
 import type { ComposerRunningSubmitMode, ComposerSubmitMode, ComposerAttachmentKind, ComposerAttachment, ComposerSuggestion, ComposerSuggestionLabels, ComposerProps } from "@personai/agent-ui-composer-core";
 import type { ActionMetadata } from "@personai/agent-ui-a2ui-core";
 import type { ChatA2uiState, ChatA2uiActionInput } from "./a2ui";

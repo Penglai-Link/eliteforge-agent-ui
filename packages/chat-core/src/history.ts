@@ -1,6 +1,6 @@
 import { type ToolBatchItem, parseToolApprovalDetails } from "./toolBatch";
 import { approvalPresentation } from "./approvalPresentation";
-import type { ChatAnnotation } from "./annotations";
+import type { ChatAnnotation } from "./annotationTypes";
 import type { ChatMessage, MessageProvenance, ChatUserInputLabels, ChatUserInputRequest } from "./types";
 import { interactionMessages } from "./interactionMessages";
 import { metadataRecordWith } from "./eventMetadata";

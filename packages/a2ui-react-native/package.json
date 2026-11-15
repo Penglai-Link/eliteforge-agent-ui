@@ -1,0 +1,38 @@
+{
+  "name": "@personai/agent-ui-a2ui-react-native",
+  "version": "1.0.0-preview.14",
+  "type": "module",
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/src/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/src/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json && vite build",
+    "prepublishOnly": "npm run build"
+  },
+  "publishConfig": {
+    "registry": "https://registry.npmjs.org/",
+    "access": "public"
+  },
+  "dependencies": {
+    "@personai/agent-ui-a2ui-core": "1.0.0-preview.14"
+  },
+  "peerDependencies": {
+    "react": "^19.2.5",
+    "react-native": ">=0.70"
+  },
+  "license": "AGPL-3.0-only",
+  "devDependencies": {
+    "react-native": "0.88.1"
+  }
+}

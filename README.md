@@ -8,9 +8,11 @@
 packages/
 ├── a2ui-core/    # A2UI 协议解析、Catalog 与交互核心
 ├── a2ui-react/   # A2UI React 渲染器
+├── a2ui-react-native/ # A2UI React Native 渲染器
 ├── a2ui-vue/     # A2UI Vue 渲染器
 ├── chat-core/    # 聊天数据类型、ChatAdapter、AG-UI 处理与模拟宿主
 ├── chat-react/   # React 聊天运行时、面板和悬浮窗口
+├── chat-react-native/ # React Native 聊天面板、消息列表与输入区
 ├── chat-vue/     # Vue 3 聊天组件
 ├── chat-theme/   # 可复用、可覆盖的聊天主题
 ├── composer-core/  # 输入区类型、输入工具与共享样式
@@ -22,7 +24,7 @@ packages/
 └── terminal/     # xterm 终端、命令块、AI 交互和传输接口
 ```
 
-聊天组件通过 `ChatAdapter` 连接宿主的会话与消息服务；终端通过 `TerminalTransport` 连接 PTY，并可通过 `AITransport` 连接 AI 服务。React 和 Vue 聊天运行时支持结构化历史、活动状态恢复、消息来源标注和断开观察后的会话恢复。A2UI 包提供协议解析、Catalog 和对应框架的渲染器。动效包为聊天与 A2UI 提供共享的 `MotionProvider`、`AgentMotion` 和 `MotionConfig`，支持主题变量、系统减弱动画偏好和宿主开关。
+聊天组件通过 `ChatAdapter` 连接宿主的会话与消息服务；React Native 宿主改用 `chat-core/headless` 子路径（不引入 DOM/mermaid）并通过 RPC 客户端提供消息；终端通过 `TerminalTransport` 连接 PTY，并可通过 `AITransport` 连接 AI 服务。React 和 Vue 聊天运行时支持结构化历史、活动状态恢复、消息来源标注和断开观察后的会话恢复。A2UI 包提供协议解析、Catalog 和对应框架的渲染器。动效包为聊天与 A2UI 提供共享的 `MotionProvider`、`AgentMotion` 和 `MotionConfig`，支持主题变量、系统减弱动画偏好和宿主开关。
 
 ## 本地开发与演示
 
@@ -41,7 +43,7 @@ npm run dev --workspace @personai/agent-ui-composer-vue
 npm run dev --workspace @personai/agent-ui-terminal
 ```
 
-React/Vue 聊天演示使用 `chat-core` 的模拟 adapter，可创建会话、发送消息并查看 AG-UI 活动；终端演示使用内存模拟的 Shell 和 AI transport，不会访问外部服务。独立输入区支持附件、命令/技能、队列和主题，接入见[独立消息输入区](docs/composer.md)。详细接入步骤见[接入指南](docs/integration-guide.md)，各组件 README 提供对应 API 说明。动效接入与 Bits 适配约定见[统一动效接入](docs/motion.md)。
+React/Vue 聊天演示使用 `chat-core` 的模拟 adapter，可创建会话、发送消息并查看 AG-UI 活动；终端演示使用内存模拟的 Shell 和 AI transport，不会访问外部服务。独立输入区支持附件、命令/技能、队列和主题，接入见[独立消息输入区](docs/composer.md)。详细接入步骤见[接入指南](docs/integration-guide.md)，React Native 接入见[React Native 聊天与 A2UI](docs/react-native.md)，各组件 README 提供对应 API 说明。动效接入与 Bits 适配约定见[统一动效接入](docs/motion.md)。
 
 ## 开发技能
 

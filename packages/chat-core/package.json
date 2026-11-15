@@ -1,6 +1,6 @@
 {
   "name": "@personai/agent-ui-chat-core",
-  "version": "1.0.0-preview.13",
+  "version": "1.0.0-preview.14",
   "type": "module",
   "files": [
     "dist"
@@ -14,10 +14,15 @@
       "import": "./dist/index.js",
       "default": "./dist/index.js"
     },
+    "./headless": {
+      "types": "./dist/src/headless.d.ts",
+      "import": "./dist/headless.js",
+      "default": "./dist/headless.js"
+    },
     "./mermaid.css": "./dist/mermaid.css"
   },
   "scripts": {
-    "build": "vite build",
+    "build": "vite build && vite build --config vite.headless.config.ts",
     "prepublishOnly": "npm run build"
   },
   "publishConfig": {
@@ -25,8 +30,8 @@
     "access": "public"
   },
   "dependencies": {
-    "@personai/agent-ui-a2ui-core": "1.0.0-preview.13",
-    "@personai/agent-ui-composer-core": "1.0.0-preview.13",
+    "@personai/agent-ui-a2ui-core": "1.0.0-preview.14",
+    "@personai/agent-ui-composer-core": "1.0.0-preview.14",
     "mermaid": "^12.2.0"
   },
   "sideEffects": [
