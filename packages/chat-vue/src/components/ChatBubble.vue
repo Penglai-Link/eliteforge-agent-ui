@@ -11,11 +11,13 @@ import { cx } from "../utils";
 import MarkdownBlock from "./MarkdownBlock.vue";
 import CopyValueButton from "./CopyValueButton.vue";
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   currentUserDisplayName?: string;
   hideMessageIdentity?: boolean;
   emptyAssistantMessage?: string;
   isStreaming?: boolean;
+  /** Render the copy/time row; work-rail steps opt out so they reserve no space. */
+  showActions?: boolean;
   message: ChatMessage;
   annotations?: ChatAnnotation[];
   annotationLabels?: ChatAnnotationLabels;
@@ -25,7 +27,7 @@ const props = defineProps<{
   a2uiDisabled?: boolean;
   onDeleteTurn?: (message: ChatMessage) => void;
   deleteTurnLabel?: string;
-}>();
+}>(), { showActions: true });
 
 const emit = defineEmits<{
   editMessage: [content: string, message: ChatMessage];
@@ -78,7 +80,7 @@ const actorName = computed(() =>
     </div>
     <ChatA2UI v-if="message.a2ui" :message="message" :on-action="onA2UIAction" :runtime="a2uiSession" :disabled="a2uiDisabled" />
   </article>
-      <div class="ef-chat__message-actions ef-chat__message-actions--outside">
+      <div v-if="props.showActions" class="ef-chat__message-actions ef-chat__message-actions--outside">
         <CopyValueButton
           ariaLabel="Copy raw markdown"
           title="Copy raw markdown"

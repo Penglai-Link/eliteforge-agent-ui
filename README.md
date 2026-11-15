@@ -123,4 +123,4 @@ Finished context-compaction notices can expand block details supplied through `H
 
 `1.0.0-preview.9` 为 React 和 Vue 工具组中执行中的圆点添加呼吸动画，并遵循系统减少动态效果设置。
 
-`1.0.0-preview.10` 在 React 和 Vue 工作过程的每条消息悬停或聚焦时显示复制按钮和时间，触屏设备始终显示。
+`1.0.0-preview.10` 在 React 和 Vue 工作过程的每条消息悬停或聚焦时显示复制按钮和时间，触屏设备始终显示。当前源码移除了工作过程内的逐条操作行：复制和时间只保留在最终答复上，中间步骤下方不再预留操作行高度。

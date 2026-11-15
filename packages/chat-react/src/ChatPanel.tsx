@@ -469,6 +469,7 @@ function ChatBubble({
   isStreaming = false,
   message,
   processMessage = false,
+  showActions = true,
   a2uiSession,
   a2uiDisabled,
   onA2UIAction,
@@ -481,6 +482,8 @@ function ChatBubble({
   emptyAssistantMessage?: string;
   isStreaming?: boolean;
   processMessage?: boolean;
+  /** Render the copy/time row; work-rail steps opt out so they reserve no space. */
+  showActions?: boolean;
   message: ChatMessage;
   a2uiSession?: ChatA2uiSession;
   a2uiDisabled?: boolean;
@@ -534,7 +537,7 @@ function ChatBubble({
         {missingCitations.length ? <div className="ef-chat__reply-annotations">{missingCitations.map(annotation => <span key={annotation.id} role="button" data-annotation-source-id={annotation.messageId} tabIndex={0} className="ef-chat__annotation-reference" data-annotation-tooltip={chatAnnotationTooltip(annotation, annotationLabels)}>{annotationLabels.annotation(turnAnnotations.indexOf(annotation) + 1)}</span>)}</div> : null}
         {message.a2ui ? <ChatA2UI message={message} runtime={a2uiSession} disabled={a2uiDisabled} onAction={onA2UIAction} /> : null}
       </article>
-      <div className="ef-chat__message-actions ef-chat__message-actions--outside">
+      {showActions ? <div className="ef-chat__message-actions ef-chat__message-actions--outside">
         <CopyValueButton
           ariaLabel="Copy raw markdown"
           title="Copy raw markdown"
@@ -558,7 +561,7 @@ function ChatBubble({
         {!message.interactionResponse || message.interactionResponse.answeredAt != null ? <span className="ef-chat__message-time">
           {formatTime(message.createdAt)}
         </span> : null}
-      </div>
+      </div> : null}
     </div>
   );
 }
@@ -1563,7 +1566,7 @@ export function ChatPanel({
   function renderProcessMessage(message: ChatMessage) {
     return <>
       <StructuredMessageDetails onPreviewImage={(source, alt) => setPreviewImage({ source, alt })} message={message} labels={workRailLabels} historyLabels={historyLabels} locale={locale} hasRunError={workTimeline.managedMessageIds.has(message.messageId) || displayedErrorRuns.has(message.runId ?? "") || lastHistoryErrorByRun.get(message.runId) !== message.messageId} />
-      {message.content.trim() || message.a2ui || message.interactionResponse ? <ChatBubble currentUserDisplayName={currentUserDisplayName} hideMessageIdentity={hideMessageIdentity} processMessage
+      {message.content.trim() || message.a2ui || message.interactionResponse ? <ChatBubble currentUserDisplayName={currentUserDisplayName} hideMessageIdentity={hideMessageIdentity} processMessage showActions={false}
         isStreaming={message.messageId === streamingAssistantMessageCode} message={message} a2uiSession={a2uiSession}
         a2uiDisabled={a2uiDisabled} onA2UIAction={onA2UIAction} onEditMessage={onEditMessage} onDeleteTurn={onDeleteTurn} deleteTurnLabel={deleteTurnLabel} /> : null}
     </>;

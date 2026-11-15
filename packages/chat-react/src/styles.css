@@ -411,11 +411,11 @@
   gap: 4px;
 }
 
-/* Keep per-message controls quiet without moving the transcript on reveal. */
+/* Keep per-message controls quiet without moving the transcript on reveal.
+   Work-rail steps render no action row at all; only standalone messages reserve this space. */
 @media (hover: hover) and (pointer: fine) {
   .ef-chat__turn > .ef-chat__message-entry:not(:hover):not(:focus-within):has(> [data-theme-part="chat-message-user"], > [data-theme-part="chat-message-assistant"]) > .ef-chat__message-actions--outside,
-  .ef-chat__user-message-group:not(:hover):not(:focus-within) > .ef-chat__message-entry > .ef-chat__message-actions--outside,
-  [data-work-item="message"] > .ef-chat__message-entry:not(:hover):not(:focus-within) > .ef-chat__message-actions--outside {
+  .ef-chat__user-message-group:not(:hover):not(:focus-within) > .ef-chat__message-entry > .ef-chat__message-actions--outside {
     opacity: 0;
     pointer-events: none;
   }
@@ -889,7 +889,7 @@
 .ef-chat__rail-card-list {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  gap: 4px;
+  gap: 6px;
 }
 
 .ef-chat__rail-entry {

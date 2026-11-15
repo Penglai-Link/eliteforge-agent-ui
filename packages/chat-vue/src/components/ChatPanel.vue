@@ -306,7 +306,7 @@ onMounted(() => {
                   :labels="props.workRailLabels" :locale="props.locale" :history-labels="props.historyLabels" :user-input-requests="props.userInputRequests">
                   <template #message="{ message: processMessage }">
                     <StructuredMessageDetails @preview-image="openImagePreview" :message="processMessage" :labels="props.historyLabels" :locale="props.locale" hide-run-error />
-                    <ChatBubble v-if="processMessage.content.trim() || processMessage.a2ui || processMessage.interactionResponse" :annotation-labels="props.annotationLabels" :format-annotation-count="formatAnnotationCount" :annotations="annotationMap.get(processMessage.messageId)" :message="processMessage"
+                    <ChatBubble v-if="processMessage.content.trim() || processMessage.a2ui || processMessage.interactionResponse" :annotation-labels="props.annotationLabels" :format-annotation-count="formatAnnotationCount" :annotations="annotationMap.get(processMessage.messageId)" :message="processMessage" :show-actions="false"
                       :hide-message-identity="props.hideMessageIdentity" :current-user-display-name="currentUserDisplayName" :is-streaming="processMessage.messageId === streamingAssistantMessageCode"
                       :on-delete-turn="props.onDeleteTurn" :delete-turn-label="props.deleteTurnLabel" :on-a2-u-i-action="props.onA2UIAction" :a2ui-session="props.a2uiSession" :a2ui-disabled="props.a2uiDisabled"
                       @edit-message="(content: string, message: ChatMessage) => emit('edit-message', content, message)" />
@@ -374,7 +374,7 @@ onMounted(() => {
                 >
                   <template #message="{ message: processMessage }">
                     <StructuredMessageDetails @preview-image="openImagePreview" :message="processMessage" :labels="props.historyLabels" :locale="props.locale" hide-run-error />
-                    <ChatBubble v-if="processMessage.content.trim() || processMessage.a2ui || processMessage.interactionResponse" :annotation-labels="props.annotationLabels" :format-annotation-count="formatAnnotationCount" :annotations="annotationMap.get(processMessage.messageId)" :message="processMessage"
+                    <ChatBubble v-if="processMessage.content.trim() || processMessage.a2ui || processMessage.interactionResponse" :annotation-labels="props.annotationLabels" :format-annotation-count="formatAnnotationCount" :annotations="annotationMap.get(processMessage.messageId)" :message="processMessage" :show-actions="false"
                       :hide-message-identity="props.hideMessageIdentity" :current-user-display-name="currentUserDisplayName" :is-streaming="processMessage.messageId === streamingAssistantMessageCode"
                       :on-delete-turn="props.onDeleteTurn" :delete-turn-label="props.deleteTurnLabel" :on-a2-u-i-action="props.onA2UIAction" :a2ui-session="props.a2uiSession" :a2ui-disabled="props.a2uiDisabled"
                       @edit-message="(content: string, message: ChatMessage) => emit('edit-message', content, message)" />
