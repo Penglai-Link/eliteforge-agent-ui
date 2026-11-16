@@ -7,6 +7,7 @@ import {
   type ChatMessage,
 } from "@personai/agent-ui-chat-core/headless";
 import { A2UIClient, A2UIRenderer } from "@personai/agent-ui-a2ui-react-native";
+import { Markdown } from "./Markdown";
 import {
   chatMetaTextStyle,
   chatTextStyle,
@@ -87,8 +88,8 @@ function MessageA2UI({
 }
 
 /**
- * Minimal native message row: identity, plain-text body, attachment names and
- * embedded A2UI surfaces. Markdown/Mermaid/annotation selection stay web-only.
+ * Native message row: identity, Markdown body (assistant), attachment names and
+ * embedded A2UI surfaces. Mermaid and annotation selection stay web-only.
  */
 export function MessageBubble({
   message,
@@ -124,15 +125,16 @@ export function MessageBubble({
             paddingVertical: 8,
           }}
         >
-          <Text
-            selectable
-            style={[
-              chatTextStyle(theme),
-              user ? { color: theme.userBubbleTextColor } : null,
-            ]}
-          >
-            {body}
-          </Text>
+          {user ? (
+            <Text
+              selectable
+              style={[chatTextStyle(theme), { color: theme.userBubbleTextColor }]}
+            >
+              {body}
+            </Text>
+          ) : (
+            <Markdown content={body} theme={theme} />
+          )}
         </View>
       ) : null}
       {attachments ? (

@@ -27,9 +27,9 @@ RPC 客户端 / AG-UI 事件
 
 ```sh
 npm install --save-exact \
-  @personai/agent-ui-chat-react-native@1.0.0-preview.13 \
-  @personai/agent-ui-a2ui-react-native@1.0.0-preview.13 \
-  @personai/agent-ui-chat-core@1.0.0-preview.13
+  @personai/agent-ui-chat-react-native@1.0.0-preview.16 \
+  @personai/agent-ui-a2ui-react-native@1.0.0-preview.16 \
+  @personai/agent-ui-chat-core@1.0.0-preview.16
 ```
 
 `react`（>= 19.2）与 `react-native`（>= 0.70）由宿主提供，都是 peer dependency。两个 RN 包不导出样式入口，主题通过 JS token 传入，不涉及 CSS。
@@ -158,7 +158,7 @@ const theme = {
 - 审批/问答答案优先使用 `nativeUserInputAnswer` / `nativeUserInputBatchAnswer`（`ChatUserInputAnswerInput`），保留 resume 载荷。
 - A2UI 快照持久化和增量应用使用 `ChatA2uiSession`（`chat-core/headless`），`MessageBubble` 与 `ApprovalCard` 会直接消费。
 - `ApprovalCard` 由 `createInteractionClient` + A2UI 交互组件渲染，因此批准/拒绝按钮、过期和状态文案与 Web 端一致。
-- `MessageBubble` 只渲染纯文本正文、附件名和 A2UI 表面；Markdown、Mermaid、文本批注选择是 Web 专属能力，RN 端不提供。
+- `MessageBubble` 渲染 Markdown 正文（标题、列表、代码、表格等）、附件名和 A2UI 表面；Mermaid、文本批注选择仍是 Web 专属能力。
 
 ## 已知边界
 

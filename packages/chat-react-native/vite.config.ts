@@ -27,6 +27,7 @@ export default defineConfig({
         "react",
         "react/jsx-runtime",
         "react-native",
+        "markdown-it",
       ],
     },
   },
