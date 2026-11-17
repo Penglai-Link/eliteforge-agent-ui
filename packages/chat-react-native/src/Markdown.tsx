@@ -2,7 +2,6 @@ import { useMemo, type ReactNode } from "react";
 import {
   Linking,
   Platform,
-  ScrollView,
   Text,
   View,
   type TextStyle,
@@ -375,20 +374,18 @@ function renderBlocks(
               overflow: "hidden",
             }}
           >
-            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-              <Text
-                selectable
-                style={{
-                  color: theme.textColor,
-                  fontFamily: monoFont,
-                  fontSize: 12,
-                  lineHeight: 18,
-                  padding: 10,
-                }}
-              >
-                {block.text}
-              </Text>
-            </ScrollView>
+            <Text
+              selectable
+              style={{
+                color: theme.textColor,
+                fontFamily: monoFont,
+                fontSize: 12,
+                lineHeight: 18,
+                padding: 10,
+              }}
+            >
+              {block.text}
+            </Text>
           </View>
         );
       case "quote":
@@ -437,8 +434,10 @@ function renderBlocks(
               <View
                 key={`${rowKey}-${cellIndex}`}
                 style={{
-                  minWidth: 110,
-                  maxWidth: 240,
+                  flexGrow: 1,
+                  flexShrink: 1,
+                  flexBasis: 0,
+                  minWidth: 0,
                   paddingHorizontal: 6,
                   paddingVertical: 5,
                   borderRightWidth: cellIndex === columns - 1 ? 0 : 1,
@@ -462,34 +461,29 @@ function renderBlocks(
           </View>
         );
         return (
-          <ScrollView
+          <View
             key={key}
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            style={{ marginBottom: 10 }}
+            style={{
+              marginBottom: 10,
+              borderColor: theme.borderColor,
+              borderRadius: Math.min(theme.borderRadius, 8),
+              borderWidth: 1,
+              overflow: "hidden",
+            }}
           >
-            <View
-              style={{
-                borderColor: theme.borderColor,
-                borderRadius: Math.min(theme.borderRadius, 8),
-                borderWidth: 1,
-                overflow: "hidden",
-              }}
-            >
-              {block.header.length ? renderRow(block.header, `${key}-head`, true) : null}
-              {block.rows.map((row, rowIndex) => (
-                <View
-                  key={`${key}-${rowIndex}`}
-                  style={{
-                    borderTopColor: theme.borderColor,
-                    borderTopWidth: 1,
-                  }}
-                >
-                  {renderRow(row, `${key}-${rowIndex}`, false)}
-                </View>
-              ))}
-            </View>
-          </ScrollView>
+            {block.header.length ? renderRow(block.header, `${key}-head`, true) : null}
+            {block.rows.map((row, rowIndex) => (
+              <View
+                key={`${key}-${rowIndex}`}
+                style={{
+                  borderTopColor: theme.borderColor,
+                  borderTopWidth: 1,
+                }}
+              >
+                {renderRow(row, `${key}-${rowIndex}`, false)}
+              </View>
+            ))}
+          </View>
         );
       }
       default:
