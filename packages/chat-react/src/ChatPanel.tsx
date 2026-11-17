@@ -52,6 +52,7 @@ import {
   describeDebugEvent,
   toolOperationDetails,
   toolCommandCountLabel,
+  toolResultIsError,
   formatTime,
   detectToolPresentationLocale,
   toolDisplayName,
@@ -642,16 +643,6 @@ interface TerminalWorkSummary {
   runId: string;
 }
 
-function toolResultFailed(result: string) {
-  if (!result) return false;
-  try {
-    const parsed: unknown = JSON.parse(result);
-    return Boolean(parsed && typeof parsed === "object" && "isError" in parsed && parsed.isError === true);
-  } catch {
-    return false;
-  }
-}
-
 function subagentDispatchedLabel(name: string, labels: ChatWorkRailLabels) {
   if (labels.tool?.subagentDispatched) return labels.tool.subagentDispatched(name);
   const chinese = /[\u3400-\u9fff]/.test([labels.ariaLabel, labels.thinking, labels.preparing, labels.responding].join(" "));
@@ -678,7 +669,7 @@ function ToolCard({
 }) {
   const partial = hasPendingBatchItems(card.result);
   const complete = card.ended || (!partial && Boolean(card.result));
-  const failed = !partial && (statusFailed || toolResultFailed(card.result));
+  const failed = !partial && (statusFailed || toolResultIsError(card.result));
   const running = card.started && !complete;
   const interactionInfo = interactionToolSummary(card.toolName, card.args);
   const toolCopy = { ...defaultToolWorkLabels, ...labels.tool };

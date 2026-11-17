@@ -1,6 +1,6 @@
 {
   "name": "@personai/agent-ui-composer-core",
-  "version": "1.0.0-preview.18",
+  "version": "1.0.0-preview.21",
   "type": "module",
   "files": [
     "dist",

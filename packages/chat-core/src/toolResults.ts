@@ -1,4 +1,20 @@
 import { parseToolBatchResult, type ToolBatchItemResult } from "./toolBatch";
+/**
+ * True when a tool result payload reports a top-level failure. Nested
+ * `isError` flags belong to inner structured data and must not turn the whole
+ * tool call into a failure — the same rule Web and React Native share.
+ */
+export function toolResultIsError(raw: string): boolean {
+  if (!raw) return false;
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    return Boolean(parsed && typeof parsed === "object" && !Array.isArray(parsed)
+      && (parsed as { isError?: unknown }).isError === true);
+  } catch {
+    return false;
+  }
+}
+
 /** Safe, shared projection of live and persisted tool outputs. */
 export interface ToolResultPreview {
   toolSearch?: {

@@ -27,9 +27,9 @@ RPC 客户端 / AG-UI 事件
 
 ```sh
 npm install --save-exact \
-  @personai/agent-ui-chat-react-native@1.0.0-preview.18 \
-  @personai/agent-ui-a2ui-react-native@1.0.0-preview.18 \
-  @personai/agent-ui-chat-core@1.0.0-preview.18
+  @personai/agent-ui-chat-react-native@1.0.0-preview.21 \
+  @personai/agent-ui-a2ui-react-native@1.0.0-preview.21 \
+  @personai/agent-ui-chat-core@1.0.0-preview.21
 ```
 
 `react`（>= 19.2）与 `react-native`（>= 0.70）由宿主提供，都是 peer dependency。两个 RN 包不导出样式入口，主题通过 JS token 传入，不涉及 CSS。
@@ -159,6 +159,8 @@ const theme = {
 - A2UI 快照持久化和增量应用使用 `ChatA2uiSession`（`chat-core/headless`），`MessageBubble` 与 `ApprovalCard` 会直接消费。
 - `ApprovalCard` 由 `createInteractionClient` + A2UI 交互组件渲染，因此批准/拒绝按钮、过期和状态文案与 Web 端一致。
 - `MessageBubble` 渲染 Markdown 正文（标题、列表、代码、表格等）、附件名和 A2UI 表面；Mermaid、文本批注选择仍是 Web 专属能力。
+- `ToolCard` 与 Web tool row 对齐：标题使用 `toolCommandCountLabel` / `toolDisplayName`（批量命令显示“执行 N 个命令”），展开只展示 `toolOperationDetails` 的操作字段，从不渲染参数或结果 JSON；`result` 仅用于识别顶层 `isError`。
+- 审批/问答卡片使用 `ApprovalCard` + `nativeUserInputRequests`；A2UI 表面通过 `ChatA2uiSession` 水合状态并回传 `onA2UIAction`，不要另写一套交互协议。
 
 ## 已知边界
 

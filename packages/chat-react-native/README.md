@@ -6,8 +6,8 @@
 
 ```sh
 npm install --save-exact \
-  @personai/agent-ui-chat-react-native@1.0.0-preview.18 \
-  @personai/agent-ui-chat-core@1.0.0-preview.18
+  @personai/agent-ui-chat-react-native@1.0.0-preview.21 \
+  @personai/agent-ui-chat-core@1.0.0-preview.21
 ```
 
 peer dependencies：`react`（>= 19.2）、`react-native`（>= 0.70）。不导出 CSS 入口。
@@ -21,7 +21,7 @@ peer dependencies：`react`（>= 19.2）、`react-native`（>= 0.70）。不导�
 | `MessageBubble` | 身份/时间、Markdown 正文、附件名、内嵌 A2UI 表面 |
 | `Composer` | 受控多行输入 + 发送/停止按钮 |
 | `ApprovalCard` | 复用 `chat-core` 的 `createInteractionClient` 与 A2UI 交互组件渲染审批/问答 |
-| `ToolCard` | 可折叠工具卡片，标题来自 `presentToolCall`，结果来自 `toolResultPreview` |
+| `ToolCard` | 与 Web 一致的工具行：简约工具名/命令计数，展开只显示 `toolOperationDetails` 的操作字段，不渲染参数或结果 JSON |
 | `A2UISurface` / `A2UIRenderer` | 从 `a2ui-react-native` 透传，方便单包接入 |
 
 ## 用法
@@ -44,6 +44,8 @@ import type { ChatMessage } from "@personai/agent-ui-chat-core/headless";
 ```
 
 `ChatPanel` 不持有传输层：消息和交互请求由宿主（Tron/PersonAI-Mobile 的 RPC 客户端）提供，A2UI 增量通过 `ChatA2uiSession` 应用。
+
+`ToolCard` 也接受可选的 `labels: ChatWorkRailLabels`，宿主可在其中提供 `tool.resolveName` 覆盖工具标题；默认标题与 Web 相同，来自 `toolCommandCountLabel` / `toolDisplayName`。`result` 只用于判断顶层 `isError`，不会展示原始输出。
 
 ## 主题
 

@@ -20,6 +20,8 @@ export * from "./history";
 export * from "./historyWork";
 export * from "./workTimeline";
 export * from "./toolResults";
+export * from "./toolOperationDetails";
+export * from "./interactionSummary";
 export * from "./toolBatch";
 export * from "./errorPresentation";
 export * from "./display";

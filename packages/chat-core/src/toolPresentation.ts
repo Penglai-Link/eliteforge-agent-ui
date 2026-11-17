@@ -49,6 +49,7 @@ export type ToolPresentationLocale = "zh-CN" | "en-US";
 
 /** Domain code -> noun key. Covers every domain code the product ships. */
 export const DOMAIN_NOUNS: Record<string, string> = {
+  command: "command",
   bash: "command",
   fs: "file",
   search: "content",

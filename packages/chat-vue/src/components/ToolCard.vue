@@ -14,6 +14,7 @@ import {
   interactionToolSummary,
   toolCompactLabel,
   toolDisplayName,
+  toolResultIsError,
   detectToolPresentationLocale,
   type ChatWorkRailLabels,
   type ToolWorkCard,
@@ -40,14 +41,7 @@ const partial = computed(() => hasPendingBatchItems(props.card.result));
 const complete = computed(() => props.card.ended || (!partial.value && Boolean(props.card.result)));
 const failed = computed(() => {
   if (partial.value) return false;
-  if (props.statusFailed) return true;
-  if (!props.card.result) return false;
-  try {
-    const parsed = JSON.parse(props.card.result) as { isError?: unknown } | null;
-    return parsed?.isError === true;
-  } catch {
-    return false;
-  }
+  return Boolean(props.statusFailed) || toolResultIsError(props.card.result);
 });
 const running = computed(() => props.card.started && !complete.value);
 const subagentDispatch = computed(() => props.card.toolName.toLowerCase() === "agent_spawn");
