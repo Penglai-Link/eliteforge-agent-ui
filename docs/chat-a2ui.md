@@ -90,7 +90,7 @@ const message = {
 
 ## 表单校验与必填提示
 
-表单默认最大宽度为 `36rem`，普通 A2UI surface 为 `56rem`，均不超过宿主可用宽度。表单使用轻边框、统一内边距和字段间距；提交按钮在宽屏按内容宽度显示，在窄容器中铺满。响应式规则依据 surface 容器宽度，Dude 弹框与移动端同样生效。宿主可通过 `--agent-ui-a2ui-form-max-width`、`--agent-ui-a2ui-surface-max-width`、`--agent-ui-a2ui-form-padding`、`--agent-ui-a2ui-form-gap`、`--agent-ui-a2ui-form-radius` 和 `--agent-ui-a2ui-form-background` 调整外观，React/Vue 共用实现。
+表单默认最大宽度为 `36rem`，普通 A2UI surface 为 `56rem`，均不超过宿主可用宽度。表单使用轻边框、统一内边距和字段间距；提交按钮在宽屏按内容宽度显示，在窄容器中铺满。响应式规则依据 surface 容器宽度，个人助手弹框与移动端同样生效。宿主可通过 `--agent-ui-a2ui-form-max-width`、`--agent-ui-a2ui-surface-max-width`、`--agent-ui-a2ui-form-padding`、`--agent-ui-a2ui-form-gap`、`--agent-ui-a2ui-form-radius` 和 `--agent-ui-a2ui-form-background` 调整外观，React/Vue 共用实现。
 
 React 和 Vue 的 `ChatUserInputCard` 通过 `createInteractionClient` 将持久化交互的 `responseSchema` 注册到同一个 `A2UIClient`。独立使用时调用 `client.setResponseSchema(surfaceId, schema)`；默认校验动作的 `context.response`，可用第三个参数指定上下文字段。校验位于 `createAction`，直接调用动作 API 也不能绕过。
 
