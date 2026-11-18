@@ -3,6 +3,9 @@ import { FlatList, Text, View } from "react-native";
 import type {
   ChatA2uiActionHandler,
   ChatA2uiSession,
+  ChatArtifactAction,
+  ChatArtifactItem,
+  ChatArtifactLabels,
   ChatMessage,
 } from "@personai/agent-ui-chat-core/headless";
 import { MessageBubble } from "./MessageBubble";
@@ -21,6 +24,11 @@ export interface MessageListProps {
   showIdentity?: boolean;
   runtime?: ChatA2uiSession;
   onA2UIAction?: ChatA2uiActionHandler;
+  artifactLabels?: Partial<ChatArtifactLabels>;
+  artifactStates?: Record<string, "pending" | "failed">;
+  onArtifactAction?: (message: ChatMessage, item: ChatArtifactItem, action: ChatArtifactAction) => void | Promise<void>;
+  onArtifactPreview?: (message: ChatMessage, item: ChatArtifactItem) => void;
+  locale?: string;
   emptyTitle?: string;
   emptyDescription?: string;
   autoScrollToEnd?: boolean;
@@ -43,6 +51,11 @@ export function MessageList({
   showIdentity = false,
   runtime,
   onA2UIAction,
+  artifactLabels,
+  artifactStates,
+  onArtifactAction,
+  onArtifactPreview,
+  locale,
   emptyTitle = "No messages yet",
   emptyDescription,
   autoScrollToEnd = true,
@@ -88,6 +101,11 @@ export function MessageList({
         <MessageBubble
           message={item}
           onA2UIAction={onA2UIAction}
+          artifactLabels={artifactLabels}
+          artifactStates={artifactStates}
+          locale={locale}
+          onArtifactAction={onArtifactAction}
+          onArtifactPreview={onArtifactPreview}
           runtime={runtime}
           showIdentity={showIdentity}
           theme={themeOverride}

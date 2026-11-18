@@ -4,6 +4,9 @@ import {
   interactionMessages,
   type ChatA2uiActionHandler,
   type ChatA2uiSession,
+  type ChatArtifactAction,
+  type ChatArtifactItem,
+  type ChatArtifactLabels,
   type ChatMessage,
   type ChatSubmitMode,
   type ChatUserInputAnswer,
@@ -47,6 +50,12 @@ export interface ChatPanelProps {
   approvalPending?: boolean;
   runtime?: ChatA2uiSession;
   onA2UIAction?: ChatA2uiActionHandler;
+  /** Delivered-file labels, per-item state and callbacks (host-provided on native). */
+  artifactLabels?: Partial<ChatArtifactLabels>;
+  artifactStates?: Record<string, "pending" | "failed">;
+  onArtifactAction?: (message: ChatMessage, item: ChatArtifactItem, action: ChatArtifactAction) => void | Promise<void>;
+  onArtifactPreview?: (message: ChatMessage, item: ChatArtifactItem) => void;
+  locale?: string;
   theme?: Partial<ChatReactNativeTheme>;
   style?: ChatStyle;
   contentContainerStyle?: ChatStyle;
@@ -84,6 +93,11 @@ export function ChatPanel({
   approvalPending = false,
   runtime,
   onA2UIAction,
+  artifactLabels,
+  artifactStates,
+  onArtifactAction,
+  onArtifactPreview,
+  locale,
   theme: themeOverride,
   style,
   contentContainerStyle,
@@ -140,6 +154,11 @@ export function ChatPanel({
         }
         messages={transcriptMessages}
         onA2UIAction={onA2UIAction}
+        artifactLabels={artifactLabels}
+        artifactStates={artifactStates}
+        locale={locale}
+        onArtifactAction={onArtifactAction}
+        onArtifactPreview={onArtifactPreview}
         runtime={runtime}
         scrollToEndKey={pending.length}
         showIdentity={showIdentity}

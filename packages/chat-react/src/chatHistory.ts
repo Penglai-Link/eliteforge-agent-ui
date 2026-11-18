@@ -1,4 +1,5 @@
 import {
+  parseArtifacts,
   truncateLabel,
   type ChatMessage,
   type TranscriptPresentation,
@@ -42,6 +43,7 @@ export function buildChatHistoryTurns(
   }
 
   messages.forEach((message) => {
+    const artifacts = parseArtifacts(message.artifacts);
     if (message.role === "USER" && !message.interactionResponse) {
       pushCurrentTurn();
       currentTurn = {
@@ -56,14 +58,15 @@ export function buildChatHistoryTurns(
       return;
     }
 
-    if (!currentTurn && (message.content.trim() || message.a2ui || message.history)) currentTurn = { assistantPreview: "", hasAssistantReply: false, hasWorkActivity: false, id: `turn-${message.messageId}`, messageCodes: [], userMessageCode: message.messageId, userPreview: message.provenance?.sender.displayName || message.actor || "Assistant" };
+    if (!currentTurn && (message.content.trim() || message.a2ui || message.history || artifacts)) currentTurn = { assistantPreview: "", hasAssistantReply: false, hasWorkActivity: false, id: `turn-${message.messageId}`, messageCodes: [], userMessageCode: message.messageId, userPreview: message.provenance?.sender.displayName || message.actor || "Assistant" };
     if (!currentTurn) return;
 
     currentTurn.messageCodes.push(message.messageId);
 
-    if (message.role === "ASSISTANT" && (message.content.trim() || message.a2ui)) {
+    if (message.role === "ASSISTANT" && (message.content.trim() || message.a2ui || artifacts)) {
       currentTurn.hasAssistantReply = true;
-      currentTurn.assistantPreview = markdownPreview(message.content);
+      currentTurn.assistantPreview = markdownPreview(message.content)
+        || markdownPreview((artifacts?.items ?? []).map(item => item.display).join(", "));
     }
   });
 

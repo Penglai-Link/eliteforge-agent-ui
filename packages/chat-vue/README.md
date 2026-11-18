@@ -40,6 +40,31 @@ const adapter = createMockChatAdapter();
 
 只有后端确实支持时，才声明 `supportsActiveRun`、`supportsSteer`、`supportsStop` 等能力，并实现 `getActiveRun`、`steerMessage`、`stopRun`。停止后端运行需要 adapter 调用对应控制接口；断开事件流只表示停止接收事件。
 
+## 交付文件
+
+完成的助手消息可在 `ChatMessage.artifacts` 上携带 `version: "v1"` 的扁平文件列表。宿主已完成合并、去重和按客户端解析动作；组件不会看到文件路径或 `source`。`ChatRuntimeWindow` 和 `ChatPanel` 在 Markdown 正文之后、消息操作行之前渲染 `ChatArtifacts`：
+
+- `actions` 只接受 `preview` / `open` / `reveal` / `save`；`actions[0]` 是主按钮，其余进入溢出菜单。缺省或空数组不显示按钮。
+- 未知版本、非数组 `items` 或缺少 `id` / `display` 的条目不会渲染；空 `items` 也不渲染，解析不抛错。
+- 超过 4 项默认折叠，显示“全部 N 项 / 收起”。`artifactStates` 按条目 id 标记 `pending` / `failed`，失败时提供重试。
+- adapter 实现 `artifactAction` 与 `artifactContentUrl`，按需声明 `supportsArtifacts: true`。运行时用 `inline` URL 在新标签页预览；`onArtifactPreview` 可替换预览，`onArtifactAction` 在动作完成后回调。
+- 直接使用 `ChatPanel` 时传 `onArtifactAction`、`onArtifactPreview`、`artifactStates` 和可选的 `artifactLabels` / `locale`。单独使用 `ChatArtifacts` 时属性为 `artifacts`、`onAction`、`onPreview`、`labels`、`locale`、`states`。
+
+```vue
+<ChatPanel
+  :artifact-labels="{ title: '本次产出' }"
+  :artifact-states="artifactStates"
+  :draft="draft"
+  :messages="messages"
+  :on-artifact-action="(message, item, action) => hostApi.artifactAction(message.runId, item.id, action)"
+  :on-artifact-preview="(message, item) => openInAppViewer(item)"
+  :on-draft-change="setDraft"
+  :on-send="() => send()"
+/>
+```
+
+此能力属于当前源码，消费方需安装包含该变更的 npm 版本后生效。
+
 ```vue
 <script setup lang="ts">
 import { ChatRuntimeWindow } from "@personai/agent-ui-chat-vue";

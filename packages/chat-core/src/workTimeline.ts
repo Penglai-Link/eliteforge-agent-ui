@@ -1,4 +1,5 @@
 import { newerBatchRevision } from "./toolBatch";
+import { parseArtifacts } from "./artifacts";
 import type { ChatAguiStreamEvent, ChatMessage, ChatUserInputRequest, TranscriptAguiEvent } from "./types";
 import { historyEventRunId, historyToolResult, type HistoryStatus } from "./history";
 import { aguiWorkElapsedMilliseconds } from "./aguiWork";
@@ -343,7 +344,7 @@ export function buildTranscriptWorkTimeline(messages: ChatMessage[], presentatio
     const completed = segmentEndedBySteer || !pending && !interrupted && ((Boolean(terminal) && outcome?.type !== "interrupt") || historyComplete);
     const successful = completed && !segmentEndedBySteer && !interrupted && (terminal ? aguiEventType(terminal).toUpperCase() === "RUN_FINISHED"
       : group.messages.some(message => message.history?.run?.status === "Completed"));
-    const candidate = (message: ChatMessage) => Boolean(message.content.trim() || message.a2ui || message.history?.message.structured != null);
+    const candidate = (message: ChatMessage) => Boolean(message.content.trim() || message.a2ui || parseArtifacts(message.artifacts) !== null || message.history?.message.structured != null);
     const final = successful ? [...group.messages].reverse().find(message => message.phase === "final_answer" && candidate(message))
       ?? [...group.messages].reverse().find(message => message.phase == null && candidate(message)) : undefined;
 
@@ -447,7 +448,7 @@ function resolvedTools(messages: ChatMessage[], events: TranscriptAguiEvent[]): 
 }
 
 function isVisibleTranscriptMessage(message: ChatMessage) {
-  return Boolean(message.content.trim() || message.a2ui || message.history?.message.structured != null
+  return Boolean(message.content.trim() || message.a2ui || parseArtifacts(message.artifacts) !== null || message.history?.message.structured != null
     || message.history?.message.content.some(block => !["Text", "Reasoning"].includes(block.type)));
 }
 

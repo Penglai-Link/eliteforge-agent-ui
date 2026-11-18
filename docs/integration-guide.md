@@ -185,6 +185,7 @@ export const adapter: ChatAdapter = {
 - `supportsStop: true` 时提供 `stopRun(session, context)`。该方法必须调用后端停止运行；只中断浏览器流不会停止 Agent。
 - `supportsSteer: true` 时提供 `steerMessage(...)`。
 - 要启用附件上传或下载，实现 `uploadAttachment` 或 `downloadAttachment`。要启用用户输入请求，设置 `supportsUserInputRequests: true`，并实现 `loadUserInputRequests` 和 `answerUserInputRequestStream`。
+- 要展示消息交付文件，实现 `artifactAction` 和 `artifactContentUrl`，并按需声明 `supportsArtifacts: true`；详见下一节。
 
 把 adapter 传给聊天组件：
 
@@ -200,6 +201,45 @@ export const adapter: ChatAdapter = {
 `ChatRuntimeWindow` 管理常见会话与运行状态。宿主要完全控制状态时可使用 `ChatPanel`；要在可移动、可调整大小的悬浮窗中显示聊天时可使用 `ChatWindow`。React 和 Vue 都使用同一个 `ChatAdapter` 类型。
 
 设置 `config.hideMessageIdentity: true` 可隐藏消息和交互回执中的发送者名称及头像；默认值为 `false`。时间、消息操作和消息数据不受影响。直接使用 `ChatPanel` 或 `ChatWindow` 时，通过同名 `hideMessageIdentity` 属性控制。
+
+### 3.3 交付文件（Artifacts）
+
+完成的助手消息可以在 `ChatMessage.artifacts` 上携带一组已交付文件。宿主已经完成合并、去重和按客户端解析动作；UI 只按顺序渲染，不接收文件路径或 `source` 对象：
+
+```ts
+interface ChatArtifacts {
+  version: "v1";
+  items: ChatArtifactItem[];
+}
+```
+
+- `actions` 是权威列表，只接受 `preview`、`open`、`reveal`、`save`；`actions[0]` 是主按钮，其余进入溢出菜单。缺省或空数组表示只展示、不显示按钮。
+- 未知 `version`、非数组 `items` 或缺少 `id` / `display` 的条目不会渲染；`parseArtifacts` 防御式解析且从不抛错。空 `items` 不渲染。
+- 条目已由宿主合并去重，组件保持原顺序。超过 `ARTIFACT_COLLAPSED_COUNT`（4）项时折叠，并提供“全部 N 项 / 收起”切换。
+- `states` 按条目 id 标记 `pending` / `failed`；失败时显示重试，重试重复上次动作（没有历史动作时使用主按钮）。
+
+adapter 新增可选的交付文件能力。只有后端和当前客户端都能处理实际动作时才声明 `supportsArtifacts`：
+
+| 方法 | 用途 |
+| --- | --- |
+| `artifactAction(session, { runId, itemId, action }, signal)` | 执行 `open` / `reveal` / `save`，返回 `completed`、`cancelled` 或 `failed` |
+| `artifactContentUrl(session, { runId, itemId, disposition })` | 解析内容 URL；`inline` 用于预览，`attachment` 用于下载 |
+
+`ChatRuntimeWindow` 从 adapter 自动派生回调：预览用 `artifactContentUrl(..., "inline")` 在新标签页打开；动作结果驱动 `pending` / `failed`。`onArtifactPreview` 可替换预览方式，`onArtifactAction` 在 adapter 完成后回调。直接使用 `ChatPanel` 时必须自己传 `onArtifactAction`、`onArtifactPreview` 和 `artifactStates`；`artifactLabels` 可覆盖标题、折叠、重试、动作、大小与类型文案。
+
+```text
+ChatMessage.artifacts (v1)
+        │ parseArtifacts（未知版本/畸形 → 不渲染）
+        ▼
+ChatArtifacts ── actions[0] → 主按钮；actions[1..] → 溢出菜单
+        │ onAction
+        ▼
+ChatRuntimeWindow ── adapter.artifactAction ── 宿主执行
+        │
+        └─ artifactContentUrl(inline) → 预览新标签页（RN 无此能力）
+```
+
+React/Vue 组件属性相同：`artifacts`、`onAction`、`onPreview`、`labels`、`locale`、`states`。React Native 使用 `ArtifactList`（由 `MessageBubble` 自动挂载），动作以内联按钮行展示，不打开 URL；没有宿主提供的 `onPreview` 时不显示预览。该能力属于当前源码，消费方需安装包含此变更的 npm 版本后生效。
 
 ### 3.4 React Native
 
@@ -220,7 +260,7 @@ import type { ChatMessage } from "@personai/agent-ui-chat-core/headless";
 />;
 ```
 
-`@personai/agent-ui-chat-core/headless` 只导出平台无关模块（消息、转录、AG-UI、工具展示、历史、A2UI 交互），不会引入 `mermaid`、DOM 或 CSS。完整 API、Catalog 映射和主题 token 见 [React Native 聊天与 A2UI](react-native.md)。
+`@personai/agent-ui-chat-core/headless` 只导出平台无关模块（消息、转录、AG-UI、工具展示、历史、A2UI 交互、交付文件解析），不会引入 `mermaid`、DOM 或 CSS。完整 API、Catalog 映射和主题 token 见 [React Native 聊天与 A2UI](react-native.md)。
 
 ## 4. 接入终端
 

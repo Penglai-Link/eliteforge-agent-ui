@@ -7,6 +7,7 @@ import {
   buildTranscriptPresentation,
   buildTranscriptWorkTimeline,
   interactionMessages,
+  parseArtifacts,
   historyWorkGroups,
   historyCoversAguiWork,
   defaultHistoryLabels,
@@ -161,7 +162,7 @@ const streamingAssistantMessageCode = computed(() => {
 });
 const transcriptMessages = computed(() =>
   interactionMessages(props.messages, props.userInputRequests, props.workRailLabels, props.userInputLabels).filter((message) =>
-    message.messageId !== streamingAssistantMessageCode.value || message.content.trim().length > 0 || !!message.a2ui,
+    message.messageId !== streamingAssistantMessageCode.value || message.content.trim().length > 0 || !!message.a2ui || parseArtifacts(message.artifacts) !== null,
   ),
 );
 
@@ -309,6 +310,7 @@ onMounted(() => {
                     <ChatBubble v-if="processMessage.content.trim() || processMessage.a2ui || processMessage.interactionResponse" :annotation-labels="props.annotationLabels" :format-annotation-count="formatAnnotationCount" :annotations="annotationMap.get(processMessage.messageId)" :message="processMessage" :show-actions="false"
                       :hide-message-identity="props.hideMessageIdentity" :current-user-display-name="currentUserDisplayName" :is-streaming="processMessage.messageId === streamingAssistantMessageCode"
                       :on-delete-turn="props.onDeleteTurn" :delete-turn-label="props.deleteTurnLabel" :on-a2-u-i-action="props.onA2UIAction" :a2ui-session="props.a2uiSession" :a2ui-disabled="props.a2uiDisabled"
+                      :artifact-labels="props.artifactLabels" :artifact-states="props.artifactStates" :on-artifact-action="props.onArtifactAction" :on-artifact-preview="props.onArtifactPreview" :locale="props.locale"
                       @edit-message="(content: string, message: ChatMessage) => emit('edit-message', content, message)" />
                   </template>
                 </AguiRunWorkRail>
@@ -325,12 +327,13 @@ onMounted(() => {
                 @preview-image="openImagePreview"
               />
               <ChatBubble
-                v-if="(message.role === 'USER' || !message.history || message.a2ui || message.content.trim())"
+                v-if="(message.role === 'USER' || !message.history || message.a2ui || message.content.trim() || parseArtifacts(message.artifacts))"
                 :hide-message-identity="props.hideMessageIdentity" :current-user-display-name="currentUserDisplayName"
                 :is-streaming="message.messageId === streamingAssistantMessageCode"
                 :annotation-labels="props.annotationLabels" :format-annotation-count="formatAnnotationCount" :annotations="annotationMap.get(message.messageId)"
                 :message="message"
                 :on-delete-turn="props.onDeleteTurn" :delete-turn-label="props.deleteTurnLabel" :on-a2-u-i-action="props.onA2UIAction" :a2ui-session="props.a2uiSession" :a2ui-disabled="props.a2uiDisabled"
+                      :artifact-labels="props.artifactLabels" :artifact-states="props.artifactStates" :on-artifact-action="props.onArtifactAction" :on-artifact-preview="props.onArtifactPreview" :locale="props.locale"
                 @edit-message="
                   (content: string, message: ChatMessage) => emit('edit-message', content, message)
                 "
@@ -339,12 +342,13 @@ onMounted(() => {
               <template v-else>
               <StructuredMessageDetails @preview-image="openImagePreview" :message="message" :labels="props.historyLabels" :locale="props.locale" :hide-run-error="workTimeline.managedMessageIds.has(message.messageId)" />
               <ChatBubble
-                v-if="(message.role === 'USER' || !message.history || message.a2ui || message.content.trim())"
+                v-if="(message.role === 'USER' || !message.history || message.a2ui || message.content.trim() || parseArtifacts(message.artifacts))"
                 :hide-message-identity="props.hideMessageIdentity" :current-user-display-name="currentUserDisplayName"
                 :is-streaming="message.messageId === streamingAssistantMessageCode"
                 :annotation-labels="props.annotationLabels" :format-annotation-count="formatAnnotationCount" :annotations="annotationMap.get(message.messageId)"
                 :message="message"
                 :on-delete-turn="props.onDeleteTurn" :delete-turn-label="props.deleteTurnLabel" :on-a2-u-i-action="props.onA2UIAction" :a2ui-session="props.a2uiSession" :a2ui-disabled="props.a2uiDisabled"
+                      :artifact-labels="props.artifactLabels" :artifact-states="props.artifactStates" :on-artifact-action="props.onArtifactAction" :on-artifact-preview="props.onArtifactPreview" :locale="props.locale"
                 @edit-message="
                   (content: string, message: ChatMessage) => emit('edit-message', content, message)
                 "
@@ -377,6 +381,7 @@ onMounted(() => {
                     <ChatBubble v-if="processMessage.content.trim() || processMessage.a2ui || processMessage.interactionResponse" :annotation-labels="props.annotationLabels" :format-annotation-count="formatAnnotationCount" :annotations="annotationMap.get(processMessage.messageId)" :message="processMessage" :show-actions="false"
                       :hide-message-identity="props.hideMessageIdentity" :current-user-display-name="currentUserDisplayName" :is-streaming="processMessage.messageId === streamingAssistantMessageCode"
                       :on-delete-turn="props.onDeleteTurn" :delete-turn-label="props.deleteTurnLabel" :on-a2-u-i-action="props.onA2UIAction" :a2ui-session="props.a2uiSession" :a2ui-disabled="props.a2uiDisabled"
+                      :artifact-labels="props.artifactLabels" :artifact-states="props.artifactStates" :on-artifact-action="props.onArtifactAction" :on-artifact-preview="props.onArtifactPreview" :locale="props.locale"
                       @edit-message="(content: string, message: ChatMessage) => emit('edit-message', content, message)" />
                   </template>
                 </AguiRunWorkRail>

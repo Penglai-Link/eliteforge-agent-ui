@@ -8,7 +8,14 @@ import { Composer, type ComposerReactProps } from "@personai/agent-ui-composer-r
 import { messageActorName, messageSenderIsHuman, messageSenderAvatar } from "@personai/agent-ui-chat-core";
 import { interactionMessages, historyWorkGroups, historyWorkCompleted, historyCoversAguiWork, currentAguiTerminalEvent, interactionToolSummary } from "@personai/agent-ui-chat-core";
 import { ChatA2UI } from "./ChatA2UI";
+import { ChatArtifacts } from "./ChatArtifacts";
 import type { ChatA2uiActionHandler as ActionHandler, ChatA2uiSession } from "@personai/agent-ui-chat-core";
+import {
+  parseArtifacts,
+  type ChatArtifactAction,
+  type ChatArtifactItem,
+  type ChatArtifactLabels,
+} from "@personai/agent-ui-chat-core";
 import {
   ArrowDown,
   Bot,
@@ -474,6 +481,11 @@ function ChatBubble({
   a2uiSession,
   a2uiDisabled,
   onA2UIAction,
+  artifactLabels,
+  artifactStates,
+  onArtifactAction,
+  onArtifactPreview,
+  locale,
   onEditMessage,
   onDeleteTurn,
   deleteTurnLabel = "Delete turn",
@@ -489,6 +501,11 @@ function ChatBubble({
   a2uiSession?: ChatA2uiSession;
   a2uiDisabled?: boolean;
   onA2UIAction?: ActionHandler;
+  artifactLabels?: Partial<ChatArtifactLabels>;
+  artifactStates?: Record<string, "pending" | "failed">;
+  onArtifactAction?: (message: ChatMessage, item: ChatArtifactItem, action: ChatArtifactAction) => void | Promise<void>;
+  onArtifactPreview?: (message: ChatMessage, item: ChatArtifactItem) => void;
+  locale?: string;
   onEditMessage?: (content: string, message?: ChatMessage) => void;
   onDeleteTurn?: (message: ChatMessage) => void;
   deleteTurnLabel?: string;
@@ -500,6 +517,7 @@ function ChatBubble({
   const missingCitations = isUser ? [] : turnAnnotations.filter(annotation => !message.content.includes(`#chat-annotation-${annotation.id}`));
   const actorName = messageActorName(message, currentUserDisplayName);
   const senderAvatar = messageSenderAvatar(message);
+  const artifacts = useMemo(() => parseArtifacts(message.artifacts), [message.artifacts]);
   if (isUser && message.interactionResponse) {
     return <div className="ef-chat__message-entry ef-chat__message-entry--user"><InteractionReceipt message={message} actorName={actorName} hideMessageIdentity={hideMessageIdentity} /></div>;
   }
@@ -532,11 +550,21 @@ function ChatBubble({
           <MarkdownBlock
             content={message.content}
             streaming={isStreaming}
-            emptyMessage={message.a2ui ? "" : emptyAssistantMessage}
+            emptyMessage={message.a2ui || artifacts ? "" : emptyAssistantMessage}
           />
         )}
         {missingCitations.length ? <div className="ef-chat__reply-annotations">{missingCitations.map(annotation => <span key={annotation.id} role="button" data-annotation-source-id={annotation.messageId} tabIndex={0} className="ef-chat__annotation-reference" data-annotation-tooltip={chatAnnotationTooltip(annotation, annotationLabels)}>{annotationLabels.annotation(turnAnnotations.indexOf(annotation) + 1)}</span>)}</div> : null}
         {message.a2ui ? <ChatA2UI message={message} runtime={a2uiSession} disabled={a2uiDisabled} onAction={onA2UIAction} /> : null}
+        {artifacts ? (
+          <ChatArtifacts
+            artifacts={artifacts}
+            labels={artifactLabels}
+            locale={locale}
+            onAction={onArtifactAction ? (item, action) => onArtifactAction(message, item, action) : undefined}
+            onPreview={onArtifactPreview ? (item) => onArtifactPreview(message, item) : undefined}
+            states={artifactStates}
+          />
+        ) : null}
       </article>
       {showActions ? <div className="ef-chat__message-actions ef-chat__message-actions--outside">
         <CopyValueButton
@@ -1308,6 +1336,10 @@ export interface ChatPanelProps extends Pick<ComposerReactProps, "renderAttachme
   a2uiSession?: ChatA2uiSession;
   a2uiDisabled?: boolean;
   onA2UIAction?: ActionHandler;
+  artifactLabels?: Partial<ChatArtifactLabels>;
+  artifactStates?: Record<string, "pending" | "failed">;
+  onArtifactAction?: (message: ChatMessage, item: ChatArtifactItem, action: ChatArtifactAction) => void | Promise<void>;
+  onArtifactPreview?: (message: ChatMessage, item: ChatArtifactItem) => void;
   onEditMessage?: (content: string, message?: ChatMessage) => void;
   onDeleteTurn?: (message: ChatMessage) => void;
   deleteTurnLabel?: string;
@@ -1397,6 +1429,10 @@ export function ChatPanel({
   a2uiSession,
   a2uiDisabled,
   onA2UIAction,
+  artifactLabels,
+  artifactStates,
+  onArtifactAction,
+  onArtifactPreview,
   onEditMessage,
   onDeleteTurn,
   deleteTurnLabel = "Delete turn",
@@ -1484,7 +1520,7 @@ export function ChatPanel({
   }, [activeStreamingAssistantMessageCode, messages, sending]);
   const transcriptMessages = useMemo(
     () => interactionMessages(messages, userInputRequests, workRailLabels, userInputLabels).filter((message) => (
-      message.messageId !== streamingAssistantMessageCode || message.content.trim().length > 0 || !!message.a2ui
+      message.messageId !== streamingAssistantMessageCode || message.content.trim().length > 0 || !!message.a2ui || parseArtifacts(message.artifacts) !== null
     )),
     [messages, userInputRequests, workRailLabels, userInputLabels, streamingAssistantMessageCode],
   );
@@ -1685,10 +1721,15 @@ export function ChatPanel({
                                   a2uiSession={a2uiSession}
                                   a2uiDisabled={a2uiDisabled}
                                   onA2UIAction={onA2UIAction}
+                                  artifactLabels={artifactLabels}
+                                  artifactStates={artifactStates}
+                                  onArtifactAction={onArtifactAction}
+                                  onArtifactPreview={onArtifactPreview}
+                                  locale={locale}
                                   onEditMessage={onEditMessage} onDeleteTurn={onDeleteTurn} deleteTurnLabel={deleteTurnLabel}
                                 />
                             </div>
-                          ) : message.history && !message.a2ui && !message.content.trim() ? null : (
+                          ) : message.history && !message.a2ui && !message.content.trim() && parseArtifacts(message.artifacts) === null ? null : (
                             <ChatBubble
                               currentUserDisplayName={currentUserDisplayName}
                               hideMessageIdentity={hideMessageIdentity}
@@ -1697,6 +1738,11 @@ export function ChatPanel({
                               a2uiSession={a2uiSession}
                                   a2uiDisabled={a2uiDisabled}
                                   onA2UIAction={onA2UIAction}
+                                  artifactLabels={artifactLabels}
+                                  artifactStates={artifactStates}
+                                  onArtifactAction={onArtifactAction}
+                                  onArtifactPreview={onArtifactPreview}
+                                  locale={locale}
                                   onEditMessage={onEditMessage} onDeleteTurn={onDeleteTurn} deleteTurnLabel={deleteTurnLabel}
                             />
                           )}

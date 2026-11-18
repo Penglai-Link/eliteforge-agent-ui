@@ -70,6 +70,31 @@ const adapter: ChatAdapter = {
 
 仅在后端支持对应操作时，才声明 `supportsActiveRun`、`supportsSteer`、`supportsStop` 等能力并实现 `getActiveRun`、`steerMessage`、`stopRun`。停止运行必须由宿主 adapter 调用后端控制接口；断开流只代表停止接收事件。
 
+## 交付文件
+
+完成的助手消息可在 `ChatMessage.artifacts` 上携带 `version: "v1"` 的扁平文件列表。宿主已完成合并、去重和按客户端解析动作；组件不会看到文件路径或 `source`。`ChatRuntimeWindow` 与 `ChatPanel` 在 Markdown 正文之后、消息操作行之前渲染 `ChatArtifacts`：
+
+- `actions` 只接受 `preview` / `open` / `reveal` / `save`；`actions[0]` 是主按钮，其余进入溢出菜单。缺省或空数组不显示按钮。
+- 未知版本、非数组 `items` 或缺少 `id` / `display` 的条目不会渲染；空 `items` 也不渲染，解析不抛错。
+- 超过 4 项默认折叠，显示“全部 N 项 / 收起”。`artifactStates` 按条目 id 标记 `pending` / `failed`，失败时提供重试。
+- adapter 实现 `artifactAction(session, { runId, itemId, action }, signal)` 与 `artifactContentUrl(session, { runId, itemId, disposition })`，按需声明 `supportsArtifacts: true`。运行时用 `inline` URL 在新标签页预览；`onArtifactPreview` 可替换预览，`onArtifactAction` 在动作完成后回调。
+- 直接使用 `ChatPanel` 时传 `onArtifactAction`、`onArtifactPreview`、`artifactStates` 和可选的 `artifactLabels` / `locale`。单独使用 `ChatArtifacts` 时属性为 `artifacts`、`onAction`、`onPreview`、`labels`、`locale`、`states`。
+
+```tsx
+<ChatPanel
+  draft={draft}
+  messages={messages}
+  onDraftChange={setDraft}
+  onSend={() => send()}
+  onArtifactAction={async (message, item, action) => {
+    await hostApi.artifactAction(message.runId, item.id, action);
+  }}
+  onArtifactPreview={(message, item) => openInAppViewer(item)}
+/>
+```
+
+此能力属于当前源码，消费方需安装包含该变更的 npm 版本后生效。
+
 ```tsx
 <ChatRuntimeWindow
   adapter={adapter}

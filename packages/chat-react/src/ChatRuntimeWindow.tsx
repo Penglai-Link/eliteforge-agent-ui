@@ -58,6 +58,9 @@ import {
   type ChatUserInputAnswer,
   type ChatUserInputRequest,
   type SendChatMessageInput,
+  type ChatArtifactAction,
+  type ChatArtifactItem,
+  type ChatArtifactLabels,
 } from "@personai/agent-ui-chat-core";
 import {
   useCallback,
@@ -85,6 +88,14 @@ export interface ChatRuntimeSubmitter {
 export interface ChatRuntimeWindowProps {
   /** Forward A2UI actions to the host transport. */
   onA2UIAction?: ActionHandler;
+  /** Optional labels for delivered-file rows. */
+  artifactLabels?: Partial<ChatArtifactLabels>;
+  /** Host-reported pending/failed state keyed by artifact item id. */
+  artifactStates?: Record<string, "pending" | "failed">;
+  /** Called after the adapter completes a delivered-file action. */
+  onArtifactAction?: (message: ChatMessage, item: ChatArtifactItem, action: ChatArtifactAction) => void;
+  /** Replace the default new-tab preview (for example with an in-app viewer). */
+  onArtifactPreview?: (message: ChatMessage, item: ChatArtifactItem) => void;
   /** Open a local composer and create its session on the first submission. */
   allowDraftSession?: boolean;
   agentReplyEffect?: AssistantReplyEffect;
@@ -223,6 +234,10 @@ export function ChatRuntimeWindow({
   windowState,
   onWindowStateChange,
   onA2UIAction,
+  artifactLabels,
+  artifactStates: hostArtifactStates,
+  onArtifactAction,
+  onArtifactPreview,
   renderMarkdownLink,
 }: ChatRuntimeWindowProps) {
   const activeAdapter = useMemo(
@@ -235,6 +250,8 @@ export function ChatRuntimeWindow({
   );
   const [session, setSession] = useState<ChatSession | null>(normalizedInitialSession);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [artifactStates, setArtifactStates] = useState<Record<string, "pending" | "failed">>({});
+  useEffect(() => { setArtifactStates({}); }, [session?.sessionId]);
   const a2uiSessionRef = useRef<ChatA2uiSession | null>(null);
   const a2uiSessionId = session?.sessionId ?? "";
   if (!a2uiSessionRef.current || a2uiSessionRef.current.sessionId !== a2uiSessionId) {
@@ -1489,6 +1506,57 @@ export function ChatRuntimeWindow({
     });
   };
 
+  async function handleArtifactAction(message: ChatMessage, item: ChatArtifactItem, action: ChatArtifactAction) {
+    if (action === "preview") return;
+    if (!session || !activeAdapter.artifactAction) return;
+    const activeSession = session;
+    const itemId = item.id;
+    setArtifactStates(current => ({ ...current, [itemId]: "pending" }));
+    try {
+      const result = await activeAdapter.artifactAction(
+        activeSession,
+        { runId: message.runId ?? activeSession.lastRunId ?? null, itemId, action },
+      );
+      if (activeSessionCodeRef.current !== activeSession.sessionId) return;
+      if (result.status === "failed") {
+        setArtifactStates(current => ({ ...current, [itemId]: "failed" }));
+        onError(result.message ?? "Artifact action failed", runtimeText("Artifact action failed"));
+        return;
+      }
+      setArtifactStates(current => {
+        const next = { ...current };
+        delete next[itemId];
+        return next;
+      });
+      if (result.status === "completed") {
+        try { onArtifactAction?.(message, item, action); } catch { /* host callback owns its errors */ }
+      }
+    } catch (error) {
+      if (activeSessionCodeRef.current !== activeSession.sessionId) return;
+      setArtifactStates(current => ({ ...current, [itemId]: "failed" }));
+      onError(String(error), runtimeText("Artifact action failed"));
+    }
+  }
+
+  function handleArtifactPreview(message: ChatMessage, item: ChatArtifactItem) {
+    if (onArtifactPreview) {
+      onArtifactPreview(message, item);
+      return;
+    }
+    if (!session || !activeAdapter.artifactContentUrl) return;
+    try {
+      const url = activeAdapter.artifactContentUrl(session, {
+        runId: message.runId ?? session.lastRunId ?? null,
+        itemId: item.id,
+        disposition: "inline",
+      });
+      if (!url || typeof window === "undefined") return;
+      window.open(url, "_blank", "noopener,noreferrer");
+    } catch (error) {
+      onError(String(error), runtimeText("Artifact preview failed"));
+    }
+  }
+
   async function handleAnswerUserInput(answers: ChatUserInputAnswer[]) {
     if (compacting || userInputAnswerPending) return;
     if (!session || !userInputRequest || !activeAdapter.answerUserInputRequestStream) return;
@@ -2116,6 +2184,10 @@ export function ChatRuntimeWindow({
       a2uiSession={a2uiSession}
       a2uiDisabled={sending || session?.status === "ARCHIVED"}
       onA2UIAction={handleA2uiAction}
+      artifactLabels={artifactLabels}
+      artifactStates={{ ...hostArtifactStates, ...artifactStates }}
+      onArtifactAction={activeAdapter.artifactAction ? handleArtifactAction : undefined}
+      onArtifactPreview={activeAdapter.artifactContentUrl || onArtifactPreview ? handleArtifactPreview : undefined}
       renderMarkdownLink={renderMarkdownLink}
     />
   );
@@ -2213,6 +2285,10 @@ export function ChatRuntimeWindow({
         a2uiSession={a2uiSession}
       a2uiDisabled={sending || session?.status === "ARCHIVED"}
       onA2UIAction={handleA2uiAction}
+      artifactLabels={artifactLabels}
+      artifactStates={{ ...hostArtifactStates, ...artifactStates }}
+      onArtifactAction={activeAdapter.artifactAction ? handleArtifactAction : undefined}
+      onArtifactPreview={activeAdapter.artifactContentUrl || onArtifactPreview ? handleArtifactPreview : undefined}
       renderMarkdownLink={renderMarkdownLink}
       />
     );

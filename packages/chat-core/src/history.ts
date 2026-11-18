@@ -5,6 +5,7 @@ import type { ChatMessage, MessageProvenance, ChatUserInputLabels, ChatUserInput
 import { interactionMessages } from "./interactionMessages";
 import { metadataRecordWith } from "./eventMetadata";
 import type { ChatCompactionBlock } from "./compaction";
+import type { ChatArtifacts } from "./artifacts";
 
 export type HistoryStatus = "Running" | "Waiting" | "Completed" | "Interrupted" | "Failed" | "Unknown" | "Planned" | "Approved";
 /** A protocol-neutral maintenance step, with ordinary HistoryStep status. */
@@ -51,6 +52,8 @@ export interface SessionHistory {
   sessionId: string; version: string; nextCursor: HistoryCursor | null; runs: HistoryRun[];
   records: { steps: HistoryStep[]; messages: HistoryMessage[]; toolInvocations: HistoryToolInvocation[]; interactions: HistoryInteraction[] };
   pendingInteractions: HistoryInteraction[]; activeRuns: HistoryRun[];
+  /** Public delivery projection keyed by run code. Optional on older hosts. */
+  artifactsByRun?: Record<string, ChatArtifacts>;
 }
 export interface HistoryMessageView { interactionToolIds?: Record<string, string>; message: HistoryMessage; step: HistoryStep | null; tools: HistoryToolInvocation[]; run: HistoryRun | null; interactions: HistoryInteraction[] }
 export interface ChatHistoryLabels { loading: string; loadOlder: string; step: string; attempt: string; statuses: Record<HistoryStatus, string> }
@@ -122,7 +125,10 @@ export function historyMessages(page: SessionHistory, labels?: ChatUserInputLabe
       requestedSkills: message.requestedSkills ?? [], annotations: message.annotations ?? [],
       content: isRunDiagnostic ? "" : text, inputTokens: usage?.inputTokens, outputTokens: usage?.outputTokens,
       totalTokens: usage ? usage.inputTokens + usage.outputTokens : null,
-      createdAt: new Date(message.createdAtMs).toISOString(), history: { message, step, tools: tools.get(message.id) ?? [], run: runs.get(message.runId) ?? null, interactions: interactionsByMessage.get(message.id) ?? [],
+      createdAt: new Date(message.createdAtMs).toISOString(),
+      ...(message.role === "Assistant" && page.artifactsByRun?.[message.runId]
+        ? { artifacts: page.artifactsByRun[message.runId] } : {}),
+      history: { message, step, tools: tools.get(message.id) ?? [], run: runs.get(message.runId) ?? null, interactions: interactionsByMessage.get(message.id) ?? [],
         interactionToolIds: Object.fromEntries((interactionsByMessage.get(message.id) ?? []).flatMap(i => {
           const tool = interactionTools.get(i.id);
           return tool ? [[i.id, tool.id]] : [];

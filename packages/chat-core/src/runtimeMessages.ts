@@ -4,6 +4,8 @@ const zhRuntimeMessages: Record<string, string> = {
   "A2UI recovery failed": "A2UI 恢复失败",
   "A2UI presentation failed": "A2UI 展示失败",
   "A2UI action failed": "A2UI 操作失败",
+  "Artifact action failed": "交付文件操作失败",
+  "Artifact preview failed": "交付文件预览失败",
   "Chat data could not be loaded": "无法加载对话数据",
   "Chat load failed": "加载对话失败",
   "Chat attachment upload failed": "对话附件上传失败",

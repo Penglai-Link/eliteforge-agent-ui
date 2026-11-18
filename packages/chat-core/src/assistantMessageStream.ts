@@ -1,4 +1,5 @@
 import type { ChatAguiStreamEvent, ChatMessage, ChatSession } from "./types";
+import { parseArtifacts } from "./artifacts";
 import { historyEventRunId } from "./history";
 import { aguiEventStableKey } from "./transcript";
 import { mergeChatMessagesChronologically } from "./chatMessages";
@@ -124,6 +125,6 @@ export class AssistantMessageStream {
         runId: last.message.runId, createdAt: last.message.createdAt };
     });
     return mergeChatMessagesChronologically(current, acknowledged, removed)
-      .filter(message => !this.messages.has(message.messageId) || Boolean(message.content.trim()) || Boolean(message.a2ui));
+      .filter(message => !this.messages.has(message.messageId) || Boolean(message.content.trim()) || Boolean(message.a2ui) || parseArtifacts(message.artifacts) !== null);
   }
 }

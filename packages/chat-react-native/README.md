@@ -6,8 +6,8 @@
 
 ```sh
 npm install --save-exact \
-  @personai/agent-ui-chat-react-native@1.0.0-preview.26 \
-  @personai/agent-ui-chat-core@1.0.0-preview.26
+  @personai/agent-ui-chat-react-native@1.0.0-preview.28 \
+  @personai/agent-ui-chat-core@1.0.0-preview.28
 ```
 
 peer dependencies：`react`（>= 19.2）、`react-native`（>= 0.70）。不导出 CSS 入口。
@@ -18,7 +18,8 @@ peer dependencies：`react`（>= 19.2）、`react-native`（>= 0.70）。不导�
 | --- | --- |
 | `ChatPanel` | 头部 + `MessageList` + 待回答审批卡 + `Composer` |
 | `MessageList` | `FlatList` 虚拟化消息列表，空态文案、新消息自动滚底 |
-| `MessageBubble` | 身份/时间、Markdown 正文、附件名、内嵌 A2UI 表面 |
+| `MessageBubble` | 身份/时间、Markdown 正文、附件名、交付文件列表、内嵌 A2UI 表面 |
+| `ArtifactList` | 交付文件行：标题、折叠、逐条状态/重试与内联动作按钮；不打开 URL |
 | `Composer` | 与 React/Vue 对齐的输入组件：附件、队列、建议、`steer`/`queue` 模式、`composerHeader`/`footerAddon`、`render*` 扩展位与 `clipboard` 适配器 |
 | `ApprovalCard` | 复用 `chat-core` 的 `createInteractionClient` 与 A2UI 交互组件渲染审批/问答；卡片自带边框与内边距，不再额外包一层卡片 |
 | `InteractionReceipt` | 已回答/已批准的紧凑胶囊；点开展示逐题答案，与 Web 的 `InteractionReceipt` 对齐 |
@@ -51,6 +52,32 @@ import type { ChatMessage } from "@personai/agent-ui-chat-core/headless";
 单独使用 `MessageList` 并自行渲染底部卡片时，把待回答数量传给 `scrollToEndKey`，列表会在卡片出现或切换题目后重新滚到底部。`ChatPanel` 会先用 `interactionMessages` 把已回答请求装饰成 `InteractionReceipt`；自行组装消息列表时也应这样做，否则提交后只会移除卡片，转录里不会留下“已解答疑惑”。
 
 `ToolCard` 也接受可选的 `labels: ChatWorkRailLabels`，宿主可在其中提供 `tool.resolveName` 覆盖工具标题；默认标题与 Web 相同，来自 `toolCommandCountLabel` / `toolDisplayName`。`result` 只用于判断顶层 `isError`，不会展示原始输出。
+
+## 交付文件
+
+`ChatMessage.artifacts` 为 `version: "v1"` 的扁平文件列表；`chat-core/headless` 导出 `parseArtifacts`、`ARTIFACT_COLLAPSED_COUNT`、`ChatArtifactsProps` 和标签解析函数。`MessageBubble` 在正文与 A2UI 之后挂载 `ArtifactList`，`ChatPanel` / `MessageList` 透传以下属性：
+
+- `artifactLabels`：覆盖标题、折叠、重试、动作、大小和类型文案。
+- `artifactStates`：按条目 id 标记 `pending` / `failed`，失败时显示重试。
+- `onArtifactAction(message, item, action)`：交互动作为 `open` / `reveal` / `save`；`actions[0]` 为主按钮，其余以内联按钮行展示。
+- `onArtifactPreview(message, item)`：原生预览必须由宿主提供；未提供时不显示预览按钮。
+- `locale`：内置文案语言。
+
+`actions` 是权威列表，缺省或空数组只展示文件信息。未知版本、畸形条目或空 `items` 不渲染，组件不抛错；超过 4 项默认折叠。原生端不读取 `artifactContentUrl`，也不自行打开链接。
+
+```tsx
+<ChatPanel
+  artifactLabels={{ title: "本次产出" }}
+  artifactStates={{ "report.pdf": "failed" }}
+  draft={draft}
+  messages={messages}
+  onArtifactAction={(message, item, action) => tunnel.call("artifact.action", { itemId: item.id, action })}
+  onArtifactPreview={(message, item) => openNativeViewer(item)}
+  onDraftChange={setDraft}
+  onSend={() => sendDraft()}
+  sending={running}
+/>
+```
 
 ## Composer 扩展点
 

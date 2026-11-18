@@ -1785,3 +1785,163 @@
   gap: var(--agent-ui-chat-attachment-gap, 8px);
   max-width: 100%;
 }
+
+/* Delivered files */
+.ef-chat__artifacts {
+  display: grid;
+  gap: var(--agent-ui-space-2, 8px);
+  margin-top: 12px;
+  min-width: 0;
+}
+.ef-chat__artifacts-title {
+  color: var(--agent-ui-chat-text-muted);
+  font-size: 13px;
+  font-weight: 600;
+}
+.ef-chat__artifacts-list {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.ef-chat__artifacts-item {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px 12px;
+  min-width: 0;
+  padding: 8px 10px;
+  border: 1px solid var(--agent-ui-chat-border);
+  border-radius: var(--agent-ui-control-radius, 6px);
+}
+.ef-chat__artifacts-item[data-state="failed"] {
+  border-color: var(--agent-ui-chat-danger);
+}
+.ef-chat__artifacts-main {
+  display: grid;
+  flex: 1 1 12rem;
+  gap: 2px;
+  min-width: 0;
+}
+.ef-chat__artifacts-name {
+  color: var(--agent-ui-chat-text);
+  font-size: 13px;
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+.ef-chat__artifacts-description {
+  color: var(--agent-ui-chat-text-muted);
+  font-size: 12px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+.ef-chat__artifacts-meta {
+  color: var(--agent-ui-chat-text-muted);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+.ef-chat__artifacts-status {
+  color: var(--agent-ui-chat-text-muted);
+  font-size: 12px;
+}
+.ef-chat__artifacts-status--failed {
+  color: var(--agent-ui-chat-danger);
+}
+.ef-chat__artifacts-actions {
+  display: inline-flex;
+  flex: none;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+}
+.ef-chat__artifacts-action,
+.ef-chat__artifacts-retry,
+.ef-chat__artifacts-menu-button,
+.ef-chat__artifacts-menu-item,
+.ef-chat__artifacts-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  min-height: var(--agent-ui-control-height, 28px);
+  margin: 0;
+  padding: 3px 8px;
+  border: 1px solid var(--agent-ui-chat-border);
+  border-radius: var(--agent-ui-control-radius, 6px);
+  background: var(--agent-ui-chat-surface);
+  color: var(--agent-ui-chat-text);
+  font: inherit;
+  font-size: 12px;
+  line-height: 1.2;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.ef-chat__artifacts-action:hover:not(:disabled),
+.ef-chat__artifacts-retry:hover:not(:disabled),
+.ef-chat__artifacts-menu-button:hover:not(:disabled),
+.ef-chat__artifacts-menu-item:hover:not(:disabled),
+.ef-chat__artifacts-toggle:hover:not(:disabled) {
+  background: var(--agent-ui-chat-hover);
+}
+.ef-chat__artifacts-action:focus-visible,
+.ef-chat__artifacts-retry:focus-visible,
+.ef-chat__artifacts-menu-button:focus-visible,
+.ef-chat__artifacts-menu-item:focus-visible,
+.ef-chat__artifacts-toggle:focus-visible {
+  outline: 2px solid var(--agent-ui-chat-focus);
+  outline-offset: 2px;
+}
+.ef-chat__artifacts-action:disabled,
+.ef-chat__artifacts-retry:disabled,
+.ef-chat__artifacts-menu-button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.ef-chat__artifacts-action--primary {
+  border-color: transparent;
+  background: var(--agent-ui-chat-primary);
+  color: var(--agent-ui-chat-on-primary);
+}
+.ef-chat__artifacts-action--primary:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--agent-ui-chat-primary) 88%, var(--agent-ui-chat-surface));
+}
+.ef-chat__artifacts-retry {
+  border-color: var(--agent-ui-chat-danger);
+  color: var(--agent-ui-chat-danger);
+}
+.ef-chat__artifacts-more {
+  position: relative;
+}
+.ef-chat__artifacts-menu-button {
+  padding: 3px 6px;
+}
+.ef-chat__artifacts-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  z-index: 5;
+  display: grid;
+  gap: 2px;
+  min-width: 10rem;
+  padding: 4px;
+  border: 1px solid var(--agent-ui-chat-border);
+  border-radius: var(--agent-ui-control-radius, 6px);
+  background: var(--agent-ui-chat-surface-strong);
+  box-shadow: 0 8px 24px rgb(0 0 0 / 12%);
+}
+.ef-chat__artifacts-menu-item {
+  justify-content: flex-start;
+  width: 100%;
+  border-color: transparent;
+  background: transparent;
+  text-align: start;
+}
+.ef-chat__artifacts-toggle {
+  justify-self: start;
+  border-color: transparent;
+  background: transparent;
+  color: var(--agent-ui-chat-text-muted);
+  padding-inline: 0;
+}

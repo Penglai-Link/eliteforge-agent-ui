@@ -12,6 +12,7 @@ export type {
 } from "./types";
 
 export { ChatPanel, ChatRuntimeWindow, ChatWindow };
+export { default as ChatArtifacts } from "./components/ChatArtifacts.vue";
 
 export { MotionProvider, AgentMotion, useMotion } from "@personai/agent-ui-motion-vue";
 export type { MotionConfig, MotionEffects, MotionPreset, ResolvedMotion } from "@personai/agent-ui-motion-vue";

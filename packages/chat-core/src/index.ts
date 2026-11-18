@@ -19,6 +19,7 @@ export * from "./compaction";
 
 export * from "./a2uiInteractions";
 export * from "./a2ui";
+export * from "./artifacts";
 
 export * from "./toolResults";
 

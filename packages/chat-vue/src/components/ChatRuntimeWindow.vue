@@ -34,6 +34,8 @@ import {
   type ChatActiveRun,
   type ChatAguiEvent,
   type ChatAguiStreamEvent,
+  type ChatArtifactAction,
+  type ChatArtifactItem,
   type ChatFloatingState,
   type ChatMessage,
   type ChatMessageAttachment,
@@ -122,9 +124,11 @@ const normalizedInitialSession = computed(() =>
 );
 const session = ref<ChatSession | null>(normalizedInitialSession.value);
 const messages = ref<ChatMessage[]>([]);
+const artifactStates = ref<Record<string, "pending" | "failed">>({});
 const a2uiSession = shallowRef(new ChatA2uiSession(session.value?.sessionId ?? ""));
 const a2uiEpoch = ref(0);
 watch(() => session.value?.sessionId, (id, _, cleanup) => {
+  artifactStates.value = {};
   const runtime = new ChatA2uiSession(id ?? ""); a2uiSession.value = runtime;
   cleanup(runtime.client.subscribe(() => a2uiEpoch.value++));
   if (id && activeAdapter.value.loadA2uiState) void activeAdapter.value.loadA2uiState(id).then(s => runtime.hydrate(s)).catch(e => props.onError?.(String(e), runtimeText("A2UI state failed")));
@@ -1440,6 +1444,59 @@ const handleA2uiAction: ChatA2uiActionHandler = (message, metadata, context) => 
     const [nextMessages, nextAudits, nextProtocol, nextRequests, nextHistory] = await readPresentation(current.sessionId); if (session.value?.sessionId !== current.sessionId || activeObserverRef.value !== observer) return; messages.value = nextMessages; aguiEvents.value=nextAudits; protocolEvents.value=nextProtocol; userInputRequests.value=nextRequests; userInputRequest.value=nextRequests.find(r=>r.status === "Pending") ?? null; acceptHistory(nextHistory); await reloadA2ui();
   }).catch(e => props.onError?.(String(e), runtimeText("A2UI action failed"))).finally(() => { if(activeObserverRef.value === observer) {assistantReplyQueue.flush(); streamingAssistantMessageCode.value = null; activeObserverRef.value = null; sending.value = false; activeRunCode.value = "";} });
 };
+async function handleArtifactAction(message: ChatMessage, item: ChatArtifactItem, action: ChatArtifactAction) {
+  if (action === "preview") return;
+  const current = session.value;
+  const adapter = activeAdapter.value;
+  if (!current || !adapter.artifactAction) return;
+  const itemId = item.id;
+  artifactStates.value = { ...artifactStates.value, [itemId]: "pending" };
+  try {
+    const result = await adapter.artifactAction(current, {
+      runId: message.runId ?? current.lastRunId ?? null,
+      itemId,
+      action,
+    });
+    if (session.value?.sessionId !== current.sessionId) return;
+    if (result.status === "failed") {
+      artifactStates.value = { ...artifactStates.value, [itemId]: "failed" };
+      props.onError?.(result.message ?? "Artifact action failed", runtimeText("Artifact action failed"));
+      return;
+    }
+    const next = { ...artifactStates.value };
+    delete next[itemId];
+    artifactStates.value = next;
+    if (result.status === "completed") {
+      try { props.onArtifactAction?.(message, item, action); } catch { /* host callback owns its errors */ }
+    }
+  } catch (error) {
+    if (session.value?.sessionId !== current.sessionId) return;
+    artifactStates.value = { ...artifactStates.value, [itemId]: "failed" };
+    props.onError?.(String(error), runtimeText("Artifact action failed"));
+  }
+}
+
+function handleArtifactPreview(message: ChatMessage, item: ChatArtifactItem) {
+  if (props.onArtifactPreview) {
+    props.onArtifactPreview(message, item);
+    return;
+  }
+  const current = session.value;
+  const adapter = activeAdapter.value;
+  if (!current || !adapter.artifactContentUrl) return;
+  try {
+    const url = adapter.artifactContentUrl(current, {
+      runId: message.runId ?? current.lastRunId ?? null,
+      itemId: item.id,
+      disposition: "inline",
+    });
+    if (!url || typeof window === "undefined") return;
+    window.open(url, "_blank", "noopener,noreferrer");
+  } catch (error) {
+    props.onError?.(String(error), runtimeText("Artifact preview failed"));
+  }
+}
+
 async function handleAnswerUserInput(answers: ChatUserInputAnswer[]) {
   if (compacting.value) return;
   const activeSession = session.value;
@@ -1809,6 +1866,10 @@ const panelCommonProps = computed(() => ({
   onA2UIAction: handleA2uiAction,
   a2uiSession: a2uiSession.value,
   a2uiDisabled: runActive.value || session.value?.status === "ARCHIVED",
+  artifactLabels: props.artifactLabels,
+  artifactStates: { ...props.artifactStates, ...artifactStates.value },
+  onArtifactAction: activeAdapter.value.artifactAction ? handleArtifactAction : undefined,
+  onArtifactPreview: activeAdapter.value.artifactContentUrl || props.onArtifactPreview ? handleArtifactPreview : undefined,
   historyLoading: loading.value,
   historyLoadingOlder: historyLoadingOlder.value,
   historyLabels: props.config.historyLabels,

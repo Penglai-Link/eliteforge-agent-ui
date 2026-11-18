@@ -14,6 +14,7 @@ export * from "./aguiWork";
 export * from "./toolPresentation";
 export * from "./a2ui";
 export * from "./a2uiInteractions";
+export * from "./artifacts";
 export * from "./nativeInteractions";
 export * from "./interactionMessages";
 export * from "./history";

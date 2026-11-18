@@ -6,7 +6,7 @@ Agent UI 为 React Native / Expo 宿主提供两个平台包，并与 Web 包共
 | --- | --- |
 | `@personai/agent-ui-chat-core/headless` | 平台无关的消息、转录、AG-UI、工具展示、历史/A2UI 交互逻辑 |
 | `@personai/agent-ui-a2ui-react-native` | A2UI catalog → RN 原语渲染器（`Text`/`View`/`TextInput`/`Pressable`/`ScrollView`） |
-| `@personai/agent-ui-chat-react-native` | `ChatPanel`/`MessageList`/`MessageBubble`/`Composer`/`ApprovalCard`/`ToolCard`/`A2UISurface` |
+| `@personai/agent-ui-chat-react-native` | `ChatPanel`/`MessageList`/`MessageBubble`/`ArtifactList`/`Composer`/`ApprovalCard`/`ToolCard`/`A2UISurface` |
 
 React Native 宿主**不要**直接引入 `chat-core` 根入口、`chat-react` 或 `a2ui-react`：根入口包含 DOM 模块和 `mermaid`，后两者依赖 DOM/CSS。`chat-core/headless` 只导出平台无关模块，`a2ui-core` 的 `A2UIClient`/`Surface`/`Action` 契约保持共用。
 
@@ -27,9 +27,9 @@ RPC 客户端 / AG-UI 事件
 
 ```sh
 npm install --save-exact \
-  @personai/agent-ui-chat-react-native@1.0.0-preview.26 \
-  @personai/agent-ui-a2ui-react-native@1.0.0-preview.26 \
-  @personai/agent-ui-chat-core@1.0.0-preview.26
+  @personai/agent-ui-chat-react-native@1.0.0-preview.28 \
+  @personai/agent-ui-a2ui-react-native@1.0.0-preview.28 \
+  @personai/agent-ui-chat-core@1.0.0-preview.28
 ```
 
 `react`（>= 19.2）与 `react-native`（>= 0.70）由宿主提供，都是 peer dependency。两个 RN 包不导出样式入口，主题通过 JS token 传入，不涉及 CSS。
@@ -96,8 +96,35 @@ export function ChatScreen({
 | `sending` / `sendDisabled` / `disabledInput` | `boolean` | 运行态控制 |
 | `userInputRequests` / `onAnswerUserInput` | `ChatUserInputRequest[]` / `(answers: ChatUserInputAnswer[]) => void` | 原生审批/问答 |
 | `runtime` / `onA2UIAction` | `ChatA2uiSession` / `ChatA2uiActionHandler` | A2UI 会话与动作回传 |
+| `artifactLabels` / `artifactStates` | `Partial<ChatArtifactLabels>` / `Record<string, "pending" \| "failed">` | 交付文件文案与逐条状态 |
+| `onArtifactAction` / `onArtifactPreview` | `(message, item, action) => void` / `(message, item) => void` | 交付文件动作与宿主预览；原生不自行打开 URL |
+| `locale` | `string` | 交付文件等内置文案语言 |
 | `showHeader` / `showComposer` / `showIdentity` | `boolean` | 布局开关 |
 | `theme` | `Partial<ChatReactNativeTheme>` | RN 主题 token |
+
+## 交付文件（Artifacts）
+
+完成的助手消息可携带 `message.artifacts`（`version: "v1"` 的扁平 `items`）。`chat-core/headless` 导出 `parseArtifacts`、`ARTIFACT_COLLAPSED_COUNT` 和 `ChatArtifactsProps` 等类型；`MessageBubble` 在 Markdown 正文与 A2UI 之后挂载 `ArtifactList`：
+
+```tsx
+import { ArtifactList } from "@personai/agent-ui-chat-react-native";
+import type { ChatArtifacts } from "@personai/agent-ui-chat-core/headless";
+
+<ArtifactList
+  artifacts={artifacts}
+  labels={{ title: "本次产出" }}
+  locale="zh-CN"
+  onAction={(item, action) => tunnel.call("artifact.action", { itemId: item.id, action })}
+  onPreview={(item) => openNativeViewer(item)}
+  states={{ "report.pdf": "pending" }}
+/>;
+```
+
+- `actions` 是权威列表：只渲染其中的动作；`actions[0]` 为主按钮，其余以内联按钮行展示（原生没有 hover，也不使用 Web 的溢出菜单）。缺省或空数组只展示文件信息。
+- 默认折叠到 4 项，超过时显示“全部 N 项 / 收起”。空 `items`、未知 `version` 或畸形条目不会渲染，组件不抛错。
+- `states` 按条目 id 标记 `pending` / `failed`；失败显示“重试”，重复上次动作。`artifactLabels` 覆盖标题、折叠、重试、动作、大小和类型文案。
+- 原生预览必须由宿主提供 `onPreview`（例如内置查看器或分享面板）。没有 `onPreview` 时不渲染预览按钮；`ArtifactList` 不会自行打开 URL，也不依赖 `window`。
+- adapter 的 `artifactAction` / `artifactContentUrl` 是 Web 运行时契约；RN 宿主通过 RPC/原生能力实现同等动作，并把结果映射为 `states`。不要复制 Web 的 `ChatRuntimeWindow`。
 
 ## A2UI 表面
 
@@ -204,7 +231,7 @@ const clipboard = {
 - 审批/问答答案优先使用 `nativeUserInputAnswer` / `nativeUserInputBatchAnswer`（`ChatUserInputAnswerInput`），保留 resume 载荷。
 - A2UI 快照持久化和增量应用使用 `ChatA2uiSession`（`chat-core/headless`），`MessageBubble` 与 `ApprovalCard` 会直接消费。
 - `ApprovalCard` 由 `createInteractionClient` + A2UI 交互组件渲染，因此批准/拒绝按钮、过期和状态文案与 Web 端一致；它不会额外包一层卡片，宿主应把它放进可随内容滚动的转录区域。
-- `MessageBubble` 渲染 Markdown 正文（标题、列表、代码、表格等）、附件名和 A2UI 表面；Mermaid、文本批注选择仍是 Web 专属能力。
+- `MessageBubble` 渲染 Markdown 正文（标题、列表、代码、表格等）、附件名、A2UI 表面和交付文件列表；Mermaid、文本批注选择仍是 Web 专属能力。
 - `ToolCard` 与 Web tool row 对齐：标题使用 `toolCommandCountLabel` / `toolDisplayName`（批量命令显示“执行 N 个命令”），展开只展示 `toolOperationDetails` 的操作字段，从不渲染参数或结果 JSON；`result` 仅用于识别顶层 `isError`。
 - 审批/问答卡片使用 `ApprovalCard` + `nativeUserInputRequests`；A2UI 表面通过 `ChatA2uiSession` 水合状态并回传 `onA2UIAction`，不要另写一套交互协议。
 

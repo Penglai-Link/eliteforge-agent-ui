@@ -2,11 +2,16 @@ import { useMemo, type ReactNode } from "react";
 import { Text, View } from "react-native";
 import {
   formatTime,
+  parseArtifacts,
   type ChatA2uiActionHandler,
   type ChatA2uiSession,
+  type ChatArtifactAction,
+  type ChatArtifactItem,
+  type ChatArtifactLabels,
   type ChatMessage,
 } from "@personai/agent-ui-chat-core/headless";
 import { A2UIClient, A2UIRenderer } from "@personai/agent-ui-a2ui-react-native";
+import { ArtifactList } from "./ArtifactList";
 import { InteractionReceipt } from "./InteractionReceipt";
 import { Markdown } from "./Markdown";
 import {
@@ -24,6 +29,11 @@ export interface MessageBubbleProps {
   showIdentity?: boolean;
   runtime?: ChatA2uiSession;
   onA2UIAction?: ChatA2uiActionHandler;
+  artifactLabels?: Partial<ChatArtifactLabels>;
+  artifactStates?: Record<string, "pending" | "failed">;
+  onArtifactAction?: (message: ChatMessage, item: ChatArtifactItem, action: ChatArtifactAction) => void | Promise<void>;
+  onArtifactPreview?: (message: ChatMessage, item: ChatArtifactItem) => void;
+  locale?: string;
 }
 
 function messageBody(message: ChatMessage): string {
@@ -99,11 +109,17 @@ export function MessageBubble({
   showIdentity = false,
   runtime,
   onA2UIAction,
+  artifactLabels,
+  artifactStates,
+  onArtifactAction,
+  onArtifactPreview,
+  locale,
 }: MessageBubbleProps): ReactNode {
   const theme = resolveChatTheme(themeOverride);
   const user = message.role === "USER";
   const body = messageBody(message);
   const attachments = attachmentLabels(message);
+  const artifacts = useMemo(() => parseArtifacts(message.artifacts), [message.artifacts]);
   return (
     <View
       style={[
@@ -152,6 +168,17 @@ export function MessageBubble({
           message={message}
           onA2UIAction={onA2UIAction}
           runtime={runtime}
+          theme={theme}
+        />
+      ) : null}
+      {artifacts ? (
+        <ArtifactList
+          artifacts={artifacts}
+          labels={artifactLabels}
+          locale={locale}
+          onAction={onArtifactAction ? (item, action) => onArtifactAction(message, item, action) : undefined}
+          onPreview={onArtifactPreview ? (item) => onArtifactPreview(message, item) : undefined}
+          states={artifactStates}
           theme={theme}
         />
       ) : null}

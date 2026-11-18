@@ -351,6 +351,10 @@ function endResize(event: PointerEvent) {
       <div v-if="!visibleState.collapsed" class="ef-chat-window__body">
         <ChatPanel
           :on-a2-u-i-action="props.onA2UIAction" :a2ui-session="props.a2uiSession" :a2ui-disabled="props.a2uiDisabled"
+          :artifact-labels="props.artifactLabels"
+          :artifact-states="props.artifactStates"
+          :on-artifact-action="props.onArtifactAction"
+          :on-artifact-preview="props.onArtifactPreview"
           :attachment-downloader="attachmentDownloader"
           :attachment-labels="attachmentLabels"
           :auto-focus-composer="autoFocusComposer"

@@ -1,5 +1,6 @@
 export * from "./theme";
 export * from "./MessageBubble";
+export * from "./ArtifactList";
 export * from "./Markdown";
 export * from "./MessageList";
 export * from "./Composer";

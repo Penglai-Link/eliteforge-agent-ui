@@ -6,6 +6,7 @@ export * from "./ChatRuntimeWindow";
 export * from "./ChatWindow";
 
 export { ChatA2UI } from "./ChatA2UI";
+export { ChatArtifacts } from "./ChatArtifacts";
 
 export { MotionProvider, AgentMotion, useMotion } from "@personai/agent-ui-motion-react";
 export type { MotionConfig, MotionEffects, MotionPreset, ResolvedMotion } from "@personai/agent-ui-motion-react";

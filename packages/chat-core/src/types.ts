@@ -2,6 +2,7 @@ import type { ChatAnnotation, ChatAnnotationLabels } from "./annotationTypes";
 import type { ComposerRunningSubmitMode, ComposerSubmitMode, ComposerAttachmentKind, ComposerAttachment, ComposerSuggestion, ComposerSuggestionLabels, ComposerProps } from "@personai/agent-ui-composer-core";
 import type { ActionMetadata } from "@personai/agent-ui-a2ui-core";
 import type { ChatA2uiState, ChatA2uiActionInput } from "./a2ui";
+import type { ChatArtifacts } from "./artifacts";
 import type { ChatHistoryLabels, HistoryMessageView, HistoryQuery, SessionHistory } from "./history";
 export type ChatSessionStatus = "ACTIVE" | "ARCHIVED";
 export type ChatSessionSource = string;
@@ -101,6 +102,8 @@ export interface ChatMessage {
   provenance?: MessageProvenance;
   /** Ordered A2UI protocol envelopes; persist alongside the message. */
   a2ui?: { messages: unknown[]; surfaceIds?: string[] };
+  /** Flat delivered files; the host already merged, deduped and resolved actions. */
+  artifacts?: ChatArtifacts;
   history?: HistoryMessageView;
   id: number | string;
   messageId: string;
@@ -478,6 +481,8 @@ export interface ChatAdapterCapabilities {
   supportsAbort: boolean;
   supportsActiveRun?: boolean;
   supportsAgui: boolean;
+  /** Host resolves delivered-file actions and content URLs for this client. */
+  supportsArtifacts?: boolean;
   supportsProtocolReplay: boolean;
   supportsSteer?: boolean;
   supportsStop?: boolean;
@@ -488,6 +493,17 @@ export interface ChatAdapterCapabilities {
 export interface ChatAdapter {
   loadA2uiState?: (sessionId: string, signal?: AbortSignal) => Promise<ChatA2uiState>;
   sendA2uiActionStream?: (session: ChatSession, input: ChatA2uiActionInput, handlers?: ChatStreamHandlers, signal?: AbortSignal) => Promise<ChatSendResult>;
+  /** Execute a delivered-file action; previews go through `artifactContentUrl`. */
+  artifactAction?: (
+    session: ChatSession,
+    input: { runId?: string | null; itemId: string; action: "open" | "reveal" | "save" },
+    signal?: AbortSignal,
+  ) => Promise<{ status: "completed" | "cancelled" | "failed"; message?: string }>;
+  /** Resolve a delivered-file URL; `inline` opens in the browser, `attachment` downloads. */
+  artifactContentUrl?: (
+    session: ChatSession,
+    input: { runId?: string | null; itemId: string; disposition: "inline" | "attachment" },
+  ) => string;
   capabilities: ChatAdapterCapabilities;
   createSession: (input: CreateChatSessionInput) => Promise<ChatSession>;
   deleteSession: (sessionId: string, signal?: AbortSignal) => Promise<ChatSession>;

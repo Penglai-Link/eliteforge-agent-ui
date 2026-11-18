@@ -4,6 +4,9 @@ import type { ChatA2uiActionHandler as ActionHandler, ChatA2uiSession } from "@p
 import type {
   AssistantReplyEffect,
   ChatAdapter,
+  ChatArtifactAction,
+  ChatArtifactItem,
+  ChatArtifactLabels,
   ChatAttachmentLabels,
   ChatAnnotationLabels,
   ChatAnnotation,
@@ -34,6 +37,10 @@ export interface ChatPanelProps extends Pick<ComposerVueProps, "pendingAttachmen
   a2uiSession?: ChatA2uiSession;
   a2uiDisabled?: boolean;
   onA2UIAction?: ActionHandler;
+  artifactLabels?: Partial<ChatArtifactLabels>;
+  artifactStates?: Record<string, "pending" | "failed">;
+  onArtifactAction?: (message: ChatMessage, item: ChatArtifactItem, action: ChatArtifactAction) => void | Promise<void>;
+  onArtifactPreview?: (message: ChatMessage, item: ChatArtifactItem) => void;
   attachmentDownloader?: (attachment: ChatMessageAttachment) => Promise<Blob>;
   attachmentLabels?: ChatAttachmentLabels;
   autoFocusComposer?: boolean;
@@ -117,6 +124,14 @@ export interface ChatRuntimeWindowProps {
   a2uiSession?: ChatA2uiSession;
   a2uiDisabled?: boolean;
   onA2UIAction?: ActionHandler;
+  /** Optional labels for delivered-file rows. */
+  artifactLabels?: Partial<ChatArtifactLabels>;
+  /** Host-reported pending/failed state keyed by artifact item id. */
+  artifactStates?: Record<string, "pending" | "failed">;
+  /** Called after the adapter completes a delivered-file action. */
+  onArtifactAction?: (message: ChatMessage, item: ChatArtifactItem, action: ChatArtifactAction) => void;
+  /** Replace the default new-tab preview. */
+  onArtifactPreview?: (message: ChatMessage, item: ChatArtifactItem) => void;
   agentReplyEffect?: AssistantReplyEffect;
   agentReplySpeed?: number;
   adapter?: ChatAdapter;

@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import InteractionReceipt from "./InteractionReceipt.vue";
-import { chatAnnotationTooltip, defaultChatAnnotationLabels, type ChatAnnotationLabels, type ChatAnnotation } from "@personai/agent-ui-chat-core";
+import { chatAnnotationTooltip, defaultChatAnnotationLabels, parseArtifacts, type ChatAnnotationLabels, type ChatAnnotation, type ChatArtifactAction, type ChatArtifactItem, type ChatArtifactLabels } from "@personai/agent-ui-chat-core";
 import ChatA2UI from "./ChatA2UI.vue";
+import ChatArtifacts from "./ChatArtifacts.vue";
 import type { ChatA2uiActionHandler as ActionHandler, ChatA2uiSession } from "@personai/agent-ui-chat-core";
 import { Bot, Pencil, Trash2, UserRound } from "lucide-vue-next";
 import { computed } from "vue";
@@ -25,6 +26,11 @@ const props = withDefaults(defineProps<{
   onA2UIAction?: ActionHandler;
   a2uiSession?: ChatA2uiSession;
   a2uiDisabled?: boolean;
+  artifactLabels?: Partial<ChatArtifactLabels>;
+  artifactStates?: Record<string, "pending" | "failed">;
+  onArtifactAction?: (message: ChatMessage, item: ChatArtifactItem, action: ChatArtifactAction) => void | Promise<void>;
+  onArtifactPreview?: (message: ChatMessage, item: ChatArtifactItem) => void;
+  locale?: string;
   onDeleteTurn?: (message: ChatMessage) => void;
   deleteTurnLabel?: string;
 }>(), { showActions: true });
@@ -38,6 +44,15 @@ const isUser = computed(() => props.message.role === "USER" && !isSystemNotice.v
 const actorName = computed(() =>
   messageActorName(props.message, props.currentUserDisplayName)
 );
+const artifacts = computed(() => parseArtifacts(props.message.artifacts));
+
+function handleArtifactAction(item: ChatArtifactItem, action: ChatArtifactAction) {
+  return props.onArtifactAction?.(props.message, item, action);
+}
+
+function handleArtifactPreview(item: ChatArtifactItem) {
+  props.onArtifactPreview?.(props.message, item);
+}
 </script>
 
 <template>
@@ -71,7 +86,7 @@ const actorName = computed(() =>
       :annotation-labels="annotationLabels ?? defaultChatAnnotationLabels"
       data-chat-annotation-source="true"
       :streaming="isStreaming"
-      :empty-message="message.a2ui ? '' : props.emptyAssistantMessage"
+      :empty-message="message.a2ui || artifacts ? '' : props.emptyAssistantMessage"
     />
     <div v-if="!isUser && annotations?.length" class="ef-chat__reply-annotations">
       <template v-for="(annotation, index) in annotations" :key="annotation.id">
@@ -79,6 +94,15 @@ const actorName = computed(() =>
       </template>
     </div>
     <ChatA2UI v-if="message.a2ui" :message="message" :on-action="onA2UIAction" :runtime="a2uiSession" :disabled="a2uiDisabled" />
+    <ChatArtifacts
+      v-if="artifacts"
+      :artifacts="artifacts"
+      :labels="artifactLabels"
+      :locale="locale"
+      :on-action="props.onArtifactAction ? handleArtifactAction : undefined"
+      :on-preview="props.onArtifactPreview ? handleArtifactPreview : undefined"
+      :states="artifactStates"
+    />
   </article>
       <div v-if="props.showActions" class="ef-chat__message-actions ef-chat__message-actions--outside">
         <CopyValueButton
