@@ -27,9 +27,9 @@ RPC 客户端 / AG-UI 事件
 
 ```sh
 npm install --save-exact \
-  @personai/agent-ui-chat-react-native@1.0.0-preview.25 \
-  @personai/agent-ui-a2ui-react-native@1.0.0-preview.25 \
-  @personai/agent-ui-chat-core@1.0.0-preview.25
+  @personai/agent-ui-chat-react-native@1.0.0-preview.26 \
+  @personai/agent-ui-a2ui-react-native@1.0.0-preview.26 \
+  @personai/agent-ui-chat-core@1.0.0-preview.26
 ```
 
 `react`（>= 19.2）与 `react-native`（>= 0.70）由宿主提供，都是 peer dependency。两个 RN 包不导出样式入口，主题通过 JS token 传入，不涉及 CSS。
@@ -163,6 +163,40 @@ const theme = {
 - 卡片自身负责背景、圆角、描边和内边距，宿主**不要**再包一层卡片。
 - 待回答卡片应作为转录/消息列表的一部分（或等效的按内容自然撑高的容器）渲染。不要放进固定高度或嵌套 `ScrollView`，否则会出现内层滚动条、题头或确认按钮被裁切。卡片变高时由外层消息列表滚动。
 - 已回答/已批准的请求通过 `interactionMessages` 生成 `InteractionReceipt`：转录中保留一个“已解答疑惑 / 已提供数据 / 已批准”的胶囊，点开后显示逐题答案。`ChatPanel` 已自动完成装饰；自行渲染消息列表时，把已回答的 `ChatUserInputRequest` 一并传给 `interactionMessages`，不要只删除待回答卡片。
+
+### Composer 与剪贴板
+
+`chat-react-native` 的 `Composer` 与 `composer-react` / `composer-vue` 使用同一套输入契约（`draft` / `onDraftChange` / `onSend` / `onStop`），并提供原生扩展位：
+
+- `composerHeader`、`footerAddon`、`renderAttachmentControl`、`renderAttachment`、`renderSuggestion`
+- 附件、队列消息、运行中 `steer` / `queue` 模式、`$`/`/` 建议、禁用原因
+- `theme` 与逐槽位 `styles` 覆盖
+
+React Native 没有浏览器 `ClipboardEvent`/`DataTransfer`。宿主通过 `clipboard` 注入 `ComposerClipboardAdapter`，`Composer` 在附件按钮上提供长按粘贴（不单独占一个按钮）：
+
+```tsx
+const clipboard = {
+  async readFile() {
+    const image = await Clipboard.getImageAsync({ format: "png" });
+    if (image) return { name: `pasted-${Date.now()}.png`, mimeType: "image/png", base64: image.data };
+    const url = await Clipboard.getUrlAsync();
+    return url && /^(file|content):/i.test(url)
+      ? { name: "pasted-file", uri: url }
+      : null;
+  },
+};
+
+<Composer
+  draft={draft}
+  onDraftChange={setDraft}
+  onSend={send}
+  onPickAttachment={pickFile}
+  onPasteAttachment={uploadFile}
+  clipboard={clipboard}
+/>;
+```
+
+移动端剪贴板通常只暴露一张图片或一个 URL；多文件需要宿主原生模块。图片建议在宿主上传前压缩（长边 1280、JPEG 质量约 0.75），`Composer` 不替宿主改写文件。
 
 ## 宿主对接要点
 

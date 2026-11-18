@@ -1,6 +1,6 @@
 {
   "name": "@personai/agent-ui-chat-react-native",
-  "version": "1.0.0-preview.25",
+  "version": "1.0.0-preview.26",
   "type": "module",
   "files": [
     "dist",
@@ -25,9 +25,10 @@
     "access": "public"
   },
   "dependencies": {
-    "@personai/agent-ui-a2ui-react-native": "1.0.0-preview.25",
-    "@personai/agent-ui-chat-core": "1.0.0-preview.25",
-    "markdown-it": "^14.3.2"
+    "@personai/agent-ui-a2ui-react-native": "1.0.0-preview.26",
+    "@personai/agent-ui-chat-core": "1.0.0-preview.26",
+    "markdown-it": "^14.3.2",
+    "@personai/agent-ui-composer-core": "1.0.0-preview.26"
   },
   "peerDependencies": {
     "react": "^19.2.5",

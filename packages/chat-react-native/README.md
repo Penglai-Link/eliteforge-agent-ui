@@ -6,8 +6,8 @@
 
 ```sh
 npm install --save-exact \
-  @personai/agent-ui-chat-react-native@1.0.0-preview.25 \
-  @personai/agent-ui-chat-core@1.0.0-preview.25
+  @personai/agent-ui-chat-react-native@1.0.0-preview.26 \
+  @personai/agent-ui-chat-core@1.0.0-preview.26
 ```
 
 peer dependencies：`react`（>= 19.2）、`react-native`（>= 0.70）。不导出 CSS 入口。
@@ -19,7 +19,7 @@ peer dependencies：`react`（>= 19.2）、`react-native`（>= 0.70）。不导�
 | `ChatPanel` | 头部 + `MessageList` + 待回答审批卡 + `Composer` |
 | `MessageList` | `FlatList` 虚拟化消息列表，空态文案、新消息自动滚底 |
 | `MessageBubble` | 身份/时间、Markdown 正文、附件名、内嵌 A2UI 表面 |
-| `Composer` | 受控多行输入 + 发送/停止按钮 |
+| `Composer` | 与 React/Vue 对齐的输入组件：附件、队列、建议、`steer`/`queue` 模式、`composerHeader`/`footerAddon`、`render*` 扩展位与 `clipboard` 适配器 |
 | `ApprovalCard` | 复用 `chat-core` 的 `createInteractionClient` 与 A2UI 交互组件渲染审批/问答；卡片自带边框与内边距，不再额外包一层卡片 |
 | `InteractionReceipt` | 已回答/已批准的紧凑胶囊；点开展示逐题答案，与 Web 的 `InteractionReceipt` 对齐 |
 | `ToolCard` | 与 Web 一致的工具行：简约工具名/命令计数，展开只显示 `toolOperationDetails` 的操作字段，不渲染参数或结果 JSON |
@@ -51,6 +51,19 @@ import type { ChatMessage } from "@personai/agent-ui-chat-core/headless";
 单独使用 `MessageList` 并自行渲染底部卡片时，把待回答数量传给 `scrollToEndKey`，列表会在卡片出现或切换题目后重新滚到底部。`ChatPanel` 会先用 `interactionMessages` 把已回答请求装饰成 `InteractionReceipt`；自行组装消息列表时也应这样做，否则提交后只会移除卡片，转录里不会留下“已解答疑惑”。
 
 `ToolCard` 也接受可选的 `labels: ChatWorkRailLabels`，宿主可在其中提供 `tool.resolveName` 覆盖工具标题；默认标题与 Web 相同，来自 `toolCommandCountLabel` / `toolDisplayName`。`result` 只用于判断顶层 `isError`，不会展示原始输出。
+
+## Composer 扩展点
+
+`Composer` 与 `composer-react` / `composer-vue` 保持同一输入契约（`draft`、`onDraftChange`、`onSend`、`onStop`），并增加 RN 专属扩展：
+
+- `composerHeader` / `footerAddon`：输入区上方与工具栏插槽。
+- `renderAttachmentControl` / `renderAttachment` / `renderSuggestion`：替换附件按钮、附件卡片、建议行。
+- `pendingAttachments` / `onPickAttachment` / `onRemoveAttachment`：附件选择与移除由宿主实现。
+- `queuedMessages` 与编辑、删除、排序、引导回调。
+- `clipboard` + `onPasteAttachment`：React Native 没有粘贴事件，宿主注入 `readFile()`；Composer 在附件按钮上提供长按粘贴，不单独占一个按钮。
+- `styles` 逐槽位覆盖，`theme` 复用 `ChatReactNativeTheme`。
+
+移动端剪贴板通常只有一张图片或一个 URL；多文件需宿主原生模块。图片压缩属于宿主上传职责。
 
 ## 主题
 

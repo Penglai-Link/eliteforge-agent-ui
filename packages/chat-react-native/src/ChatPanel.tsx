@@ -147,17 +147,17 @@ export function ChatPanel({
       />
       {showComposer ? (
         <Composer
-          disabled={disabledInput}
-          onChangeText={onDraftChange}
+          disabledInput={disabledInput}
+          draft={draft}
+          inputPlaceholder={inputPlaceholder}
+          onDraftChange={onDraftChange}
           onSend={onSend}
           onStop={onStop}
-          placeholder={inputPlaceholder}
           sendDisabled={sendDisabled}
           sendLabel={sendLabel}
           sending={sending}
           stopLabel={stopLabel}
           theme={themeOverride}
-          value={draft}
         />
       ) : null}
       {footerAddon ? <View>{footerAddon}</View> : null}

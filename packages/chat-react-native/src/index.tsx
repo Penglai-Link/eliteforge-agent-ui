@@ -3,6 +3,13 @@ export * from "./MessageBubble";
 export * from "./Markdown";
 export * from "./MessageList";
 export * from "./Composer";
+export type {
+  ComposerAttachment,
+  ComposerQueuedMessage,
+  ComposerSubmitMode,
+  ComposerSuggestion,
+  ComposerSuggestionLabels,
+} from "@personai/agent-ui-composer-core";
 export * from "./ApprovalCard";
 export * from "./InteractionReceipt";
 export * from "./ToolCard";
