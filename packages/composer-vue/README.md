@@ -25,6 +25,6 @@ function send(mode: ComposerSubmitMode = "send") {
 
 `composerHeader` 也可以传入组件；组件实例暴露 `focus()` 和 `textarea`。`composerKey` 配合 `autoFocusComposer` 在切换输入上下文时聚焦。
 
-支持发送/停止、排队/即时调整、IME、Shift+Enter 换行、命令/技能建议、技能标签、图片粘贴、附件选择/预览/移除、队列编辑/移除、禁用状态和主题覆盖。上传、发送及队列存储由宿主回调处理。
+支持发送/停止、排队/即时调整、IME、Shift+Enter 换行、命令/技能建议、技能标签、图片与文件粘贴、附件选择/预览/移除、队列编辑/移除、禁用状态和主题覆盖。上传、发送及队列存储由宿主回调处理。粘贴时 `onPasteAttachment` 会按剪贴板顺序对每个图片或文件各调用一次，宿主可自行排队上传。
 
 仓库开发预览：`npm run dev --workspace=@personai/agent-ui-composer-vue`。完整参数与主题说明见 [docs/composer.md](../../docs/composer.md)。

@@ -7,7 +7,8 @@ import {
   insertSuggestion,
   composerOverlayParts,
   insertNewlineAtCursor,
-  pastedImage,
+  pastedFiles,
+  pasteKeepsText,
   startQueuedMessageDrag,
   type ComposerSuggestion as ChatInputSuggestion,
   type ComposerSubmitMode as ChatSubmitMode,
@@ -283,10 +284,11 @@ function handleStopSubmit() { emit("stop"); }
 
 function handleComposerPaste(event: ClipboardEvent) {
   if (props.disabledInput || !props.onPasteAttachment) return;
-  const file = pastedImage(event.clipboardData);
-  if (!file) return;
-  event.preventDefault();
-  void props.onPasteAttachment(file);
+  const files = pastedFiles(event.clipboardData);
+  if (!files.length) return;
+  // Mixed clipboard payloads still insert their text; attachments are added for every file.
+  if (!pasteKeepsText(event.clipboardData)) event.preventDefault();
+  for (const file of files) void props.onPasteAttachment(file);
 }
 </script>
 <template>

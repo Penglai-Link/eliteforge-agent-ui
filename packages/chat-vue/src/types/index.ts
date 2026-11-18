@@ -146,6 +146,8 @@ export interface ChatRuntimeWindowProps {
   confirmDeleteTurn?: (message: ChatMessage) => boolean | Promise<boolean>;
   onInfo?: ToastLikeCallback;
   onPendingAttachmentsChange?: (attachments: ChatMessageAttachment[]) => void;
+  /** Hosts can stage pasted files locally until the first submission. */
+  onPasteAttachment?: (file: File) => void | Promise<void>;
   onRunStateChange?: (state: ChatRuntimeRunState) => void;
   onSessionChange?: (session: ChatSession | null) => void;
   pendingAttachments?: ChatMessageAttachment[];

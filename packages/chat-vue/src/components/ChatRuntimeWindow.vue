@@ -211,6 +211,8 @@ const pendingAnnotations = computed({
   },
 });
 const attachmentUploadPending = ref(false);
+const attachmentUploadQueue: File[] = [];
+const attachmentUploadRunning = ref(false);
 const sending = ref(false);
 const steering = ref(false);
 const loading = ref(false);
@@ -856,29 +858,67 @@ async function ensureSession() {
   return created;
 }
 
-async function handleAttachmentUpload(file: File) {
+async function drainAttachmentUploadQueue() {
+  if (attachmentUploadRunning.value) return;
   const adapter = activeAdapter.value;
-  if (attachmentUploadPending.value || !adapter.uploadAttachment) return;
-  const activeSession = await ensureSession();
-  if (!activeSession) return;
+  if (!adapter.uploadAttachment) {
+    attachmentUploadQueue.length = 0;
+    return;
+  }
+  attachmentUploadRunning.value = true;
   attachmentUploadPending.value = true;
+  let targetSession: ChatSession;
   try {
-    const attachment = await adapter.uploadAttachment(activeSession, {
-      file,
-      kind: file.type.startsWith("image/") ? "image" : "file",
-      summary: file.name,
-    });
-    if (activeSessionCodeRef.value === activeSession.sessionId) {
-      pendingAttachments.value = [...pendingAttachments.value, attachment];
-    }
+    targetSession = await ensureSession();
   } catch (error) {
+    attachmentUploadQueue.length = 0;
+    attachmentUploadRunning.value = false;
+    attachmentUploadPending.value = false;
     reportError(
       error instanceof Error ? error.message : runtimeText("Chat attachment upload failed"),
       runtimeText("Attachment upload failed"),
     );
+    return;
+  }
+  try {
+    while (attachmentUploadQueue.length) {
+      if (activeSessionCodeRef.value !== targetSession.sessionId) {
+        attachmentUploadQueue.length = 0;
+        break;
+      }
+      const file = attachmentUploadQueue[0];
+      try {
+        const attachment = await adapter.uploadAttachment(targetSession, {
+          file,
+          kind: file.type.startsWith("image/") ? "image" : "file",
+          summary: file.name,
+        });
+        if (activeSessionCodeRef.value === targetSession.sessionId) {
+          pendingAttachments.value = [...pendingAttachments.value, attachment];
+        }
+      } catch (error) {
+        reportError(
+          error instanceof Error ? error.message : runtimeText("Chat attachment upload failed"),
+          runtimeText("Attachment upload failed"),
+        );
+      } finally {
+        attachmentUploadQueue.shift();
+      }
+    }
   } finally {
+    attachmentUploadRunning.value = false;
     attachmentUploadPending.value = false;
   }
+}
+
+function queueAttachmentUploads(files: File[]) {
+  if (!files.length || !activeAdapter.value.uploadAttachment) return;
+  attachmentUploadQueue.push(...files);
+  void drainAttachmentUploadQueue();
+}
+
+function handleAttachmentUpload(file: File) {
+  queueAttachmentUploads([file]);
 }
 
 async function runMessage(
@@ -1812,7 +1852,7 @@ const panelCommonProps = computed(() => ({
   }),
   onNewSession: handleNewSession,
   onDraftChange: handleDraftChange,
-  onPasteAttachment: handleAttachmentUpload,
+  onPasteAttachment: props.onPasteAttachment ?? handleAttachmentUpload,
   onEditMessage: deletingTurn.value || compacting.value ? undefined : handleEditMessage,
   deleteTurnLabel: props.config.turnDeletionLabels?.action,
   onDeleteTurn: activeAdapter.value.deleteTurn && historySnapshot.value?.canDeleteTurns && !loading.value && !sending.value && !remoteActiveRun.value && !deletingTurn.value && !compacting.value && !historySnapshot.value.activeRuns.length ? (message: ChatMessage) => { void handleDeleteTurn(message); } : undefined,

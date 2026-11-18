@@ -20,7 +20,8 @@ import {
   insertSuggestion,
   composerOverlayParts,
   insertNewlineAtCursor,
-  pastedImage,
+  pastedFiles,
+  pasteKeepsText,
   startQueuedMessageDrag,
   type ComposerProps,
   type ComposerAttachment,
@@ -323,10 +324,11 @@ export function Composer({
 
   function handleComposerPaste(event: ClipboardEvent<HTMLTextAreaElement>) {
     if (disabledInput || !onPasteAttachment) return;
-    const file = pastedImage(event.clipboardData);
-    if (!file) return;
-    event.preventDefault();
-    void onPasteAttachment(file);
+    const files = pastedFiles(event.clipboardData);
+    if (!files.length) return;
+    // Mixed clipboard payloads still insert their text; attachments are added for every file.
+    if (!pasteKeepsText(event.clipboardData)) event.preventDefault();
+    for (const file of files) void onPasteAttachment(file);
   }
 
   function handleStopSubmit() {

@@ -32,6 +32,8 @@ const adapter = createMockChatAdapter();
 
 模拟 adapter 会回显消息并生成 AG-UI 流事件，无需后端。包内 `npm run dev` 页面同样使用该模拟 adapter。
 
+宿主可通过 `onPasteAttachment` 接管粘贴的图片或文件（每个文件调用一次），在本地暂存附件，再在首次发送时上传；默认附件上传需要先创建会话，连续粘贴的多个文件会排队依次上传。
+
 ## 接入自己的后端
 
 宿主实现 `ChatAdapter`，把会话、消息和流事件映射为 `@personai/agent-ui-chat-core` 的通用类型。至少需要提供 `createSession`、`deleteSession`、`loadMessages`、`loadAguiEvents` 和 `streamMessage`。流式过程中通过 handlers 报告文本片段和 AG-UI 事件。

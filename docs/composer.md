@@ -28,12 +28,14 @@ React 示例见 [composer-react](../packages/composer-react/README.md)，Vue 示
 | 队列排序 | `onReorderQueuedMessage(sourceId, targetId)` / `reorder-queued-message`；拖动左侧手柄或用上下方向键调整 |
 | 队列 | `queuedMessages`、`onEditQueuedMessage` / `edit-queued-message`、`onRemoveQueuedMessage` / `remove-queued-message` |
 | 附件选择 | `showAttachmentControl`、`onAttachFile`、`attachmentUploadPending` |
-| 图片粘贴 | `onPasteAttachment`，未提供回调时保留浏览器默认粘贴 |
+| 图片与文件粘贴 | `onPasteAttachment`，剪贴板中的每个图片或文件调用一次；未提供回调时保留浏览器默认粘贴 |
 | 附件预览与移除 | `pendingAttachments`、`attachmentDownloader`、`onRemoveAttachment` / `remove-attachment`；下载图片的临时 URL 在替换/卸载时释放 |
 | 扩展区 | React 的 `composerHeader`、`footerAddon`；Vue 同名插槽，头部也支持组件 prop |
 | 禁用与文案 | `disabledInput`、`sendDisabled`、`queueDisabled`、`steerDisabled`；占位、按钮、队列、建议与附件文案可覆盖 |
 
 上传、鉴权、错误处理、排队持久化和会话切换由宿主管理。组件提供输入与展示，回调可以接入任意服务。React 保留没有 `onStop` 时调用 `onSend("send")` 的原有回退；Vue 通过 `stop` 事件交给宿主。
+
+粘贴会读取剪贴板中的全部文件（图片和其他文件），按剪贴板顺序逐个调用 `onPasteAttachment`；没有文件名的条目会生成 `pasted-image-*` 或 `pasted-file-*` 名称。同一剪贴板还包含纯文本时，组件保留浏览器的文本插入并同时添加附件。上传顺序、并发和失败重试由宿主负责；`ChatRuntimeWindow` 会把连续粘贴的文件排队依次上传，不会只保留第一个。
 
 原有 `ChatPanel`、`ChatWindow`、`ChatRuntimeWindow` 已使用独立 Composer。旧的 chat 类型名称与原有 props/事件继续可用；运行窗口继续负责 adapter 上传与发送，并把附件和运行状态传给输入区。附件与自定义头部可以同时显示。
 

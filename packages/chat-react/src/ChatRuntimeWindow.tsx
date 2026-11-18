@@ -285,6 +285,8 @@ export function ChatRuntimeWindow({
   const [internalDraft, setInternalDraft] = useState("");
   const [internalPendingAttachments, setInternalPendingAttachments] = useState<ChatMessageAttachment[]>([]);
   const [attachmentUploadPending, setAttachmentUploadPending] = useState(false);
+  const attachmentUploadQueueRef = useRef<File[]>([]);
+  const attachmentUploadRunningRef = useRef(false);
   const [sending, setSending] = useState(false);
   const [streamingAssistantMessageCode, setStreamingAssistantMessageCode] = useState<string | null>(null);
   const [steering, setSteering] = useState(false);
@@ -1108,24 +1110,61 @@ export function ChatRuntimeWindow({
     });
   }
 
-  async function handleAttachmentUpload(file: File) {
-    if (!file || !activeAdapter.uploadAttachment || attachmentUploadPending) return;
+  async function drainAttachmentUploadQueue() {
+    if (attachmentUploadRunningRef.current) return;
+    const adapter = activeAdapter;
+    if (!adapter.uploadAttachment) {
+      attachmentUploadQueueRef.current.length = 0;
+      return;
+    }
+    attachmentUploadRunningRef.current = true;
+    setAttachmentUploadPending(true);
+    let targetSession: ChatSession;
     try {
-      const activeSession = await ensureSession();
-      setAttachmentUploadPending(true);
-      const attachment = await activeAdapter.uploadAttachment(activeSession, {
-        file,
-        kind: file.type.startsWith("image/") ? "image" : "file",
-        summary: file.name,
-      });
-      if (activeSessionCodeRef.current === activeSession.sessionId) {
-        setPendingAttachments((current) => [...current, attachment]);
-      }
+      targetSession = await ensureSession();
     } catch (error) {
+      attachmentUploadQueueRef.current.length = 0;
+      attachmentUploadRunningRef.current = false;
+      setAttachmentUploadPending(false);
       onError(error instanceof Error ? error.message : runtimeText("Chat attachment upload failed"), runtimeText("Attachment upload failed"));
+      return;
+    }
+    try {
+      while (attachmentUploadQueueRef.current.length) {
+        if (activeSessionCodeRef.current !== targetSession.sessionId) {
+          attachmentUploadQueueRef.current.length = 0;
+          break;
+        }
+        const file = attachmentUploadQueueRef.current[0];
+        try {
+          const attachment = await adapter.uploadAttachment(targetSession, {
+            file,
+            kind: file.type.startsWith("image/") ? "image" : "file",
+            summary: file.name,
+          });
+          if (activeSessionCodeRef.current === targetSession.sessionId) {
+            setPendingAttachments((current) => [...current, attachment]);
+          }
+        } catch (error) {
+          onError(error instanceof Error ? error.message : runtimeText("Chat attachment upload failed"), runtimeText("Attachment upload failed"));
+        } finally {
+          attachmentUploadQueueRef.current.shift();
+        }
+      }
     } finally {
+      attachmentUploadRunningRef.current = false;
       setAttachmentUploadPending(false);
     }
+  }
+
+  function queueAttachmentUploads(files: File[]) {
+    if (!files.length || !activeAdapter.uploadAttachment) return;
+    attachmentUploadQueueRef.current.push(...files);
+    void drainAttachmentUploadQueue();
+  }
+
+  function handleAttachmentUpload(file: File) {
+    queueAttachmentUploads([file]);
   }
 
   async function runMessage(

@@ -67,19 +67,48 @@ export function insertNewlineAtCursor(textarea: HTMLTextAreaElement) {
   textarea.setSelectionRange(start + 1, start + 1);
   return value;
 }
-export function pastedImage(data: DataTransfer | null): File | null {
-  const item = Array.from(data?.items ?? []).find(
-    (item) => item.kind === "file" && item.type.startsWith("image/")
+function pastedFileList(data: DataTransfer | null): File[] {
+  if (!data) return [];
+  const files = Array.from(data.files ?? []);
+  if (files.length) return files;
+  return Array.from(data.items ?? [])
+    .filter((item) => item.kind === "file")
+    .map((item) => item.getAsFile())
+    .filter((file): file is File => file !== null);
+}
+
+function namePastedFile(file: File, suffix: string): File {
+  if (file.name.trim()) return file;
+  const image = file.type.startsWith("image/");
+  const subtype = (file.type.split("/")[1] ?? "")
+    .split(";")[0]
+    .split("+")[0]
+    .split(".")[0];
+  const extension = subtype || (image ? "png" : "bin");
+  return new File([file], `pasted-${image ? "image" : "file"}${suffix}.${extension}`, {
+    type: file.type || (image ? "image/png" : "application/octet-stream"),
+  });
+}
+
+/** Every image or file in a paste payload, in clipboard order.
+ * Unnamed clipboard entries receive a generated name because uploads usually need one.
+ */
+export function pastedFiles(data: DataTransfer | null): File[] {
+  const files = pastedFileList(data);
+  const stamp = Date.now();
+  const multiple = files.length > 1;
+  return files.map((file, index) =>
+    namePastedFile(file, multiple ? `-${stamp}-${index + 1}` : `-${stamp}`)
   );
-  const file = item?.getAsFile();
-  if (!file) return null;
-  return file.name.trim()
-    ? file
-    : new File(
-        [file],
-        `pasted-image-${Date.now()}.${file.type.split("/")[1] || "png"}`,
-        { type: file.type || "image/png" }
-      );
+}
+
+export function pastedImage(data: DataTransfer | null): File | null {
+  return pastedFiles(data).find((file) => file.type.startsWith("image/")) ?? null;
+}
+
+/** Mixed clipboard payloads keep their text insertion; attachments are still added. */
+export function pasteKeepsText(data: DataTransfer | null): boolean {
+  return Boolean(data?.getData("text/plain").trim());
 }
 export function isImageAttachment(attachment: ComposerAttachment) {
   return (

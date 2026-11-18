@@ -6,8 +6,8 @@
 
 ```sh
 npm install --save-exact \
-  @personai/agent-ui-chat-react-native@1.0.0-preview.24 \
-  @personai/agent-ui-chat-core@1.0.0-preview.24
+  @personai/agent-ui-chat-react-native@1.0.0-preview.25 \
+  @personai/agent-ui-chat-core@1.0.0-preview.25
 ```
 
 peer dependencies：`react`（>= 19.2）、`react-native`（>= 0.70）。不导出 CSS 入口。

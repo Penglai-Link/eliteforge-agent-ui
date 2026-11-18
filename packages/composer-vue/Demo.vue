@@ -131,7 +131,7 @@ function stop() {
     <h1>独立消息输入区 · Vue</h1>
     <p>
       输入 / 或 $ 选择命令与技能。Enter 发送，Shift+Enter 换行；运行中 Enter
-      排队，⌘/Ctrl+Enter 即时调整。
+      排队，⌘/Ctrl+Enter 即时调整。可直接粘贴剪贴板中的图片或文件。
     </p>
     <div class="toolbar">
       <button
