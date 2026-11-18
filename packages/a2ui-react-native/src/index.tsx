@@ -107,8 +107,59 @@ const VARIANT_FONT_SIZE: Record<string, number> = {
   h1: 24, h2: 21, h3: 18, h4: 16, h5: 15,
 };
 
+/** Small layout constants shared by the question-card parts. */
+const QUESTION = {
+  gap: 8,
+  optionGap: 2,
+  optionPaddingX: 9,
+  optionPaddingY: 8,
+  navSize: 24,
+  titleSize: 13,
+  titleLineHeight: 19,
+  optionTitleSize: 14,
+  optionTitleLineHeight: 20,
+  descriptionSize: 12,
+  descriptionLineHeight: 17,
+} as const;
+
 const warnedTags = new Set<string>();
 let warnedUnsupportedComponent = false;
+
+/**
+ * Stand-in for the hidden native radio inside a `QuestionCard` option. Keeping
+ * the change handler on an element lets the option row own the press target
+ * without nesting a second `Pressable` inside it.
+ */
+function QuestionRadioHandle(_props: {
+  disabled: boolean;
+  onSelect: () => void;
+}): null {
+  return null;
+}
+
+/** `color-mix()` does not exist in React Native; tint hex/rgb colors instead. */
+function tint(color: string, alpha: number): string {
+  const value = color.trim();
+  const hex = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(value);
+  const rgb = /^rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/i.exec(value);
+  const channels = hex
+    ? (() => {
+        const raw = hex[1].length === 3
+          ? hex[1].split("").map((part) => `${part}${part}`).join("")
+          : hex[1];
+        return [
+          Number.parseInt(raw.slice(0, 2), 16),
+          Number.parseInt(raw.slice(2, 4), 16),
+          Number.parseInt(raw.slice(4, 6), 16),
+        ];
+      })()
+    : rgb
+      ? [Number(rgb[1]), Number(rgb[2]), Number(rgb[3])]
+      : null;
+  if (!channels) return color;
+  const [red, green, blue] = channels;
+  return `rgba(${red}, ${green}, ${blue}, ${alpha})`;
+}
 
 function mergeTheme(theme?: Partial<A2UIReactNativeTheme>): A2UIReactNativeTheme {
   return theme ? { ...defaultA2UIReactNativeTheme, ...theme } : defaultA2UIReactNativeTheme;
@@ -144,7 +195,13 @@ function normalizeStyle(style: unknown): A2UIStyle | undefined {
 }
 
 function baseTextStyle(theme: A2UIReactNativeTheme): A2UIStyle {
-  return { color: theme.textColor, fontSize: 15, lineHeight: 22 };
+  return {
+    color: theme.textColor,
+    flexShrink: 1,
+    fontSize: 15,
+    lineHeight: 22,
+    minWidth: 0,
+  };
 }
 
 function inputStyle(theme: A2UIReactNativeTheme): A2UIStyle {
@@ -287,6 +344,7 @@ function renderTextArea(
   theme: A2UIReactNativeTheme,
   style: A2UIStyle | undefined,
 ): ReactNode {
+  const questionAnswer = hasClass(props, "a2ui-question-answer");
   return (
     <TextInput
       accessibilityLabel={typeof props["aria-label"] === "string" ? props["aria-label"] : undefined}
@@ -298,7 +356,27 @@ function renderTextArea(
       }}
       placeholder={typeof props.placeholder === "string" ? props.placeholder : undefined}
       placeholderTextColor={theme.mutedTextColor}
-      style={[inputStyle(theme), { minHeight: 96, textAlignVertical: "top" }, style]}
+      style={[
+        questionAnswer
+          ? {
+              backgroundColor: theme.surfaceColor,
+              borderColor: theme.borderColor,
+              borderRadius: Math.max(8, theme.borderRadius - 4),
+              borderWidth: 1,
+              color: theme.textColor,
+              flex: 1,
+              fontSize: 13,
+              lineHeight: 18,
+              maxHeight: 96,
+              minHeight: 38,
+              minWidth: 0,
+              paddingHorizontal: 10,
+              paddingVertical: 8,
+              textAlignVertical: "top",
+            }
+          : [inputStyle(theme), { minHeight: 96, textAlignVertical: "top" }],
+        style,
+      ]}
       value={props.value == null ? "" : String(props.value)}
     />
   );
@@ -311,14 +389,71 @@ function renderButton(
   style: A2UIStyle | undefined,
 ): ReactNode {
   const disabled = Boolean(props.disabled);
+  const accessibilityLabel = typeof props["aria-label"] === "string" ? props["aria-label"] : undefined;
+  if (hasClass(props, "a2ui-question-nav-button")) {
+    const back = props["data-nav"] === "back";
+    return (
+      <Pressable
+        accessibilityLabel={accessibilityLabel}
+        accessibilityRole="button"
+        accessibilityState={{ disabled }}
+        disabled={disabled}
+        hitSlop={8}
+        onPress={() => {
+          if (!disabled) props.onClick?.({ currentTarget: undefined });
+        }}
+        style={[
+          {
+            alignItems: "center",
+            backgroundColor: "transparent",
+            borderRadius: Math.max(6, theme.borderRadius - 6),
+            height: QUESTION.navSize,
+            justifyContent: "center",
+            opacity: disabled ? 0.35 : 1,
+            padding: 0,
+            width: QUESTION.navSize,
+          },
+          style,
+        ]}
+      >
+        <Text
+          style={{
+            color: theme.mutedTextColor,
+            fontSize: 20,
+            fontWeight: "500",
+            lineHeight: 22,
+            textAlign: "center",
+          }}
+        >
+          {back ? "‹" : "›"}
+        </Text>
+      </Pressable>
+    );
+  }
   const variant = props["data-variant"];
   const danger = hasClass(props, "approval-reject") || hasClass(props, "question-reject");
-  const primary = !danger && (variant === "primary" || hasClass(props, "approval-approve")
-    || hasClass(props, "question-confirm") || hasClass(props, "question-nav-button"));
-  const background = danger ? theme.dangerColor : primary ? theme.primaryColor : theme.surfaceColor;
-  const color = danger || primary ? theme.primaryTextColor : theme.textColor;
+  const confirm = hasClass(props, "a2ui-question-confirm");
+  const skip = hasClass(props, "a2ui-question-skip");
+  const compact = confirm || skip;
+  const primary = !danger && !confirm && (variant === "primary"
+    || hasClass(props, "approval-approve"));
+  const background = confirm
+    ? theme.textColor
+    : danger
+      ? theme.dangerColor
+      : primary
+        ? theme.primaryColor
+        : compact
+          ? "transparent"
+          : theme.surfaceColor;
+  const color = confirm
+    ? theme.surfaceColor
+    : danger || primary
+      ? theme.primaryTextColor
+      : theme.textColor;
   return (
     <Pressable
+      accessibilityLabel={accessibilityLabel}
       accessibilityRole="button"
       accessibilityState={{ disabled }}
       disabled={disabled}
@@ -329,18 +464,20 @@ function renderButton(
         {
           alignItems: "center",
           backgroundColor: background,
-          borderColor: primary || danger ? background : theme.borderColor,
-          borderRadius: theme.borderRadius,
+          borderColor: confirm || danger || primary ? background : theme.borderColor,
+          borderRadius: compact ? 8 : theme.borderRadius,
           borderWidth: 1,
           justifyContent: "center",
           opacity: disabled ? 0.5 : 1,
-          paddingHorizontal: 14,
-          paddingVertical: 9,
+          paddingHorizontal: compact ? 11 : 14,
+          paddingVertical: compact ? 5 : 9,
         },
         style,
       ]}
     >
-      <Text style={{ color, fontSize: 14, fontWeight: "600" }}>{inlineChildren(children)}</Text>
+      <Text style={{ color, fontSize: compact ? 12 : 14, fontWeight: "600", lineHeight: compact ? 17 : 20 }}>
+        {inlineChildren(children)}
+      </Text>
     </Pressable>
   );
 }
@@ -416,6 +553,7 @@ function renderProgress(
 }
 
 function renderText(
+  tag: string,
   props: Record<string, any>,
   children: readonly ReactNode[],
   theme: A2UIReactNativeTheme,
@@ -441,9 +579,64 @@ function renderText(
       </Text>
     );
   }
+  if (hasClass(props, "a2ui-question-arrow")) {
+    return (
+      <Text
+        accessibilityElementsHidden
+        importantForAccessibility="no-hide-descendants"
+        style={[
+          baseTextStyle(theme),
+          { alignSelf: "center", color: theme.primaryColor, fontSize: 14, fontWeight: "700", lineHeight: 20 },
+          style,
+        ]}
+      >
+        {"✓"}
+      </Text>
+    );
+  }
   const variant = typeof props["data-variant"] === "string" ? props["data-variant"] : undefined;
   const fontSize = variant ? VARIANT_FONT_SIZE[variant] : undefined;
   const inline = inlineChildren(children);
+  const partStyle: A2UIStyle = {};
+  if (tag === "strong" || tag === "b") partStyle.fontWeight = "600";
+  if (tag === "em" || tag === "i") partStyle.fontStyle = "italic";
+  if (tag === "u") partStyle.textDecorationLine = "underline";
+  if (tag === "code" || tag === "kbd" || tag === "pre") {
+    partStyle.fontFamily = "monospace";
+  }
+  if (tag === "small") {
+    partStyle.color = theme.mutedTextColor;
+    partStyle.fontSize = QUESTION.descriptionSize;
+    partStyle.lineHeight = QUESTION.descriptionLineHeight;
+  }
+  if (hasClass(props, "a2ui-question-progress")) {
+    partStyle.color = theme.mutedTextColor;
+    partStyle.fontSize = 11;
+    partStyle.lineHeight = 15;
+  }
+  if (hasClass(props, "a2ui-question-title")) {
+    partStyle.color = theme.textColor;
+    partStyle.flexShrink = 1;
+    partStyle.fontSize = QUESTION.titleSize;
+    partStyle.fontWeight = "600";
+    partStyle.lineHeight = QUESTION.titleLineHeight;
+    partStyle.minWidth = 0;
+  }
+  if (hasClass(props, "a2ui-question-option-title")) {
+    partStyle.fontSize = QUESTION.optionTitleSize;
+    partStyle.fontWeight = "500";
+    partStyle.lineHeight = QUESTION.optionTitleLineHeight;
+  }
+  if (hasClass(props, "a2ui-question-description")) {
+    partStyle.color = theme.mutedTextColor;
+    partStyle.fontSize = QUESTION.descriptionSize;
+    partStyle.lineHeight = QUESTION.descriptionLineHeight;
+  }
+  if (hasClass(props, "a2ui-interaction-status")) {
+    partStyle.color = theme.mutedTextColor;
+    partStyle.fontSize = QUESTION.descriptionSize;
+    partStyle.lineHeight = QUESTION.descriptionLineHeight;
+  }
   return (
     <Text
       accessibilityLabel={typeof props["aria-label"] === "string" ? props["aria-label"] : undefined}
@@ -451,11 +644,74 @@ function renderText(
       style={[
         baseTextStyle(theme),
         fontSize ? { fontSize, fontWeight: "600", lineHeight: fontSize + 6 } : null,
+        partStyle,
         style,
       ]}
     >
       {inline}
     </Text>
+  );
+}
+
+function findRadioHandle(
+  children: readonly ReactNode[],
+): { props: { disabled?: boolean; onSelect?: () => void } } | null {
+  for (const child of children) {
+    if (!isValidElement(child)) continue;
+    if (child.type === QuestionRadioHandle) {
+      return child as { props: { disabled?: boolean; onSelect?: () => void } };
+    }
+    const nested = (child.props as Record<string, any>)?.children;
+    if (nested == null) continue;
+    const found = findRadioHandle(Array.isArray(nested) ? nested : [nested]);
+    if (found) return found;
+  }
+  return null;
+}
+
+/**
+ * A question option is one press target. The DOM nests a visually hidden radio
+ * inside the label; React Native has neither label activation nor radio groups,
+ * so mirror the whole-row target and expose the radio semantics on it.
+ */
+function renderQuestionOption(
+  props: Record<string, any>,
+  children: readonly ReactNode[],
+  theme: A2UIReactNativeTheme,
+  style: A2UIStyle | undefined,
+): ReactNode {
+  const selected = props["data-selected"] === true || props["data-selected"] === "true";
+  const handle = findRadioHandle(children);
+  const disabled = Boolean(handle?.props.disabled);
+  const content = containerChildren(children, theme);
+  return (
+    <Pressable
+      accessibilityRole="radio"
+      accessibilityState={{ checked: selected, disabled }}
+      disabled={disabled}
+      onPress={() => {
+        if (!disabled) handle?.props.onSelect?.();
+      }}
+      style={({ pressed }) => [
+        {
+          alignItems: "flex-start",
+          backgroundColor: selected ? tint(theme.textColor, 0.06) : "transparent",
+          borderColor: selected ? tint(theme.textColor, 0.18) : "transparent",
+          borderRadius: Math.max(8, theme.borderRadius - 4),
+          borderWidth: 1,
+          flexDirection: "row",
+          gap: QUESTION.gap,
+          minWidth: 0,
+          paddingHorizontal: QUESTION.optionPaddingX,
+          paddingVertical: QUESTION.optionPaddingY,
+        },
+        pressed && !selected && !disabled ? { backgroundColor: tint(theme.textColor, 0.04) } : null,
+        disabled ? { opacity: 0.5 } : null,
+        style,
+      ]}
+    >
+      {content}
+    </Pressable>
   );
 }
 
@@ -466,9 +722,13 @@ function renderContainer(
   theme: A2UIReactNativeTheme,
   style: A2UIStyle | undefined,
 ): ReactNode {
+  if (tag === "label" && hasClass(props, "a2ui-question-option")) {
+    return renderQuestionOption(props, children, theme, style);
+  }
   const content = containerChildren(children, theme);
   const base: A2UIStyle = {
     flexDirection: hasClass(props, "a2ui-row") || tag === "tr" ? "row" : "column",
+    minWidth: 0,
   };
   if (hasClass(props, "a2ui-row")) base.gap = theme.spacing / 2;
   if (hasClass(props, "a2ui-column")) base.gap = theme.spacing / 2;
@@ -487,6 +747,59 @@ function renderContainer(
   if (hasClass(props, "a2ui-approval-header")) {
     base.flexDirection = "row";
     base.gap = theme.spacing / 2;
+  }
+  if (hasClass(props, "a2ui-questioncard")) {
+    base.backgroundColor = theme.surfaceColor;
+    base.borderColor = theme.borderColor;
+    base.borderRadius = theme.borderRadius;
+    base.borderWidth = 1;
+    base.gap = QUESTION.gap;
+    base.padding = theme.spacing;
+    base.width = "100%";
+  }
+  if (hasClass(props, "a2ui-question-header")) {
+    base.alignItems = "flex-start";
+    base.flexDirection = "row";
+    base.flexWrap = "wrap";
+    base.gap = QUESTION.gap;
+    base.justifyContent = "space-between";
+    base.marginBottom = QUESTION.gap;
+    base.padding = 0;
+    base.width = "100%";
+  }
+  if (hasClass(props, "a2ui-question-navigation")) {
+    base.alignItems = "center";
+    base.flexDirection = "row";
+    base.flexShrink = 0;
+    base.gap = 2;
+    base.marginLeft = "auto";
+  }
+  if (hasClass(props, "a2ui-question-options")) {
+    base.gap = QUESTION.optionGap;
+    base.padding = 0;
+    base.width = "100%";
+  }
+  if (hasClass(props, "a2ui-question-content")) {
+    base.flex = 1;
+    base.gap = 2;
+    base.minWidth = 0;
+  }
+  if (hasClass(props, "a2ui-question-actions")) {
+    base.alignItems = "center";
+    base.borderTopColor = theme.borderColor;
+    base.borderTopWidth = 1;
+    base.flexDirection = "row";
+    base.flexWrap = "wrap";
+    base.gap = QUESTION.gap;
+    base.paddingTop = QUESTION.gap;
+    base.width = "100%";
+  }
+  if (hasClass(props, "a2ui-question-other")) {
+    base.alignItems = "center";
+    base.flex = 1;
+    base.flexDirection = "row";
+    base.gap = QUESTION.gap;
+    base.minWidth = 0;
   }
   return <View style={[base, style]}>{content}</View>;
 }
@@ -516,12 +829,23 @@ function makeElement(
       );
     }
     return (
-      <View style={[{ gap: theme.spacing }, options.style]} testID={options.testID}>
+      <View
+        style={[{ alignSelf: "stretch", gap: theme.spacing, minWidth: 0 }, options.style]}
+        testID={options.testID}
+      >
         {content}
       </View>
     );
   }
 
+  if (tag === "input" && hasClass(props, "a2ui-question-radio")) {
+    return (
+      <QuestionRadioHandle
+        disabled={Boolean(props.disabled) || Boolean(props.readOnly)}
+        onSelect={() => props.onChange?.({ target: { checked: true } })}
+      />
+    );
+  }
   if (tag === "input") return renderInput(props, children, theme, style);
   if (tag === "textarea") return renderTextArea(props, theme, style);
   if (tag === "button") return renderButton(props, children, theme, style);
@@ -536,10 +860,25 @@ function makeElement(
   }
   if (tag === "progress") return renderProgress(props, theme, style);
   if (tag === "svg") {
+    if (hasClass(props, "a2ui-interaction-icon")) return null;
     return <Text style={{ color: theme.mutedTextColor, fontSize: 14 }}>•</Text>;
   }
   if (SVG_IGNORED_TAGS.has(tag)) return null;
-  if (TEXT_TAGS.has(tag)) return renderText(props, children, theme, style);
+  if (tag === "legend" && hasClass(props, "a2ui-question-header")) {
+    return renderContainer(tag, props, children, theme, style);
+  }
+  if (TEXT_TAGS.has(tag)) {
+    // These spans/legends hold layout and buttons in the shared composition;
+    // flattening them into a single <Text> would drop the press targets.
+    if (
+      hasClass(props, "a2ui-question-header")
+      || hasClass(props, "a2ui-question-navigation")
+      || hasClass(props, "a2ui-question-content")
+    ) {
+      return renderContainer(tag, props, children, theme, style);
+    }
+    return renderText(tag, props, children, theme, style);
+  }
   if (CONTAINER_TAGS.has(tag)) return renderContainer(tag, props, children, theme, style);
 
   if (!warnedTags.has(tag) && typeof console !== "undefined") {

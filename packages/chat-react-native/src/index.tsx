@@ -4,6 +4,7 @@ export * from "./Markdown";
 export * from "./MessageList";
 export * from "./Composer";
 export * from "./ApprovalCard";
+export * from "./InteractionReceipt";
 export * from "./ToolCard";
 export * from "./ChatPanel";
 

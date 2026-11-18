@@ -7,6 +7,7 @@ import {
   type ChatMessage,
 } from "@personai/agent-ui-chat-core/headless";
 import { A2UIClient, A2UIRenderer } from "@personai/agent-ui-a2ui-react-native";
+import { InteractionReceipt } from "./InteractionReceipt";
 import { Markdown } from "./Markdown";
 import {
   chatMetaTextStyle,
@@ -115,7 +116,13 @@ export function MessageBubble({
           {`${message.actor} · ${formatTime(message.createdAt)}`}
         </Text>
       ) : null}
-      {body ? (
+      {message.interactionResponse ? (
+        <InteractionReceipt
+          actorName={message.actor}
+          message={message}
+          theme={theme}
+        />
+      ) : body ? (
         <View
           style={{
             backgroundColor: user ? theme.userBubbleColor : theme.assistantBubbleColor,

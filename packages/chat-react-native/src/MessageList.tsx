@@ -24,6 +24,8 @@ export interface MessageListProps {
   emptyTitle?: string;
   emptyDescription?: string;
   autoScrollToEnd?: boolean;
+  /** Extra dependency for auto-scroll; bump when a footer grows (e.g. pending cards). */
+  scrollToEndKey?: string | number;
   ListHeaderComponent?: ReactNode;
   ListFooterComponent?: ReactNode;
 }
@@ -44,15 +46,16 @@ export function MessageList({
   emptyTitle = "No messages yet",
   emptyDescription,
   autoScrollToEnd = true,
+  scrollToEndKey,
   ListHeaderComponent,
   ListFooterComponent,
 }: MessageListProps): ReactNode {
   const theme = resolveChatTheme(themeOverride);
   const listRef = useRef<any>(null);
   useEffect(() => {
-    if (!autoScrollToEnd || !messages.length) return;
+    if (!autoScrollToEnd || (!messages.length && scrollToEndKey === undefined)) return;
     listRef.current?.scrollToEnd?.({ animated: true });
-  }, [autoScrollToEnd, messages.length]);
+  }, [autoScrollToEnd, messages.length, scrollToEndKey]);
   return (
     <FlatList
       contentContainerStyle={[

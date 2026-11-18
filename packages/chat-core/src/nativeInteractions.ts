@@ -14,9 +14,15 @@ export function nativeUserInputRequests(events: ChatAguiStreamEvent[], sessionId
   const terminal = events.filter((event) => !event.threadId || event.threadId === sessionId).slice().reverse()
     .find((event) => ["RUN_STARTED", "RUN_FINISHED", "RUN_ERROR"].includes(event.type) && !isAguiPresentationFailureEvent(event));
   if (terminal?.type !== "RUN_FINISHED" || terminal.outcome?.type !== "interrupt" || !terminal.runId) return [];
-  return terminal.outcome.interrupts.filter((interrupt) => !Array.isArray(interrupt.metadata?.questions)).map((interrupt) => {
+  return terminal.outcome.interrupts.map((interrupt) => {
     const interaction = record(interrupt.metadata?.interaction);
     const presentation = record(interaction.presentation);
+    // `chat_ask_user` carries the canonical question list in the interrupt
+    // metadata. Presentation copies exist for A2UI surfaces and must not
+    // truncate multi-question payloads; prefer the canonical list when present.
+    const canonicalQuestions = Array.isArray(interrupt.metadata?.questions) ? interrupt.metadata.questions : null;
+    const presentedQuestions = Array.isArray(presentation.questions) ? presentation.questions : null;
+    const sourceQuestions = canonicalQuestions ?? presentedQuestions;
     const schema = record(interrupt.responseSchema);
     const approval = interrupt.reason === "approval_required" || schema.type === "boolean";
     const choices = approval ? [true, false] : Array.isArray(schema.enum) ? schema.enum : "const" in schema ? [schema.const] : [];
@@ -33,8 +39,8 @@ export function nativeUserInputRequests(events: ChatAguiStreamEvent[], sessionId
       ...(typeof interaction.expires_at_unix_ms === "number" ? { expiresAtMs: interaction.expires_at_unix_ms } : {}),
       ...(!approval && presentation.kind === "a2ui" && Array.isArray(presentation.messages) ? { a2uiInteraction: {messages: presentation.messages, surfaceId: String((presentation.messages[0] as any)?.createSurface?.surfaceId ?? "")} } : {}),
       requestedAt: terminal.timestamp ?? 0,
-      questions: Array.isArray(presentation.questions) ? presentation.questions.map((q: any)=>({questionId:String(q.id),question:String(q.question),options:(q.options??[]).map((o:any)=>({optionId:String(o.id),label:String(o.label),description:o.description})),allowCustomAnswer:q.allow_free_text,allowSkip:q.allow_skip})) : [{ questionId: interrupt.id, question, options, allowCustomAnswer: !choices.length, allowSkip: false }],
-      nativeInteraction: { questionnaire:Array.isArray(presentation.questions), reason: interrupt.reason, responseSchema: interrupt.responseSchema, optionPayloads, ...(approval ? {details:{...parseToolApprovalDetails(presentation), risk: approvalView?.risk}} : {}) },
+      questions: sourceQuestions ? sourceQuestions.map((q: any)=>({questionId:String(q.questionCode ?? q.questionId ?? q.id),question:String(q.question),options:(q.options??[]).map((o:any)=>({optionId:String(o.optionCode ?? o.optionId ?? o.id),label:String(o.label),description:o.description})),allowCustomAnswer: typeof q.allowCustomAnswer === "boolean" ? q.allowCustomAnswer : typeof q.allow_free_text === "boolean" ? q.allow_free_text : true,allowSkip: typeof q.allowSkip === "boolean" ? q.allowSkip : typeof q.allow_skip === "boolean" ? q.allow_skip : true})) : [{ questionId: interrupt.id, question, options, allowCustomAnswer: !choices.length, allowSkip: false }],
+      nativeInteraction: { questionnaire:Boolean(sourceQuestions), reason: interrupt.reason, responseSchema: interrupt.responseSchema, optionPayloads, ...(approval ? {details:{...parseToolApprovalDetails(presentation), risk: approvalView?.risk}} : {}) },
     };
   });
 }

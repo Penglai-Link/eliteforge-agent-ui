@@ -1,12 +1,14 @@
-import type { ReactNode } from "react";
+import { useMemo, type ReactNode } from "react";
 import { Text, View } from "react-native";
-import type {
-  ChatA2uiActionHandler,
-  ChatA2uiSession,
-  ChatMessage,
-  ChatSubmitMode,
-  ChatUserInputAnswer,
-  ChatUserInputRequest,
+import {
+  interactionMessages,
+  type ChatA2uiActionHandler,
+  type ChatA2uiSession,
+  type ChatMessage,
+  type ChatSubmitMode,
+  type ChatUserInputAnswer,
+  type ChatUserInputLabels,
+  type ChatUserInputRequest,
 } from "@personai/agent-ui-chat-core/headless";
 import { ApprovalCard } from "./ApprovalCard";
 import { Composer } from "./Composer";
@@ -40,6 +42,8 @@ export interface ChatPanelProps {
   /** Pending native approvals/questions; answers go back through the RPC host. */
   userInputRequests?: ChatUserInputRequest[];
   onAnswerUserInput?: (answers: ChatUserInputAnswer[]) => void;
+  /** Labels used by the question card and its transcript receipt. */
+  userInputLabels?: Partial<ChatUserInputLabels>;
   approvalPending?: boolean;
   runtime?: ChatA2uiSession;
   onA2UIAction?: ChatA2uiActionHandler;
@@ -76,6 +80,7 @@ export function ChatPanel({
   stopLabel,
   userInputRequests = [],
   onAnswerUserInput,
+  userInputLabels,
   approvalPending = false,
   runtime,
   onA2UIAction,
@@ -86,6 +91,10 @@ export function ChatPanel({
 }: ChatPanelProps): ReactNode {
   const theme = resolveChatTheme(themeOverride);
   const pending = userInputRequests.filter((request) => request.status === "Pending");
+  const transcriptMessages = useMemo(
+    () => interactionMessages(messages, userInputRequests, undefined, userInputLabels),
+    [messages, userInputLabels, userInputRequests],
+  );
   return (
     <View
       style={[{ backgroundColor: theme.panelColor, flex: 1 }, style]}
@@ -113,25 +122,29 @@ export function ChatPanel({
         contentContainerStyle={contentContainerStyle}
         emptyDescription={emptyDescription}
         emptyTitle={emptyTitle}
-        messages={messages}
+        ListFooterComponent={
+          pending.length > 0 && onAnswerUserInput ? (
+            <View style={{ marginTop: 8 }}>
+              {pending.map((request) => (
+                <ApprovalCard
+                  key={request.requestId}
+                  labels={userInputLabels}
+                  onSubmit={onAnswerUserInput}
+                  pending={approvalPending}
+                  request={request}
+                  theme={themeOverride}
+                />
+              ))}
+            </View>
+          ) : undefined
+        }
+        messages={transcriptMessages}
         onA2UIAction={onA2UIAction}
         runtime={runtime}
+        scrollToEndKey={pending.length}
         showIdentity={showIdentity}
         theme={themeOverride}
       />
-      {pending.length > 0 && onAnswerUserInput ? (
-        <View style={{ maxHeight: "45%", paddingHorizontal: 12 }}>
-          {pending.map((request) => (
-            <ApprovalCard
-              key={request.requestId}
-              onSubmit={onAnswerUserInput}
-              pending={approvalPending}
-              request={request}
-              theme={themeOverride}
-            />
-          ))}
-        </View>
-      ) : null}
       {showComposer ? (
         <Composer
           disabled={disabledInput}

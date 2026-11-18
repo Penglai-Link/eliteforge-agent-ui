@@ -70,7 +70,9 @@ export function renderInteraction(ctx: RenderContext, h: Element, props: Record<
     const move = (next: number) => {
         const element = region;
         client.setViewState(surfaceId, key, { tab: next });
-        queueMicrotask(() => element?.querySelector<HTMLElement>("legend")?.focus());
+        // Renderers without a DOM (React Native) expose a host view here; they
+        // still get the state update, they just cannot move DOM focus.
+        queueMicrotask(() => element?.querySelector?.<HTMLElement>("legend")?.focus?.());
     };
     const complete = (value: any) => value?.answerKind === "Option" && q.options.some((o: any) => o.optionId === value.optionId)
         || value?.answerKind === "Other" && !!value.otherText?.trim() || value?.answerKind === "Skipped" && q.allowSkip !== false;
@@ -100,16 +102,16 @@ export function renderInteraction(ctx: RenderContext, h: Element, props: Record<
                 h("legend", { ...part("header"), tabIndex: -1 }, [
                     h("span", part("title"), [q.question]),
                     h("span", { ...part("navigation"), role: "navigation", "aria-label": progress }, [
-                        button(label("back", "Back"), () => move(index - 1), status === "Submitting" || index === 0, part("nav-button"), [icon("m15 18-6-6 6-6")]),
-                        h("span", { "aria-live": "polite" }, [progress]),
-                        button(last ? label("continue", "Continue") : label("next", "Next"), disabled ? () => move(index + 1) : submit, status === "Submitting" || (disabled ? last : !complete(answer)), part("nav-button"), [icon("m9 18 6-6-6-6")]),
+                        button(label("back", "Back"), () => move(index - 1), status === "Submitting" || index === 0, { ...part("nav-button"), "data-nav": "back" }, [icon("m15 18-6-6 6-6")]),
+                        h("span", { ...part("progress"), "aria-live": "polite" }, [progress]),
+                        button(last ? label("continue", "Continue") : label("next", "Next"), disabled ? () => move(index + 1) : submit, status === "Submitting" || (disabled ? last : !complete(answer)), { ...part("nav-button"), "data-nav": last ? "submit" : "next" }, [icon("m9 18 6-6-6-6")]),
                     ]),
                 ]),
                 ...q.options.map((o: any) => {
                     const selected = answer?.optionId === o.optionId && answer?.answerKind === "Option";
                     return h("label", { ...part("option"), "data-selected": selected }, [
                         h("input", { ...part("radio"), type: "radio", disabled, name: [surfaceId, c.id, scope, q.questionId].join(":"), checked: selected, onChange: () => { if (disabled) return; update({ questionId: q.questionId, answerKind: "Option", optionId: o.optionId, otherText: null }); if (!last) move(index + 1); } }, []),
-                        h("span", part("content"), [h("strong", {}, [o.label]), o.description ? h("small", {}, [o.description]) : null]),
+                        h("span", part("content"), [h("strong", part("option-title"), [o.label]), o.description ? h("small", part("description"), [o.description]) : null]),
                         selected ? h("span", part("arrow"), [icon("M5 12h14m-6-6 6 6-6 6")]) : null,
                     ]);
                 }),

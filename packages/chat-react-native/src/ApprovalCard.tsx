@@ -115,13 +115,7 @@ export function ApprovalCard({
     <View
       style={[
         {
-          backgroundColor: theme.surfaceColor,
-          borderColor: theme.borderColor,
-          borderRadius: theme.borderRadius,
-          borderWidth: 1,
-          gap: theme.spacing,
           marginVertical: 6,
-          padding: theme.spacing,
           ...(locked ? { opacity: 0.7 } : null),
         },
         style,

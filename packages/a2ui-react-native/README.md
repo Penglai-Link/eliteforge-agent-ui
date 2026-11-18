@@ -5,7 +5,7 @@ A2UI 协议的 React Native 渲染器。协议解析、Catalog、数据绑定、
 ## 安装
 
 ```sh
-npm install --save-exact @personai/agent-ui-a2ui-react-native@1.0.0-preview.22
+npm install --save-exact @personai/agent-ui-a2ui-react-native@1.0.0-preview.24
 ```
 
 peer dependencies：`react`（>= 19.2）、`react-native`（>= 0.70）。
@@ -56,9 +56,12 @@ for (const message of envelopes) client.apply(message);
 - `Button` → `Pressable` + `Text`
 - `TextField` → `TextInput`（`obscured` 映射 `secureTextEntry`，`number` 映射数字键盘）
 - `CheckBox` / `ChoicePicker` → `Pressable` 勾选标记
+- `QuestionCard` / `ApprovalCard` → 固定交互卡片：题头导航、整行可点选项、独立标题/说明、自定义答案与确认/跳过。卡片自带背景、圆角和内边距，宿主不要再包一层卡片。
 - `Image` → `Image`；`Video` / `AudioPlayer` 降级为占位文案
 - `Progress` → 原生进度条；`Icon` / `Slider` 降级
 - 未知组件 → `Unsupported component: <name>`，可在 `components` 中覆盖
+
+固定的问答/审批卡片按内容自然撑高。宿主应把它放进消息列表等可滚动区域；不要塞进固定高度或嵌套 `ScrollView`，否则会出现内层滚动条或内容被裁切。
 
 ## 主题
 

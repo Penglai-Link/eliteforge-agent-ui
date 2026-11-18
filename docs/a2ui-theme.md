@@ -45,7 +45,9 @@ React Native 不消费 CSS 变量。`@personai/agent-ui-a2ui-react-native` 把�
 | `borderRadius` | `--agent-ui-control-radius` / `--agent-ui-panel-radius` | 控件和卡片圆角 |
 | `spacing` | `--agent-ui-gap` | 组件间距 |
 
-`ChatReactNativeTheme` 在以上字段基础上增加 `panelColor`、`userBubbleColor`、`userBubbleTextColor`、`assistantBubbleColor`。RN 包不导出 `styles.css`，也不读取 CSS 变量；对照表只用于让两端的视觉语义保持一致。完整接入见 [React Native 聊天与 A2UI](react-native.md)。
+`ChatReactNativeTheme` 在以上字段基础上增加 `panelColor`、`userBubbleColor`、`userBubbleTextColor`、`assistantBubbleColor`。RN 包不导出 `styles.css`，也不读取 CSS 变量；对照表只用于让两端的视觉语义保持一致。
+
+`QuestionCard` / `ApprovalCard` 在 RN 复用同一组 token：卡片使用 `surfaceColor` / `borderColor` / `borderRadius`，题头与说明使用 `textColor` / `mutedTextColor`，选中态使用 `textColor` 的低透明度叠加，确认按钮使用 `textColor` 与 `surfaceColor`。没有为交互卡片新增独立 token；宿主只需覆盖上述字段。完整接入见 [React Native 聊天与 A2UI](react-native.md)。
 
 ## 完整变量清单
 

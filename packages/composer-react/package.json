@@ -1,6 +1,6 @@
 {
   "name": "@personai/agent-ui-composer-react",
-  "version": "1.0.0-preview.22",
+  "version": "1.0.0-preview.24",
   "type": "module",
   "files": [
     "dist",
@@ -30,7 +30,7 @@
     "access": "public"
   },
   "dependencies": {
-    "@personai/agent-ui-composer-core": "1.0.0-preview.22"
+    "@personai/agent-ui-composer-core": "1.0.0-preview.24"
   },
   "peerDependencies": {
     "react": "^19.2.5",
