@@ -882,6 +882,26 @@
   font-size: 12px;
 }
 
+.ef-chat__run-notice-diagnostic {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 12px;
+  margin-top: 6px;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.ef-chat__run-notice-diagnostic code {
+  min-width: 0;
+}
+
+.ef-chat__run-notice-diagnostic a {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .ef-chat__run-notice > svg { animation: none; }
 }

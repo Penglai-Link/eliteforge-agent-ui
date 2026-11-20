@@ -10,6 +10,7 @@ export * from "./types";
 export * from "./annotationTypes";
 export * from "./chatMessages";
 export * from "./transcript";
+export * from "./runDiagnostic";
 export * from "./aguiWork";
 export * from "./toolPresentation";
 export * from "./a2ui";

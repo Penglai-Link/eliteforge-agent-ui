@@ -73,7 +73,7 @@ import {
   type ReactNode,
   type SetStateAction,
 } from "react";
-import { ChatPanel, type ChatMarkdownLinkRenderer } from "./ChatPanel";
+import { ChatPanel, type ChatMarkdownLinkRenderer, type ChatPanelProps } from "./ChatPanel";
 import { ChatWindow } from "./ChatWindow";
 
 interface ToastLikeCallback {
@@ -153,6 +153,8 @@ export interface ChatRuntimeWindowProps {
   windowState?: ChatFloatingState;
   onWindowStateChange?: (state: ChatFloatingState) => void;
   renderMarkdownLink?: ChatMarkdownLinkRenderer;
+  /** Renders host content at the end of every run notice, after the built-in diagnostic line. */
+  renderRunNoticeExtra?: ChatPanelProps["renderRunNoticeExtra"];
 }
 
 function presentationReadHealthId(sessionId: string, runId: string) {
@@ -239,6 +241,7 @@ export function ChatRuntimeWindow({
   onArtifactAction,
   onArtifactPreview,
   renderMarkdownLink,
+  renderRunNoticeExtra,
 }: ChatRuntimeWindowProps) {
   const activeAdapter = useMemo(
     () => adapter ?? createMockChatAdapter(),
@@ -2189,6 +2192,7 @@ export function ChatRuntimeWindow({
       onArtifactAction={activeAdapter.artifactAction ? handleArtifactAction : undefined}
       onArtifactPreview={activeAdapter.artifactContentUrl || onArtifactPreview ? handleArtifactPreview : undefined}
       renderMarkdownLink={renderMarkdownLink}
+      renderRunNoticeExtra={renderRunNoticeExtra}
     />
   );
 
@@ -2290,6 +2294,7 @@ export function ChatRuntimeWindow({
       onArtifactAction={activeAdapter.artifactAction ? handleArtifactAction : undefined}
       onArtifactPreview={activeAdapter.artifactContentUrl || onArtifactPreview ? handleArtifactPreview : undefined}
       renderMarkdownLink={renderMarkdownLink}
+      renderRunNoticeExtra={renderRunNoticeExtra}
       />
     );
   }

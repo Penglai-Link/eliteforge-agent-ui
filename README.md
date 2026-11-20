@@ -117,6 +117,8 @@ npm view @personai/agent-ui-chat-react version dist-tags --registry=https://regi
 
 Finished context-compaction notices can expand block details supplied through `HistoryStep.compaction` or the live `agent.memory.compaction.details` event. Translate them with `workRailLabels.notices.compactionBlock`, `compactionNoChanges` and `compactionDetailsUnavailable`. This addition is available from `1.0.0-preview.5`; see `docs/integration-guide.md`.
 
+`1.0.0-preview.29` 起，宿主可在失败的 `RUN_ERROR` 事件上附带 `diagnostic: { traceId, href }`；React/Vue 会在运行失败通知中渲染 Trace ID 与同源链路链接。文案通过 `workRailLabels.notices.traceId(traceId)` 和 `viewTrace` 覆盖，React 另支持 `renderRunNoticeExtra(notice)` 追加自定义内容。诊断随事件到达，历史投影不含 trace 信息；详见 `docs/integration-guide.md`。
+
 `1.0.0-preview.8` groups historical user image thumbnails above their message, aligned to the right, in React and Vue. Annotation controls inherit the host theme, including hover colors.
 
 `1.0.0-preview.8` fixes stale waiting-for-answer states after accepted responses and uses a local monotonic work clock in React and Vue. Live elapsed time continues without new protocol events, pauses while awaiting input, and freezes when execution ends.

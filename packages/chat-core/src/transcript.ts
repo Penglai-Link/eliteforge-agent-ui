@@ -7,12 +7,14 @@ import {
 } from "./display";
 import { CONTEXT_COMPACTION_STEP, historyEventRunId, type SessionHistory } from "./history";
 import { metadataRecordWith } from "./eventMetadata";
+import { parseChatRunDiagnostic } from "./runDiagnostic";
 import { parseCompactionBlocks, type ChatCompactionBlock } from "./compaction";
 import { parseToolPayload, presentToolCall, unwrapGatewayToolCall } from "./toolPresentation";
 import type {
   ChatAguiStreamEvent,
   ChatDebugOptions,
   ChatMessage,
+  ChatRunDiagnostic,
   ReasoningEffort,
   TranscriptAguiEvent,
 } from "./types";
@@ -29,7 +31,7 @@ export type AguiRunNotice =
   | { kind: "compaction"; status: ChatCompactionStatus; code: string; blocks?: ChatCompactionBlock[] }
   | { kind: "integrationWarning"; id: string; code: string; message: string }
   | { kind: "runStopped"; code: string; message: string }
-  | { kind: "runError"; code: string; message: string; toolSchemaBudget?: ToolSchemaBudgetNotice };
+  | { kind: "runError"; code: string; message: string; diagnostic?: ChatRunDiagnostic; toolSchemaBudget?: ToolSchemaBudgetNotice };
 
 const compactionEventStatuses = new Map<string, ChatCompactionStatus>([
   ["agent.memory.context.compaction_requested", "requested"],
@@ -122,10 +124,12 @@ export function buildAguiRunNotices(events: TranscriptAguiEvent[]): AguiRunNotic
       if (isAguiCancellationEvent(event)) {
         stopped = { kind: "runStopped", code, message };
       } else {
+        const diagnostic = parseChatRunDiagnostic("diagnostic" in event ? event.diagnostic : undefined);
         error = {
           kind: "runError",
           code,
           message,
+          ...(diagnostic ? { diagnostic } : {}),
           ...(code.toLowerCase() === "tool_schema_over_budget" ? { toolSchemaBudget: toolSchemaBudget(message) } : {}),
         };
       }

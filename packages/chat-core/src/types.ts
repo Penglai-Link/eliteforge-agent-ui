@@ -267,6 +267,10 @@ export interface ChatRunNoticeLabels {
   mcpUnavailable?: string;
   presentationIncomplete?: string;
   presentationIncompleteDetail?: string;
+  /** Formats the trace identifier under a failed run; defaults to `Trace ID: <id>`. */
+  traceId?: (traceId: string) => string;
+  /** Link text for `ChatRunDiagnostic.href`; defaults to `View trace`. */
+  viewTrace?: string;
   compactionRequested: string;
   compactionStarted: string;
   compactionCompleted: string;
@@ -446,6 +450,17 @@ export type ChatAguiStreamEventType =
   | "ACTIVITY_DELTA"
   | string;
 
+/**
+ * Host trace information for a failed run. Attach it to the terminal
+ * `RUN_ERROR` event; chat-core copies it onto the run-error notice.
+ */
+export interface ChatRunDiagnostic {
+  /** Trace identifier, matched by [A-Za-z0-9][A-Za-z0-9._:-]{0,127}. */
+  traceId: string;
+  /** Same-origin path to the host trace viewer, e.g. `/traces?traceId=…`. */
+  href?: string;
+}
+
 export interface ChatAguiStreamEvent {
   type: ChatAguiStreamEventType;
   threadId?: string;
@@ -465,6 +480,8 @@ export interface ChatAguiStreamEvent {
   parentMessageId?: string;
   timestamp?: number;
   outcome?: ChatAguiRunOutcome | null;
+  /** Optional trace link shown with a run-error notice. Validated by chat-core. */
+  diagnostic?: ChatRunDiagnostic;
   // AG-UI native results are opaque JSON; adapters validate product completion payloads.
   result?: unknown;
   [key: string]: unknown;

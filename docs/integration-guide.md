@@ -402,6 +402,27 @@ assembler facts → live detail + lifecycle → disclosure
 saved step + matching report → history step.compaction → same disclosure
 ```
 
+### 运行诊断（since 1.0.0-preview.29）
+
+宿主可以在终止失败的 `RUN_ERROR` 事件上附带 `diagnostic`。chat-core 会校验后把它带到 `AguiRunNotice` 的 `runError` 分支，React/Vue 在失败通知中渲染 Trace ID 和链路入口；没有诊断时不渲染空行，取消运行不显示诊断。
+
+```ts
+onAguiEvent: (event) => handlers?.onAguiEvent?.(event.type === "RUN_ERROR"
+  ? { ...event, diagnostic: { traceId: run.traceId, href: `/traces?traceId=${encodeURIComponent(run.traceId)}` } }
+  : event);
+```
+
+- `traceId` 只接受 `[A-Za-z0-9][A-Za-z0-9._:-]{0,127}`。适配层可先用 `parseChatRunDiagnostic(value)` 校验并归一化。
+- `href` 必须是同源绝对路径（以单个 `/` 开头）。绝对 URL、`//host`、反斜杠和控制字符会被丢弃，只保留 Trace ID；库不会把宿主输入渲染成脚本链接。
+- 文案通过 `workRailLabels.notices.traceId(traceId)` 和 `viewTrace` 翻译，默认是 `Trace ID: <id>` 和 `View trace`。
+- React `ChatRuntimeWindow` / `ChatPanel` 提供 `renderRunNoticeExtra(notice)`，在内置诊断行之后追加宿主内容；Vue 使用相同 labels，不提供函数插槽。
+
+```text
+RUN_ERROR + diagnostic → chat-core 校验 → runError notice → 内置 Trace ID + 链接 → renderRunNoticeExtra
+```
+
+诊断来自事件，历史投影的 `HistoryRun.error` 不包含 trace 信息。宿主若要在刷新后仍保留链路入口，需要在历史响应中携带自己的诊断字段，或继续通过协议事件回放恢复。
+
 ### 图片附件与历史回放
 
 图片附件和结构化历史中的 `Media` 图片默认使用紧凑缩略图，点击后通过 ChatPanel 的图片预览层查看原图，可用关闭按钮或 Escape 退出。批注图片保留原始 URL、内容和元数据，不把缩略图尺寸传给模型，也不修改历史记录。实时附件与重新加载的历史使用相同的尺寸变量。

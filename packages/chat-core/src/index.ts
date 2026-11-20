@@ -8,6 +8,7 @@ export * from "./display";
 export * from "./mock";
 export * from "./normalize";
 export * from "./transcript";
+export * from "./runDiagnostic";
 export * from "./toolPresentation";
 export * from "./toolOperationDetails";
 export * from "./types";

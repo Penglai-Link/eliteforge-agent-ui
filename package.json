@@ -1,7 +1,7 @@
 {
   "license": "AGPL-3.0-only",
   "name": "eliteforge-agent-ui",
-  "version": "1.0.0-preview.28",
+  "version": "1.0.0-preview.29",
   "private": true,
   "type": "module",
   "packageManager": "npm@11.19.1",

@@ -767,6 +767,66 @@
   font-size: 12px;
 }
 
+.ef-chat__run-notice {
+  display: flex;
+  min-width: 0;
+  align-items: flex-start;
+  gap: 8px;
+  margin-top: 8px;
+  padding: 8px;
+  border-radius: 8px;
+  background: var(--agent-ui-chat-surface-muted);
+  color: var(--agent-ui-chat-text-muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.ef-chat__run-notice > svg {
+  flex: 0 0 auto;
+  margin-top: 2px;
+}
+
+.ef-chat__run-notice--error {
+  background: var(--agent-ui-chat-danger-hover);
+  color: var(--agent-ui-chat-danger);
+}
+
+.ef-chat__run-notice-content {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.ef-chat__run-notice-title {
+  font-weight: 500;
+}
+
+.ef-chat__run-notice-detail {
+  margin-top: 4px;
+  color: var(--agent-ui-chat-text);
+  font-size: 12px;
+}
+
+.ef-chat__run-notice-diagnostic {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 12px;
+  margin-top: 6px;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.ef-chat__run-notice-diagnostic code {
+  min-width: 0;
+}
+
+.ef-chat__run-notice-diagnostic a {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
 .ef-chat__rail-stack {
   min-width: 0;
   max-width: min(920px, 100%);

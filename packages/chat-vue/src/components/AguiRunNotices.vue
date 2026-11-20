@@ -32,7 +32,7 @@ const notices = computed(() => {
         detail = budget && copy?.toolSchemaBudget ? copy.toolSchemaBudget(budget.estimatedTokens, budget.limitTokens, budget.toolCount) : "";
       }
     }
-    return { title, failed, compaction: notice.kind === "compaction" && !["started", "requested"].includes(notice.status) ? notice : undefined, error: detail ? chatErrorPresentation(detail, props.labels.failed ?? "Run failed", notice.kind === "runError" || notice.kind === "runStopped" ? notice.code : undefined) : { summary: "", details: "" } };
+    return { title, failed, diagnostic: notice.kind === "runError" ? notice.diagnostic : undefined, compaction: notice.kind === "compaction" && !["started", "requested"].includes(notice.status) ? notice : undefined, error: detail ? chatErrorPresentation(detail, props.labels.failed ?? "Run failed", notice.kind === "runError" || notice.kind === "runStopped" ? notice.code : undefined) : { summary: "", details: "" } };
   });
 });
 </script>
@@ -53,6 +53,10 @@ const notices = computed(() => {
         <div class="ef-chat__run-notice-detail">{{ notice.error.summary }}</div>
         <details v-if="notice.error.details" class="ef-chat__error-details"><summary>{{ /[\u3400-\u9fff]/.test(labels.thinking) ? '错误详情' : 'Error details' }}</summary><pre>{{ notice.error.details }}</pre></details>
       </template>
+      <div v-if="notice.diagnostic" class="ef-chat__run-notice-diagnostic">
+        <code>{{ labels.notices?.traceId?.(notice.diagnostic.traceId) ?? `Trace ID: ${notice.diagnostic.traceId}` }}</code>
+        <a v-if="notice.diagnostic.href" :href="notice.diagnostic.href">{{ labels.notices?.viewTrace ?? 'View trace' }}</a>
+      </div>
     </div>
   </div>
 </template>

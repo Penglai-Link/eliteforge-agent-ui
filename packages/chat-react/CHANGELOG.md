@@ -1,6 +1,11 @@
 # @personai/agent-ui-chat-react
 
 
+## 1.0.0-preview.29
+
+- 运行失败通知渲染 Trace ID 与同源链路链接，并新增 `renderRunNoticeExtra` 扩展位。
+- 统一内部依赖版本为 `1.0.0-preview.29`。
+
 ## 1.0.0-preview.13
 
 - 修复用户停止运行后，历史失败记录重复显示为运行失败。

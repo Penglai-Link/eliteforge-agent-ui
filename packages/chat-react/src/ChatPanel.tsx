@@ -620,6 +620,8 @@ const defaultWorkRailLabels = {
     mcpUnavailable: "MCP integration unavailable",
     presentationIncomplete: "Presentation replay is incomplete",
     presentationIncompleteDetail: "Some output could not be displayed or saved. The execution result is reported separately.",
+    traceId: (traceId) => `Trace ID: ${traceId}`,
+    viewTrace: "View trace",
     compactionRequested: "Preparing to compact context…",
     compactionStarted: "Compacting context…",
     compactionCompleted: "Context compacted",
@@ -961,7 +963,7 @@ function RunErrorDetails({ raw, fallback, code }: { raw: string; fallback: strin
     {error.details ? <details className="ef-chat__error-details"><summary>{/[\u3400-\u9fff]/.test(fallback) ? "错误详情" : "Error details"}</summary><pre>{error.details}</pre></details> : null}</>;
 }
 
-function AguiRunStatus({ notices, labels }: { notices: AguiRunNotice[]; labels: ChatWorkRailLabels }) {
+function AguiRunStatus({ notices, labels, renderRunNoticeExtra }: { notices: AguiRunNotice[]; labels: ChatWorkRailLabels; renderRunNoticeExtra?: (notice: AguiRunNotice) => ReactNode }) {
   const copy = { ...defaultWorkRailLabels.notices, ...labels.notices };
   return notices.map((notice) => {
     let pending = false;
@@ -1022,7 +1024,12 @@ function AguiRunStatus({ notices, labels }: { notices: AguiRunNotice[]; labels: 
               : copy.compactionDetailsUnavailable ?? "Block details were not recorded for this compaction."}</div>}
           </details> : <div className="ef-chat__run-notice-title">{title}</div>}
           {detail ? <RunErrorDetails raw={detail} fallback={labels.failed ?? "Run failed"} code={notice.kind === "runError" || notice.kind === "runStopped" ? notice.code : undefined} /> : null}
+          {notice.kind === "runError" && notice.diagnostic ? <div className="ef-chat__run-notice-diagnostic">
+            <code>{(copy.traceId ?? defaultWorkRailLabels.notices.traceId)(notice.diagnostic.traceId)}</code>
+            {notice.diagnostic.href ? <a href={notice.diagnostic.href}>{copy.viewTrace ?? defaultWorkRailLabels.notices.viewTrace}</a> : null}
+          </div> : null}
           {hint ? <div className="ef-chat__run-notice-detail">{hint}</div> : null}
+          {renderRunNoticeExtra ? renderRunNoticeExtra(notice) : null}
         </div>
       </div>
     );
@@ -1085,6 +1092,7 @@ function AguiRunWorkRail({
   userInputRequests = [],
   timeline,
   renderMessage,
+  renderRunNoticeExtra,
   historyLabels = defaultHistoryLabels,
   showReasoningCards = true,
   locale,
@@ -1097,6 +1105,7 @@ function AguiRunWorkRail({
   userInputRequests?: ChatUserInputRequest[];
   timeline?: TranscriptWorkRun;
   renderMessage?: (message: ChatMessage) => ReactNode;
+  renderRunNoticeExtra?: (notice: AguiRunNotice) => ReactNode;
   historyLabels?: ChatHistoryLabels;
   showReasoningCards?: boolean;
   locale?: string;
@@ -1171,14 +1180,14 @@ function AguiRunWorkRail({
   }, [completed]);
 
   if (!timeline && historyCovered && !debugEvents.length) return notices.length
-    ? <section className="ef-chat__rail" aria-label={labels.ariaLabel}><AguiRunStatus notices={notices} labels={labels} /></section> : null;
+    ? <section className="ef-chat__rail" aria-label={labels.ariaLabel}><AguiRunStatus notices={notices} labels={labels} renderRunNoticeExtra={renderRunNoticeExtra} /></section> : null;
 
   if (!timeline && !displayedTerminalSummary && !events.length && !orderedWorkItems.length && !debugEvents.length)
     return null;
   const onlyPresentationHealth = notices.length > 0 && !displayedTerminalSummary
     && events.every((event) => event.type === "CUSTOM" && event.name === "agent.presentation.incomplete");
   if (onlyPresentationHealth) {
-    return <section className="ef-chat__rail" aria-label={labels.ariaLabel}><AguiRunStatus notices={notices} labels={labels} /></section>;
+    return <section className="ef-chat__rail" aria-label={labels.ariaLabel}><AguiRunStatus notices={notices} labels={labels} renderRunNoticeExtra={renderRunNoticeExtra} /></section>;
   }
   const hasDetails = (timeline ? visibleTimelineItems.length > 0 : orderedWorkItems.length > 0) || debugEvents.length > 0;
   const historyFailure = !timeline?.events.length && timeline?.messages.some(message => message.history?.run?.status === "Failed");
@@ -1209,7 +1218,7 @@ function AguiRunWorkRail({
           {expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
         </button>
       ) : <div className="ef-chat__rail-summary ef-chat__rail-summary--static">{summaryContent}</div>}
-      <AguiRunStatus notices={notices} labels={labels} />
+      <AguiRunStatus notices={notices} labels={labels} renderRunNoticeExtra={renderRunNoticeExtra} />
       {historyStatusNotice ? <div className={cx("ef-chat__run-notice", historyFailure && "ef-chat__run-notice--error")} role={historyFailure ? "alert" : "status"}>
         {historyFailure ? <CircleAlert aria-hidden="true" size={16} /> : <CircleX aria-hidden="true" size={16} />}
         <div className="ef-chat__run-notice-content"><div className="ef-chat__run-notice-title">{historyStatusNotice}</div></div>
@@ -1380,6 +1389,8 @@ export interface ChatPanelProps extends Pick<ComposerReactProps, "renderAttachme
   userInputAnswerFailed?: boolean;
   onAnswerUserInput?: (answers: ChatUserInputAnswer[]) => void;
   renderMarkdownLink?: ChatMarkdownLinkRenderer;
+  /** Renders host content at the end of every run notice, after the built-in diagnostic line. */
+  renderRunNoticeExtra?: (notice: AguiRunNotice) => ReactNode;
 }
 
 export function ChatPanel({
@@ -1472,6 +1483,7 @@ export function ChatPanel({
   userInputAnswerFailed = false,
   onAnswerUserInput,
   renderMarkdownLink,
+  renderRunNoticeExtra,
 }: ChatPanelProps) {
   const [internalAnnotations, setInternalAnnotations] = useState<ChatAnnotation[]>([]);
   const annotations = controlledPendingAnnotations ?? internalAnnotations;
@@ -1602,6 +1614,7 @@ export function ChatPanel({
     return <AguiRunWorkRail key={run.id} timeline={run} renderMessage={renderProcessMessage} historyLabels={historyLabels}
       showReasoningCards={showReasoningCards} locale={locale}
       events={run.events as ChatAguiStreamEvent[]} labels={workRailLabels} userInputRequests={userInputRequests}
+      renderRunNoticeExtra={renderRunNoticeExtra}
       debugEvents={run.includeRunMetadata === false ? [] : (run.runIds ?? [run.runId]).flatMap(runId => presentation.debugEventsByRunCode.get(runId) ?? []).map(describeDebugEvent)} />;
   }
 
